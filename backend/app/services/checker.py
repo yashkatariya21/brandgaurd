@@ -256,7 +256,7 @@ def run_checks(content_version_id: str, org_id: str, user_id: str) -> Dict[str, 
 
     return {
         "run_id": str(run_id),
-        "total_claims": len(list(claims)),
+        "total_claims": len(claims),
         "linked": linked_count,
         "findings_count": len(findings),
         "findings": findings,
