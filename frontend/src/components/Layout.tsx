@@ -86,9 +86,41 @@ export default function Layout() {
   const roleInfo = roleConfig[user?.role ?? ''] ?? { label: user?.role ?? '', cls: 'bg-gray-100 text-gray-600' }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex flex-col md:flex-row min-h-screen md:h-screen bg-gray-50 md:overflow-hidden">
+      <header className="md:hidden bg-slate-900 text-white px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-bold text-sm">BrandGuard</p>
+            <p className="text-slate-400 text-xs truncate">{user?.orgName ?? 'Workspace'}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { logout(); navigate('/login') }}
+            className="rounded px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+          >
+            Sign out
+          </button>
+        </div>
+        <nav aria-label="Primary navigation" className="mt-3 flex gap-1 overflow-x-auto pb-1">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/'}
+              className={({ isActive }) =>
+                `flex flex-shrink-0 items-center gap-2 rounded px-3 py-2 text-sm ${
+                  isActive ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                }`
+              }
+            >
+              {item.icon}
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+      </header>
       {/* Sidebar */}
-      <aside className="w-56 bg-slate-900 flex flex-col flex-shrink-0">
+      <aside className="hidden md:flex md:w-56 bg-slate-900 flex-col flex-shrink-0">
         {/* Logo */}
         <div className="px-5 py-5 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
@@ -100,7 +132,7 @@ export default function Layout() {
             </div>
             <div>
               <p className="font-bold text-white text-sm leading-none">BrandGuard</p>
-              <p className="text-slate-500 text-xs mt-0.5">{user?.orgName ?? 'NimbusDesk'}</p>
+              <p className="text-slate-500 text-xs mt-0.5">{user?.orgName ?? 'Workspace'}</p>
             </div>
           </div>
         </div>
@@ -132,7 +164,7 @@ export default function Layout() {
         {/* User */}
         <div className="px-3 py-4 border-t border-slate-800">
           <div className="px-3 py-2 mb-1">
-            <p className="text-white text-sm font-medium truncate">{user?.displayName ?? 'Demo Admin'}</p>
+            <p className="text-white text-sm font-medium truncate">{user?.displayName ?? 'Account'}</p>
             <p className="text-slate-500 text-xs truncate">{user?.email}</p>
             <span className={`inline-block mt-1.5 px-2 py-0.5 rounded text-xs font-medium ${roleInfo.cls}`}>
               {roleInfo.label}
@@ -152,7 +184,10 @@ export default function Layout() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 min-w-0 md:overflow-y-auto">
+        <div className="border-b border-indigo-100 bg-indigo-50 px-4 py-3 text-xs leading-relaxed text-indigo-950 md:px-8" role="note">
+          <strong>AI disclosure:</strong> When live AI is configured, Red Team and chaos checks send relevant text to OpenAI using the server-configured model. Demo-mode outputs are heuristic, not AI-generated. Treat suggestions as unverified; a human makes every decision and no content is changed or published automatically.
+        </div>
         <Outlet />
       </main>
     </div>

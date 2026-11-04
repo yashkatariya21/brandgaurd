@@ -5,3 +5,24 @@
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
 }
+
+:focus-visible {
+  outline: 3px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .p-8 {
+    padding: 1rem;
+  }
+
+  .grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overflow-hidden > table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}

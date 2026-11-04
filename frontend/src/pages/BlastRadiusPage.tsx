@@ -34,17 +34,21 @@ function UrgencyBadge({ item }: { item: AffectedItem }) {
 
 export default function BlastRadiusPage() {
   const [facts, setFacts] = useState<Fact[]>([])
+  const [factsLoading, setFactsLoading] = useState(true)
   const [selectedFactId, setSelectedFactId] = useState('')
   const [result, setResult] = useState<BlastRadiusResult | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    factsApi.list().then((fs) => {
-      setFacts(fs)
-      const cc = fs.find((f) => f.key === 'customer_count')
-      if (cc) setSelectedFactId(cc.id)
-    })
+    factsApi.list()
+      .then((fs) => {
+        setFacts(fs)
+        const cc = fs.find((f) => f.key === 'customer_count')
+        if (cc) setSelectedFactId(cc.id)
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load facts'))
+      .finally(() => setFactsLoading(false))
   }, [])
 
   const runScan = async () => {
@@ -82,9 +86,10 @@ export default function BlastRadiusPage() {
             <select
               value={selectedFactId}
               onChange={(e) => { setSelectedFactId(e.target.value); setResult(null) }}
+              disabled={factsLoading}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="">— choose a fact —</option>
+              <option value="">{factsLoading ? 'Loading facts…' : '— choose a fact —'}</option>
               {facts.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.label} ({f.key}) – {f.value_text ?? '?'}
@@ -94,7 +99,7 @@ export default function BlastRadiusPage() {
           </div>
           <button
             onClick={runScan}
-            disabled={running || !selectedFactId}
+            disabled={running || factsLoading || !selectedFactId}
             className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {running ? (
@@ -112,7 +117,7 @@ export default function BlastRadiusPage() {
         )}
       </div>
 
-      {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+      {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm" role="alert">{error}</div>}
 
       {result && (
         <div>
@@ -239,7 +244,7 @@ export default function BlastRadiusPage() {
         </div>
       )}
 
-      {!result && !running && (
+      {!result && !running && !factsLoading && facts.length > 0 && (
         <div className="text-center py-16 text-gray-400">
           <div className="text-5xl mb-4">💥</div>
           <p className="text-lg font-medium">Select a fact and run the scan</p>

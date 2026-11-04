@@ -2,11 +2,18 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 
+const demoAccounts: Record<string, string> = {
+  admin: 'admin@nimbusdesk.example',
+  brand: 'brand@nimbusdesk.example',
+  approver: 'approver@nimbusdesk.example',
+  creator: 'creator@nimbusdesk.example',
+}
+
 export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('admin@nimbusdesk.example')
-  const [password, setPassword] = useState('password')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [orgSlug, setOrgSlug] = useState('nimbusdesk')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,22 +25,15 @@ export default function LoginPage() {
     try {
       await login(email, password, orgSlug)
       navigate('/')
-    } catch {
-      // Backend may be offline – auto-login handles it, just navigate
-      navigate('/')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Sign in failed. Check your connection and credentials.')
     } finally {
       setLoading(false)
     }
   }
 
-  const quickLogin = async (role: string) => {
-    const map: Record<string, string> = {
-      admin: 'admin@nimbusdesk.example',
-      brand: 'brand@nimbusdesk.example',
-      approver: 'approver@nimbusdesk.example',
-      creator: 'creator@nimbusdesk.example',
-    }
-    setEmail(map[role] ?? email)
+  const quickLogin = (role: string) => {
+    setEmail(demoAccounts[role] ?? email)
     setPassword('password')
     setOrgSlug('nimbusdesk')
   }
@@ -95,11 +95,11 @@ export default function LoginPage() {
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900 mb-1">Sign in</h2>
-          <p className="text-gray-500 text-sm mb-8">Use the quick-access buttons below or enter credentials manually.</p>
+          <p className="text-gray-500 text-sm mb-8">Choose a demo account to fill the form, then sign in through the backend.</p>
 
           {/* Quick access */}
           <div className="mb-6">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Quick access — NimbusDesk demo</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Fill demo account — NimbusDesk</p>
             <div className="grid grid-cols-2 gap-2">
               {[
                 { role: 'admin', label: 'Admin', color: 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100' },
@@ -110,6 +110,7 @@ export default function LoginPage() {
                 <button
                   key={r.role}
                   type="button"
+                  aria-pressed={email === demoAccounts[r.role]}
                   onClick={() => quickLogin(r.role)}
                   className={`px-3 py-2 border rounded-lg text-xs font-medium transition-colors ${r.color}`}
                 >
@@ -129,15 +130,16 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm" role="alert">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Organisation</label>
+              <label htmlFor="org-slug" className="block text-sm font-medium text-gray-700 mb-1.5">Organisation</label>
               <input
+                id="org-slug"
                 type="text"
                 value={orgSlug}
                 onChange={(e) => setOrgSlug(e.target.value)}
@@ -147,8 +149,9 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -158,8 +161,9 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

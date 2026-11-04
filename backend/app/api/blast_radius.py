@@ -64,13 +64,15 @@ def _normalise_old_value(value_text: str, value_number: Optional[float]) -> Opti
 
 def _scan_item(body: str, old_norm: float, old_text: str, new_text: str,
                fact_attribute: Optional[str], linked_fact_id: Optional[str],
-               fact_id_str: str) -> Optional[dict]:
+               fact_id_str: str,
+               linked_claim_spans: Optional[set[tuple[int, int]]] = None) -> Optional[dict]:
     """
     Scan a single content body.
     Returns a match dict or None.
     match_type: 'confirmed' | 'possible'
     """
     claims = extract_claims(body)
+    possible_match = None
     for claim in claims:
         c_val = claim["value_number"]
         c_attr = claim["attribute"]
@@ -78,25 +80,26 @@ def _scan_item(body: str, old_norm: float, old_text: str, new_text: str,
         # Exact numeric match after normalisation (no tolerance)
         if c_val is not None and old_norm is not None and c_val == old_norm:
             # confirmed if attribute matches OR claim is already linked to this fact
-            if (fact_attribute and c_attr == fact_attribute) or \
-               (linked_fact_id and linked_fact_id == fact_id_str):
-                return {
-                    "match_type": "confirmed",
-                    "stale_text": claim["raw_text"],
-                    "span_start": claim["span_start"],
-                    "span_end": claim["span_end"],
-                    "suggested_replacement": new_text,
-                }
-            else:
-                # Value matches but attribute differs → possible
-                return {
-                    "match_type": "possible",
-                    "stale_text": claim["raw_text"],
-                    "span_start": claim["span_start"],
-                    "span_end": claim["span_end"],
-                    "suggested_replacement": new_text,
-                }
-    return None
+            explicitly_linked = (linked_fact_id and linked_fact_id == fact_id_str) or (
+                linked_claim_spans is not None
+                and (claim["span_start"], claim["span_end"]) in linked_claim_spans
+            )
+            result = {
+                "match_type": (
+                    "confirmed"
+                    if (fact_attribute and c_attr == fact_attribute) or explicitly_linked
+                    else "possible"
+                ),
+                "stale_text": claim["raw_text"],
+                "span_start": claim["span_start"],
+                "span_end": claim["span_end"],
+                "suggested_replacement": new_text,
+            }
+            if result["match_type"] == "confirmed":
+                return result
+            if possible_match is None:
+                possible_match = result
+    return possible_match
 
 
 @router.post("/facts/{fact_id}/blast-radius")
@@ -153,15 +156,17 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
         ).fetchall()
 
         # Load existing claim-to-fact links for this fact
-        linked_version_ids = set()
+        linked_claim_spans_by_version: dict[str, set[tuple[int, int]]] = {}
         linked_rows = conn.execute(
-            """SELECT cc.content_version_id
+            """SELECT cc.content_version_id, cc.span_start, cc.span_end
                FROM content_claims cc
                WHERE cc.fact_id=%s AND cc.link_status IN ('auto','confirmed')""",
             (fact_id,),
         ).fetchall()
         for r in linked_rows:
-            linked_version_ids.add(str(r["content_version_id"]))
+            linked_claim_spans_by_version.setdefault(
+                str(r["content_version_id"]), set()
+            ).add((r["span_start"], r["span_end"]))
 
         run_id = uuid.uuid4()
         conn.execute(
@@ -177,13 +182,12 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
 
         for ci in items:
             body = ci["body_text"] or ""
-            linked = str(ci["cv_id"]) in linked_version_ids
-
             match = _scan_item(
                 body, old_norm, old_text, new_text,
                 fact_attribute,
-                fact_id_str if linked else None,
+                None,
                 fact_id_str,
+                linked_claim_spans_by_version.get(str(ci["cv_id"]), set()),
             )
             if match:
                 reg = ci["registered_state"] or "none"

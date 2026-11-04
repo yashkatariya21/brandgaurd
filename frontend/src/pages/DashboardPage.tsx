@@ -4,17 +4,18 @@ import { factsApi, rulesApi, contentApi, findingsApi } from '../api'
 import { useAuth } from '../auth'
 
 interface Stats {
-  facts: number
-  rules: number
-  content: number
-  openFindings: number
-  criticalFindings: number
+  facts: number | null
+  rules: number | null
+  content: number | null
+  openFindings: number | null
+  criticalFindings: number | null
 }
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadIssues, setLoadIssues] = useState<string[]>([])
 
   useEffect(() => {
     Promise.allSettled([
@@ -23,16 +24,20 @@ export default function DashboardPage() {
       contentApi.list(),
       findingsApi.list(),
     ]).then(([f, r, c, fi]) => {
-      const facts = f.status === 'fulfilled' ? f.value.length : 0
-      const rules = r.status === 'fulfilled' ? r.value.length : 0
-      const content = c.status === 'fulfilled' ? c.value.length : 0
-      const allFindings = fi.status === 'fulfilled' ? fi.value : []
+      const failures = [
+        f.status === 'rejected' ? 'facts' : null,
+        r.status === 'rejected' ? 'rules' : null,
+        c.status === 'rejected' ? 'content' : null,
+        fi.status === 'rejected' ? 'findings' : null,
+      ].filter((value): value is string => value !== null)
+      setLoadIssues(failures)
+      const allFindings = fi.status === 'fulfilled' ? fi.value : null
       setStats({
-        facts,
-        rules,
-        content,
-        openFindings: allFindings.filter((x) => x.status === 'open').length,
-        criticalFindings: allFindings.filter((x) => x.status === 'open' && x.severity === 'critical').length,
+        facts: f.status === 'fulfilled' ? f.value.length : null,
+        rules: r.status === 'fulfilled' ? r.value.length : null,
+        content: c.status === 'fulfilled' ? c.value.length : null,
+        openFindings: allFindings?.filter((x) => x.status === 'open').length ?? null,
+        criticalFindings: allFindings?.filter((x) => x.status === 'open' && x.severity === 'critical').length ?? null,
       })
     }).finally(() => setLoading(false))
   }, [])
@@ -50,6 +55,12 @@ export default function DashboardPage() {
         </h1>
       </div>
 
+      {loadIssues.length > 0 && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+          Some dashboard data could not be loaded ({loadIssues.join(', ')}). Unavailable counts are shown as —, not zero.
+        </div>
+      )}
+
       {/* Stats row */}
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -63,29 +74,29 @@ export default function DashboardPage() {
       ) : stats ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Link to="/repository" className="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition-colors group">
-            <p className="text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{stats.facts}</p>
+            <p className="text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{stats.facts ?? '—'}</p>
             <p className="text-sm text-gray-500 mt-0.5">Approved facts</p>
           </Link>
           <Link to="/repository" className="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition-colors group">
-            <p className="text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{stats.rules}</p>
+            <p className="text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{stats.rules ?? '—'}</p>
             <p className="text-sm text-gray-500 mt-0.5">Brand rules</p>
           </Link>
           <Link to="/content" className="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition-colors group">
-            <p className="text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{stats.content}</p>
+            <p className="text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{stats.content ?? '—'}</p>
             <p className="text-sm text-gray-500 mt-0.5">Content items</p>
           </Link>
           <Link to="/findings" className={`rounded-xl p-5 border transition-colors group ${
-            stats.criticalFindings > 0
+            stats.criticalFindings !== null && stats.criticalFindings > 0
               ? 'bg-red-50 border-red-200 hover:border-red-400'
-              : stats.openFindings > 0
+              : stats.openFindings !== null && stats.openFindings > 0
               ? 'bg-amber-50 border-amber-200 hover:border-amber-400'
               : 'bg-white border-gray-200 hover:border-green-300'
           }`}>
             <p className={`text-2xl font-bold ${
-              stats.criticalFindings > 0 ? 'text-red-700' : stats.openFindings > 0 ? 'text-amber-700' : 'text-green-700'
-            }`}>{stats.openFindings}</p>
+              stats.criticalFindings !== null && stats.criticalFindings > 0 ? 'text-red-700' : stats.openFindings !== null && stats.openFindings > 0 ? 'text-amber-700' : 'text-gray-700'
+            }`}>{stats.openFindings ?? '—'}</p>
             <p className="text-sm text-gray-500 mt-0.5">Open findings</p>
-            {stats.criticalFindings > 0 && (
+            {stats.criticalFindings !== null && stats.criticalFindings > 0 && (
               <p className="text-xs text-red-600 font-medium mt-1">{stats.criticalFindings} critical</p>
             )}
           </Link>
