@@ -274,10 +274,3 @@ def diff_fact_version(fact_id: str, version_no: int,
             if before.get(f) != after.get(f):
                 diff[f] = {"before": before.get(f), "after": after.get(f)}
     return {"version_no": version_no, "diff": diff}
-
-
-@router.post("/facts/{fact_id}/blast-radius")
-def run_blast_radius_for_fact(fact_id: str, principal: Principal = Depends(require("view_repository"))):
-    """Delegate to the blast_radius router logic (imported here to avoid circular imports)."""
-    from .blast_radius import run_blast_radius
-    return run_blast_radius(uuid.UUID(fact_id), principal)

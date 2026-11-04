@@ -34,3 +34,5 @@ jobs:
       - run: python -m app.migrate
       - run: python -m app.seed
       - run: pytest -q
+      - name: Run evaluation script (pure-function, no DB)
+        run: python -m scripts.evaluate

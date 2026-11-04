@@ -1,6 +1,6 @@
 # BrandGuard
 
-AI-powered brand governance platform. Automatically checks marketing content against your approved fact repository — catching stale statistics, wrong prices, banned product name forms, and embargo violations before they go live.
+AI-powered brand governance platform. Checks marketing content against your approved fact repository — catching stale statistics, wrong prices, banned product name forms, and embargo violations before they go live. Three innovations: **Blast-Radius Intelligence**, **Adversarial Red Team**, and **Guideline Chaos Testing**.
 
 Built for the **Inkloom AI Hackathon 2026**.
 
@@ -8,11 +8,48 @@ Built for the **Inkloom AI Hackathon 2026**.
 
 ## What it does
 
-1. **Fact Repository** — store approved facts (customer counts, prices, certifications, product names) with version history, expiry dates, and approval workflows with separation-of-duties.
-2. **Brand Rules** — 15 pre-loaded brand governance rules (tone, terminology, claims, accessibility, embargo) with example violations.
-3. **Content Analysis** — paste or upload marketing copy; BrandGuard extracts every factual claim and checks it deterministically against the approved facts.
-4. **Findings & Decisions** — reviewers accept, edit, dismiss, or escalate each finding with a full audit trail.
-5. **Blast Radius** — when a fact changes, instantly see every content asset that references the old value and needs updating.
+### 1. Fact Repository & Blast-Radius Intelligence
+Store approved facts (customer counts, prices, certifications, product names) with version history, expiry dates, and separation-of-duties approval workflows. When a fact changes, **Blast Radius** instantly shows every content asset that references the old value — with two labels:
+
+- **Confirmed** – exact value match AND attribute matches the fact (e.g. "customers" → `customer_count`). Definitely stale, needs updating.
+- **Possible – needs confirmation** – numeric value matches but attribute differs (e.g. "50,000 tickets" matches numerically but is about ticket volume, not customer count). Human review required.
+
+Nothing is changed automatically. A human decides.
+
+### 2. Adversarial Brand Red Team
+Three personas — **Brand Police**, **Legal Eagle**, **Customer Voice** — independently review content and flag risks. All Red Team findings are labelled `possible` (AI judgement, not deterministic proof). Legal Eagle findings carry the note "AI risk perspective, not legal advice."
+
+Each finding can open a **Prosecutor vs Defender** debate: two arguments shown side-by-side so a human can decide. Neither argument is a verdict. The panel never labels anything `confirmed`.
+
+### 3. Guideline Chaos Testing
+Test tone brand rules for ambiguity by running 5 independent AI readers over a balanced set of generated cases (≈4 clear-pass, 4 clear-fail, 4 borderline). The **agreement score** = how many readers agreed / 5. Low agreement means the rule is ambiguous, not that the verdict is wrong. Human labels are ground truth.
+
+When ≥1 case is ambiguous, a suggested clarification is generated. You can accept or reject it. Round 2 scope: **tone rules only**.
+
+### 4. Content Analysis (deterministic)
+Paste or upload content. BrandGuard extracts every factual claim, links it to approved facts, and runs deterministic checks — value mismatch, expired fact, banned product name forms, embargo violations. All deterministic findings are `confirmed` with `high` confidence.
+
+### 5. Findings & Decisions
+Reviewers accept, edit, dismiss (with reason), or escalate each finding. Full audit trail. Human always decides — BrandGuard never publishes or auto-applies corrections.
+
+---
+
+## Demo mode (no AI key)
+
+All AI features (Red Team, Chaos Testing, Debate) work without `OPENAI_API_KEY`. The response includes `mode: "demo"` and the UI shows a **"Demo mode (no AI key)"** badge. Demo-mode results use deterministic heuristics; they are clearly labelled and not presented as AI output.
+
+Set `OPENAI_API_KEY` in `.env` to enable real AI (gpt-4o-mini by default).
+
+---
+
+## Confirmed vs Possible
+
+| Label | Meaning | Source |
+|---|---|---|
+| **Confirmed** | Deterministic check: direct contradiction of an approved fact, banned name form, or embargo violation | `source_kind: deterministic`, `confidence: high` |
+| **Possible** | AI judgement / value-only match / persona finding — may be a real issue, needs human review | `source_kind: persona` or `retrieval`, `confidence: low/medium` |
+
+Repeated AI agreement never raises confidence. Disagreement may lower it. A `Confirmed` badge never appears on an AI opinion.
 
 ---
 
@@ -21,6 +58,7 @@ Built for the **Inkloom AI Hackathon 2026**.
 ```bash
 cp .env.example .env
 # Edit .env — set OWNER_DB_PASSWORD, APP_DB_PASSWORD, JWT_SECRET, SEED_PASSWORD
+# Optional: add OPENAI_API_KEY for real AI
 
 docker compose up --build
 ```
@@ -44,7 +82,8 @@ Open http://localhost:3000 and sign in with any of:
 
 ```bash
 cd backend
-python -m venv .venv && .venv/Scripts/activate    # Windows
+python -m venv .venv
+.venv\Scripts\activate       # Windows
 pip install -r requirements.txt
 
 # Set env vars (copy from .env.example)
@@ -53,6 +92,7 @@ set MIGRATION_DATABASE_URL=postgresql://brandguard_owner:...@localhost:5432/bran
 set APP_DB_PASSWORD=...
 set JWT_SECRET=...
 set SEED_PASSWORD=demopassword123
+# set OPENAI_API_KEY=sk-...  (optional)
 
 python -m app.migrate
 python -m app.seed
@@ -68,37 +108,7 @@ npm install
 npm run dev
 ```
 
-The UI includes **dummy auto-login** — if the backend is unavailable it loads a demo user so you can browse the interface without a running server.
-
----
-
-## API
-
-Base URL: `http://localhost:8000`
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/v1/auth/register` | Create org + admin user |
-| POST | `/v1/auth/login` | Get JWT |
-| GET | `/v1/me` | Current user info |
-| GET | `/v1/facts` | List all facts |
-| POST | `/v1/facts` | Create fact |
-| GET | `/v1/facts/{id}` | Fact detail + versions + aliases |
-| POST | `/v1/facts/{id}/versions` | Propose new version |
-| POST | `/v1/facts/{id}/versions/{no}/submit` | Submit draft for approval |
-| POST | `/v1/facts/{id}/versions/{no}/approve` | Approve version |
-| POST | `/v1/facts/{id}/versions/{no}/reject` | Reject version |
-| POST | `/v1/facts/{id}/blast-radius` | Run blast-radius scan |
-| GET | `/v1/rules` | List all rules |
-| POST | `/v1/content` | Submit content (text) |
-| POST | `/v1/content/upload` | Submit content (file) |
-| GET | `/v1/content` | List content items |
-| GET | `/v1/content/{id}` | Content detail + claims + findings |
-| POST | `/v1/content/{id}/analyse` | Run analysis |
-| GET | `/v1/findings` | List findings |
-| POST | `/v1/findings/{id}/decide` | Accept / edit / dismiss / escalate |
-
-Interactive docs: http://localhost:8000/docs
+The UI includes **demo auto-login** — if the backend is unavailable it loads a demo user so you can browse the interface without a running server.
 
 ---
 
@@ -108,21 +118,70 @@ Interactive docs: http://localhost:8000/docs
 frontend/          React + Vite + Tailwind CSS
 backend/
   app/
-    api/           FastAPI routers (auth, facts, rules, content, findings, blast_radius)
+    api/           FastAPI routers
+                     auth, facts, rules, content, findings,
+                     blast_radius, redteam, chaos
     core/          Config, DB pool, RBAC, security, errors, audit
-    services/      claim_extractor, checker, extraction, blast_radius, chaos, redteam
+    services/      claim_extractor, checker, blast_radius, extraction,
+                   redteam, chaos, retrieval
+    scripts/       evaluate.py — precision/recall on labelled test set
+  tests/           18 original tests + new: blast_radius, checker,
+                   redteam, chaos
 db/
   migrations/      001_init.sql — full schema with RLS
-  grants.sql       Role-based DB permissions
+  grants.sql
 ```
 
 PostgreSQL with `pgvector` extension. Row-level security isolates each organisation's data at the database layer.
+
+**Stack:** Vite + React + Tailwind CSS frontend; FastAPI backend; PostgreSQL + pgvector.
+**Note:** The Round 1 proposal mentioned Next.js — the implementation uses **Vite + React** (not Next.js).
+**Note:** Vector search (embeddings) is implemented as a database stub (pgvector installed) but not used in Round 2. Retrieval in Round 2 is structured fact/rule lookup. Full vector search is planned for Round 3.
+
+---
+
+## API (key endpoints)
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v1/auth/register` | Create org + admin user |
+| POST | `/v1/auth/login` | Get JWT |
+| GET | `/v1/facts` | List all facts |
+| POST | `/v1/facts/{id}/blast-radius` | Run blast-radius scan |
+| GET | `/v1/blast-radius/{fact_id}` | Get latest scan for a fact |
+| POST | `/v1/content` | Submit content (text) |
+| POST | `/v1/content/{id}/analyse` | Run deterministic analysis |
+| POST | `/v1/content/{id}/redteam` | Run 3-persona red team |
+| POST | `/v1/findings/{id}/debate` | Generate Prosecutor vs Defender |
+| POST | `/v1/findings/{id}/decide` | Record human decision |
+| POST | `/v1/rules/{id}/chaos-test` | Run chaos test (tone rules) |
+| GET | `/v1/chaos-runs/{run_id}` | Get chaos run result |
+| POST | `/v1/chaos-cases/{id}/label` | Set human label |
+| POST | `/v1/chaos-issues/{id}/resolve` | Accept/reject clarification |
+
+Interactive docs: http://localhost:8000/docs
 
 ---
 
 ## Demo walkthrough
 
-1. Open **Repository** → approve the `customer_count` v2 (65,000+) using the Approver account
-2. Open **Blast Radius** → select `customer_count` → Run Scan → see all assets with the old "50,000+" figure
-3. Open **Content** → submit any text that mentions "50,000 customers" → Run Analysis → see findings
-4. Open **Findings** → decide on each finding (accept / dismiss / escalate)
+See `docs/demo-script.md` for the full 5-minute script.
+
+1. **Repository** → approve `customer_count` v2 (65,000+) with Approver account → **Blast Radius** → Run Scan → see Confirmed + Possible items
+2. **Content** → click a risky draft → "Run Red Team" → go to **Findings** → "Show debate" → record a decision
+3. **Rule Tests** → select R-01 or R-14 → Run Test → label a borderline case → accept the clarification
+
+---
+
+## Running tests
+
+```bash
+cd backend
+pytest -q
+```
+
+To run the evaluation script (prints measured precision/recall — no hard-coded numbers):
+
+```bash
+python -m scripts.evaluate
+```

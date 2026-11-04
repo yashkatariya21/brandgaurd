@@ -1,37 +1,39 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { contentApi, ContentItem, ContentDetail } from '../api'
+import { contentApi, redTeamApi, ContentItem, ContentDetail, RedTeamResult } from '../api'
 import StatusBadge from '../components/StatusBadge'
 import SeverityBadge from '../components/SeverityBadge'
 
 function ContentDetailModal({ item, onClose, onAnalysed }: {
-  item: ContentItem
-  onClose: () => void
-  onAnalysed: () => void
+  item: ContentItem; onClose: () => void; onAnalysed: () => void
 }) {
   const [detail, setDetail] = useState<ContentDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [analysing, setAnalysing] = useState(false)
+  const [redTeaming, setRedTeaming] = useState(false)
+  const [redTeamResult, setRedTeamResult] = useState<RedTeamResult | null>(null)
   const [error, setError] = useState('')
 
   const load = () => {
     setLoading(true)
     contentApi.get(item.id).then(setDetail).finally(() => setLoading(false))
   }
-
   useEffect(load, [item.id])
 
   const analyse = async () => {
-    setAnalysing(true)
-    setError('')
+    setAnalysing(true); setError('')
+    try { await contentApi.analyse(item.id); await load(); onAnalysed() }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Analysis failed') }
+    finally { setAnalysing(false) }
+  }
+
+  const runRedTeam = async () => {
+    setRedTeaming(true); setError(''); setRedTeamResult(null)
     try {
-      await contentApi.analyse(item.id)
-      await load()
-      onAnalysed()
+      const r = await redTeamApi.run(item.id)
+      setRedTeamResult(r)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Analysis failed')
-    } finally {
-      setAnalysing(false)
-    }
+      setError(e instanceof Error ? e.message : 'Red team failed')
+    } finally { setRedTeaming(false) }
   }
 
   return (
@@ -47,76 +49,54 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={analyse}
-              disabled={analysing}
-              className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
-            >
-              {analysing ? (
-                <>
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Analysing…
-                </>
-              ) : (
-                'Run Analysis'
-              )}
+            <button onClick={analyse} disabled={analysing}
+              className="text-sm px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+              {analysing ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Analysing…</> : 'Run Analysis'}
+            </button>
+            <button onClick={runRedTeam} disabled={redTeaming}
+              className="text-sm px-3 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 disabled:opacity-50 flex items-center gap-2">
+              {redTeaming ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Running…</> : '🎯 Run Red Team'}
             </button>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
         </div>
 
-        <div className="overflow-y-auto p-6 space-y-6">
+        <div className="overflow-y-auto p-6 space-y-5">
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+
           {loading ? (
             <p className="text-gray-500 text-sm">Loading…</p>
           ) : detail ? (
             <>
-              {/* Body text */}
               <div>
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">Content</h4>
-                <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+                <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 font-mono whitespace-pre-wrap max-h-36 overflow-y-auto">
                   {detail.body_text}
                 </div>
               </div>
 
-              {/* Claims */}
               {detail.claims.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                    Extracted Claims ({detail.claims.length})
-                  </h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Extracted Claims ({detail.claims.length})</h4>
                   <div className="space-y-1.5">
                     {detail.claims.map((c) => (
                       <div key={c.id} className="flex items-center gap-3 bg-blue-50 rounded-lg px-3 py-2">
-                        <span className="text-xs font-mono bg-white border border-blue-200 px-2 py-0.5 rounded text-blue-700">
-                          {c.raw_text}
-                        </span>
-                        <span className="text-xs text-gray-500">{c.entity}</span>
-                        {c.value_number !== null && (
-                          <span className="text-xs text-gray-400">= {c.value_number} {c.value_unit}</span>
-                        )}
-                        <span className={`ml-auto text-xs ${c.link_status === 'auto' ? 'text-green-600' : 'text-gray-400'}`}>
-                          {c.link_status}
-                        </span>
+                        <span className="text-xs font-mono bg-white border border-blue-200 px-2 py-0.5 rounded text-blue-700">{c.raw_text}</span>
+                        {c.value_number !== null && <span className="text-xs text-gray-400">= {c.value_number} {c.value_unit}</span>}
+                        <span className={`ml-auto text-xs ${c.link_status === 'auto' ? 'text-green-600' : 'text-gray-400'}`}>{c.link_status}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Findings */}
               {detail.findings.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                    Findings ({detail.findings.length})
-                  </h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Deterministic Findings ({detail.findings.length})</h4>
                   <div className="space-y-2">
                     {detail.findings.map((f) => (
                       <div key={f.id} className="border border-orange-200 bg-orange-50 rounded-lg p-3">
@@ -125,7 +105,9 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-800">{f.issue}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-gray-500">{f.source_kind}</span>
+                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${f.finding_type === 'confirmed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {f.finding_type}
+                              </span>
                               <StatusBadge status={f.status} />
                             </div>
                           </div>
@@ -139,13 +121,60 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
               {detail.findings.length === 0 && detail.claims.length > 0 && (
                 <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
                   </svg>
-                  <span className="text-sm font-medium">No findings detected – content looks clean!</span>
+                  <span className="text-sm font-medium">No deterministic findings — content looks clean!</span>
                 </div>
               )}
             </>
           ) : null}
+
+          {/* Red Team Results */}
+          {redTeamResult && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <h4 className="text-sm font-semibold text-gray-700">Red Team Results ({redTeamResult.findings.length} findings)</h4>
+                {redTeamResult.mode === 'demo' && (
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                    Demo mode (no AI key)
+                  </span>
+                )}
+              </div>
+              {redTeamResult.demo_note && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">{redTeamResult.demo_note}</p>
+              )}
+              <div className="space-y-2">
+                {redTeamResult.findings.map((f) => (
+                  <div key={f.id} className="border border-rose-200 bg-rose-50 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <SeverityBadge severity={f.severity} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-800">{f.issue}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                            Possible · {f.persona}
+                          </span>
+                          <span className="text-xs text-gray-500">confidence: {f.confidence}</span>
+                          {f.why_it_matters && f.persona === 'Legal Eagle' && (
+                            <span className="text-xs text-slate-500 italic">{f.why_it_matters}</span>
+                          )}
+                        </div>
+                        {f.suggested_text && (
+                          <p className="text-xs text-green-700 mt-1.5">Suggested: {f.suggested_text}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {redTeamResult.findings.length === 0 && (
+                  <div className="text-center py-4 text-gray-400 text-sm">No red team findings generated.</div>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                Red team findings are saved in the Findings page. Go to Findings → Decide to review each one.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

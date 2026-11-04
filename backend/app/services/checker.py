@@ -115,6 +115,7 @@ def run_checks(content_version_id: str, org_id: str, user_id: str) -> Dict[str, 
                         "severity": "critical",
                         "finding_type": "confirmed",
                         "source_kind": "deterministic",
+                        "confidence": "high",
                         "rule_id": str(r12["id"]) if r12 else None,
                         "fact_id": str(et["fact_id"]) if et["fact_id"] else None,
                         "human_review_required": True,
@@ -127,7 +128,7 @@ def run_checks(content_version_id: str, org_id: str, user_id: str) -> Dict[str, 
             entity = claim["entity"] or ""
             claim_val = claim["value_number"]
 
-            # Check banned product name forms
+        # Check banned product name forms
             if entity == "product_name" or any(
                 banned in raw for banned in ["nimbus desk", "nimbusdesk"]
                 if "nimbus desk" in raw.lower() or "nimbus desk" in raw.lower()
@@ -186,6 +187,8 @@ def run_checks(content_version_id: str, org_id: str, user_id: str) -> Dict[str, 
                         "severity": "high",
                         "finding_type": "confirmed",
                         "source_kind": "deterministic",
+                        "confidence": "high",
+                        "human_review_required": False,
                         "rule_id": str(r04["id"]) if r04 else None,
                         "fact_id": fact_id,
                         "span_start": claim["span_start"],
@@ -202,10 +205,12 @@ def run_checks(content_version_id: str, org_id: str, user_id: str) -> Dict[str, 
                         "severity": "high",
                         "finding_type": "confirmed",
                         "source_kind": "deterministic",
+                        "confidence": "high",
                         "rule_id": str(r07["id"]) if r07 else None,
                         "fact_id": fact_id,
                         "span_start": claim["span_start"],
                         "span_end": claim["span_end"],
+                        "human_review_required": True,
                     })
 
                 # Check: expired fact
@@ -216,9 +221,11 @@ def run_checks(content_version_id: str, org_id: str, user_id: str) -> Dict[str, 
                         "severity": "high",
                         "finding_type": "confirmed",
                         "source_kind": "deterministic",
+                        "confidence": "high",
                         "fact_id": fact_id,
                         "span_start": claim["span_start"],
                         "span_end": claim["span_end"],
+                        "human_review_required": True,
                     })
 
         # Check for superseded fact references
@@ -231,7 +238,7 @@ def run_checks(content_version_id: str, org_id: str, user_id: str) -> Dict[str, 
                    (id, org_id, analysis_run_id, content_version_id, span_start, span_end,
                     finding_type, source_kind, rule_id, fact_id, issue, severity, confidence,
                     human_review_required, status)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'high',%s,'open')""",
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'open')""",
                 (
                     f.get("id", str(uuid.uuid4())),
                     org_id,
@@ -245,6 +252,7 @@ def run_checks(content_version_id: str, org_id: str, user_id: str) -> Dict[str, 
                     f.get("fact_id"),
                     f["issue"],
                     f.get("severity", "high"),
+                    f.get("confidence", "high"),  # deterministic findings default to 'high'
                     f.get("human_review_required", False),
                 ),
             )
@@ -297,6 +305,8 @@ def _check_banned_form(raw: str, findings: list, r04):
         "severity": "high",
         "finding_type": "confirmed",
         "source_kind": "deterministic",
+        "confidence": "high",
+        "human_review_required": False,
         "rule_id": str(r04["id"]) if r04 else None,
     })
 

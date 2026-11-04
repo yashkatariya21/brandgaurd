@@ -77,10 +77,17 @@ def get_finding(finding_id: uuid.UUID, principal: Principal = Depends(require("d
             "SELECT * FROM decisions WHERE finding_id=%s ORDER BY decided_at DESC",
             (finding_id,),
         ).fetchall()
-    return {
+        debate = conn.execute(
+            "SELECT * FROM debates WHERE finding_id=%s AND org_id=%s",
+            (finding_id, principal.org_id),
+        ).fetchone()
+    result = {
         **_serialize(dict(f)),
         "decisions": [_serialize(dict(d)) for d in decisions],
     }
+    if debate:
+        result["debate"] = _serialize(dict(debate))
+    return result
 
 
 @router.post("/findings/{finding_id}/decide")

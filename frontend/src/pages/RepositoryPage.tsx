@@ -44,9 +44,9 @@ function VersionHistory({ versions, factId, onAction, userRole }: {
               </div>
               <div className="flex gap-1.5 flex-shrink-0">
                 {v.status === 'draft' && canPropose && (
-                  <button disabled={busy} onClick={() => doAction(() => factsApi.submitVersion(factId, v.version_no))}
+                  <button disabled={busy} onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
                     className="text-xs px-2.5 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">
-                    Submit
+                    Submit for approval
                   </button>
                 )}
                 {v.status === 'pending_approval' && canApprove && (

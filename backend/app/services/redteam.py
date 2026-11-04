@@ -2,12 +2,37 @@
 
 When an LLM is available (OPENAI_API_KEY set), uses GPT-4o-mini.
 Falls back to a deterministic stub so the demo always works without spend.
+
+Persona names (final):
+  - Brand Police
+  - Legal Eagle  
+  - Customer Voice
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Optional
+
+from pydantic import BaseModel, field_validator
+
+
+# ─── Pydantic schema for LLM persona findings ────────────────────────────────
+
+class PersonaFinding(BaseModel):
+    issue: str
+    severity: str
+    span_hint: str = ""
+    suggested_fix: Optional[str] = None
+
+    @field_validator("severity")
+    @classmethod
+    def _sev(cls, v: str) -> str:
+        v = v.lower().strip()
+        if v not in ("low", "medium", "high", "critical"):
+            return "medium"
+        return v
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Persona definitions (mirrors the Build Blueprint)
@@ -105,18 +130,54 @@ BRAND RULES SUMMARY:
 CONTENT TO REVIEW:
 {content}
 
-Respond with a JSON array of objects, each with: issue (string), severity ("low"|"medium"|"high"|"critical"), span_hint (a short quote from the text), suggested_fix (optional string).
+Respond with a JSON array of objects, each with: issue (string), severity ("low"|"medium"|"high"|"critical"), span_hint (a short quote from the text or empty string), suggested_fix (string or null).
 Return ONLY the JSON array, no other text."""
 
     raw = _llm_call(system, user, max_tokens=800)
+    findings = _parse_persona_findings(raw)
+    if findings is None:
+        # Retry once
+        raw2 = _llm_call(system, user + "\n\nIMPORTANT: Return ONLY valid JSON array.", max_tokens=800)
+        findings = _parse_persona_findings(raw2)
+    if findings is None:
+        # Return an explicit error finding, not a fake one
+        return [{
+            "issue": f"[Parse error] Could not extract structured findings from AI response. Raw: {raw[:200]}",
+            "severity": "low",
+            "span_hint": "",
+            "suggested_fix": None,
+        }]
+    return findings
+
+
+def _parse_persona_findings(raw: str) -> Optional[list[dict]]:
+    """Parse and validate LLM persona output using pydantic."""
+    if not raw:
+        return None
+    raw = raw.strip()
+    # Strip markdown code fences
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = re.sub(r"\n?```$", "", raw)
     try:
         data = json.loads(raw)
         if isinstance(data, list):
-            return data
-    except Exception:
+            validated = []
+            for item in data:
+                try:
+                    validated.append(PersonaFinding(**item).model_dump())
+                except Exception:
+                    # Include with defaults
+                    validated.append({
+                        "issue": str(item.get("issue", "Unknown issue")),
+                        "severity": "medium",
+                        "span_hint": str(item.get("span_hint", "")),
+                        "suggested_fix": item.get("suggested_fix"),
+                    })
+            return validated
+    except (json.JSONDecodeError, TypeError):
         pass
-    # If JSON parsing fails, return as a single text finding
-    return [{"issue": raw[:500], "severity": "medium", "span_hint": "", "suggested_fix": None}]
+    return None
 
 
 def _llm_debate(issue: str, content: str, fact_context: str) -> dict:
@@ -135,27 +196,21 @@ def _llm_debate(issue: str, content: str, fact_context: str) -> dict:
     prosecutor_text = _llm_call(prosecutor_sys, context, max_tokens=400)
     defender_text = _llm_call(defender_sys, context, max_tokens=400)
 
-    # Panel verdict
-    panel_sys = (
-        "You are the chair of a brand-compliance review panel. "
-        "You have heard the Prosecutor and Defender arguments. "
-        "Give a balanced verdict: is this a confirmed issue, possible issue, or false positive? "
-        "If it needs fixing, provide a minimal edit. Respond in JSON: "
-        '{"verdict": "confirmed"|"possible"|"false_positive", "reasoning": "...", "minimal_edit": "..." or null}'
+    # Ask for minimal edit only — no verdict
+    edit_sys = (
+        "You are a neutral editorial assistant. "
+        "Given a Prosecutor and Defender argument about a brand-compliance concern, "
+        "suggest the smallest possible edit to the content that would address the concern "
+        "without changing the intended meaning. Respond with only the suggested edit or null."
     )
-    panel_user = f"PROSECUTOR:\n{prosecutor_text}\n\nDEFENDER:\n{defender_text}"
-    panel_raw = _llm_call(panel_sys, panel_user, max_tokens=300)
-    try:
-        panel = json.loads(panel_raw)
-    except Exception:
-        panel = {"verdict": "possible", "reasoning": panel_raw[:300], "minimal_edit": None}
+    edit_user = f"PROSECUTOR:\n{prosecutor_text}\n\nDEFENDER:\n{defender_text}\n\nISSUE:\n{issue}"
+    minimal_edit = _llm_call(edit_sys, edit_user, max_tokens=150).strip() or None
 
     return {
         "prosecutor": prosecutor_text,
         "defender": defender_text,
-        "verdict": panel.get("verdict", "possible"),
-        "reasoning": panel.get("reasoning", ""),
-        "minimal_edit": panel.get("minimal_edit"),
+        "minimal_edit": minimal_edit,
+        # No 'verdict' key — human decides
     }
 
 
@@ -257,7 +312,6 @@ def _stub_debate(issue: str) -> dict:
             "makes the intended meaning clear. A minor edit may resolve the concern without "
             "a full rewrite."
         ),
-        "verdict": "possible",
-        "reasoning": "Both arguments have merit. Human review is recommended before publication.",
+        # No 'verdict' key — human decides
         "minimal_edit": "Consider adding qualification language and verifying against the latest approved facts.",
     }

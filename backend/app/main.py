@@ -9,6 +9,8 @@ from .api import rules
 from .api import content
 from .api import blast_radius
 from .api import findings
+from .api import redteam
+from .api import chaos
 from .core.config import load_settings
 from .core.db import close_pool, open_pool
 from .core.errors import install_error_handlers
@@ -38,6 +40,8 @@ app.include_router(rules.router)
 app.include_router(content.router)
 app.include_router(blast_radius.router)
 app.include_router(findings.router)
+app.include_router(redteam.router)
+app.include_router(chaos.router)
 
 
 @app.get("/health")

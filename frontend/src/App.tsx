@@ -8,6 +8,7 @@ import RepositoryPage from './pages/RepositoryPage'
 import ContentPage from './pages/ContentPage'
 import BlastRadiusPage from './pages/BlastRadiusPage'
 import FindingsPage from './pages/FindingsPage'
+import RuleTestsPage from './pages/RuleTestsPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -42,6 +43,7 @@ function AppRoutes() {
         <Route path="content" element={<ContentPage />} />
         <Route path="blast-radius" element={<BlastRadiusPage />} />
         <Route path="findings" element={<FindingsPage />} />
+        <Route path="rule-tests" element={<RuleTestsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
