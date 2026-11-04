@@ -4,30 +4,44 @@ import { useAuth } from '../auth'
 
 const navItems = [
   {
+    to: '/',
+    label: 'Dashboard',
+    desc: 'Overview',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      </svg>
+    ),
+  },
+  {
     to: '/repository',
     label: 'Repository',
+    desc: 'Facts & Rules',
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
       </svg>
     ),
   },
   {
     to: '/content',
     label: 'Content',
+    desc: 'Submit & analyse',
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M4 6h16M4 12h16M4 18h7" />
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
     ),
   },
   {
     to: '/blast-radius',
     label: 'Blast Radius',
+    desc: 'Impact analysis',
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M13 10V3L4 14h7v7l9-11h-7z" />
       </svg>
@@ -36,8 +50,9 @@ const navItems = [
   {
     to: '/findings',
     label: 'Findings',
+    desc: 'Review & decide',
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
       </svg>
@@ -45,80 +60,76 @@ const navItems = [
   },
 ]
 
-const roleColors: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-700',
-  brand_manager: 'bg-indigo-100 text-indigo-700',
-  approver: 'bg-green-100 text-green-700',
-  manager: 'bg-blue-100 text-blue-700',
-  creator: 'bg-yellow-100 text-yellow-700',
-  external_creator: 'bg-gray-100 text-gray-700',
+const roleConfig: Record<string, { label: string; cls: string }> = {
+  admin: { label: 'Admin', cls: 'bg-violet-100 text-violet-700' },
+  brand_manager: { label: 'Brand Manager', cls: 'bg-indigo-100 text-indigo-700' },
+  approver: { label: 'Approver', cls: 'bg-emerald-100 text-emerald-700' },
+  manager: { label: 'Manager', cls: 'bg-sky-100 text-sky-700' },
+  creator: { label: 'Creator', cls: 'bg-amber-100 text-amber-700' },
+  external_creator: { label: 'External', cls: 'bg-gray-100 text-gray-600' },
 }
 
 export default function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
+  const roleInfo = roleConfig[user?.role ?? ''] ?? { label: user?.role ?? '', cls: 'bg-gray-100 text-gray-600' }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <aside className="w-56 bg-slate-900 flex flex-col flex-shrink-0">
         {/* Logo */}
-        <div className="p-5 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        <div className="px-5 py-5 border-b border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-indigo-500 rounded-md flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
                   d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
             <div>
-              <p className="font-bold text-gray-900 leading-tight">BrandGuard</p>
-              <p className="text-xs text-gray-500">{user?.orgName}</p>
+              <p className="font-bold text-white text-sm leading-none">BrandGuard</p>
+              <p className="text-slate-500 text-xs mt-0.5">{user?.orgName ?? 'NimbusDesk'}</p>
             </div>
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.to === '/'}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors group ${
                   isActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
                 }`
               }
             >
               {item.icon}
-              {item.label}
+              <div>
+                <p className="font-medium leading-none">{item.label}</p>
+                <p className="text-[10px] opacity-60 mt-0.5">{item.desc}</p>
+              </div>
             </NavLink>
           ))}
         </nav>
 
-        {/* User info */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="mb-3">
-            <p className="text-sm font-medium text-gray-900 truncate">{user?.displayName}</p>
-            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-            <span
-              className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
-                roleColors[user?.role ?? ''] ?? 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              {user?.role?.replace('_', ' ')}
+        {/* User */}
+        <div className="px-3 py-4 border-t border-slate-800">
+          <div className="px-3 py-2 mb-1">
+            <p className="text-white text-sm font-medium truncate">{user?.displayName ?? 'Demo Admin'}</p>
+            <p className="text-slate-500 text-xs truncate">{user?.email}</p>
+            <span className={`inline-block mt-1.5 px-2 py-0.5 rounded text-xs font-medium ${roleInfo.cls}`}>
+              {roleInfo.label}
             </span>
           </div>
           <button
-            onClick={handleLogout}
-            className="w-full text-left text-sm text-gray-500 hover:text-red-600 flex items-center gap-2 transition-colors"
+            onClick={() => { logout(); navigate('/login') }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg text-sm transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -129,7 +140,7 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* Main */}
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>

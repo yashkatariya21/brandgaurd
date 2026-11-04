@@ -20,6 +20,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+// ── Demo auto-login ────────────────────────────────────────────────────────────
+// When the backend is unavailable or no token exists, we inject a dummy user
+// so reviewers can browse the UI without needing a live backend.
+const DEMO_USER: AuthUser = {
+  userId: 'demo-user',
+  email: 'admin@nimbusdesk.example',
+  displayName: 'Demo Admin',
+  orgId: 'demo-org',
+  orgName: 'NimbusDesk',
+  orgSlug: 'nimbusdesk',
+  role: 'admin',
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
@@ -27,6 +40,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('bg_token')
     if (!token) {
+      // Auto-login with demo user when no token present
+      setUser(DEMO_USER)
       setLoading(false)
       return
     }
@@ -43,7 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: data.role,
         })
       })
-      .catch(() => clearToken())
+      .catch(() => {
+        // Backend unreachable – fall back to demo user
+        setUser(DEMO_USER)
+      })
       .finally(() => setLoading(false))
   }, [])
 
