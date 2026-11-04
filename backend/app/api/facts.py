@@ -2,10 +2,10 @@
 import hashlib
 import uuid
 from datetime import date
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ..core.audit import write_audit
 from ..core.db import tenant_conn
@@ -21,26 +21,38 @@ router = APIRouter(prefix="/v1")
 class FactIn(BaseModel):
     key: str = Field(min_length=2, max_length=80, pattern=r"^[a-z0-9_]+$")
     label: str = Field(min_length=2, max_length=200)
-    category: str
+    category: Literal["statistic", "pricing", "certification", "name", "person", "award", "embargo", "location", "other"]
     value_text: str = Field(min_length=1, max_length=2000)
     value_number: Optional[float] = None
-    value_unit: Optional[str] = None
-    qualifier: str = "exact"
-    source_ref: Optional[str] = None
-    valid_from: Optional[str] = None   # ISO date, defaults to today
-    expires_at: Optional[str] = None
-    change_note: Optional[str] = None
+    value_unit: Optional[str] = Field(default=None, max_length=80)
+    qualifier: Literal["exact", "at_least", "approx"] = "exact"
+    source_ref: Optional[str] = Field(default=None, max_length=500)
+    valid_from: Optional[date] = None   # defaults to today
+    expires_at: Optional[date] = None
+    change_note: Optional[str] = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def dates_are_ordered(self):
+        if self.valid_from and self.expires_at and self.expires_at < self.valid_from:
+            raise ValueError("expires_at must be on or after valid_from")
+        return self
 
 
 class FactVersionIn(BaseModel):
     value_text: str = Field(min_length=1, max_length=2000)
     value_number: Optional[float] = None
-    value_unit: Optional[str] = None
-    qualifier: str = "exact"
-    source_ref: Optional[str] = None
-    valid_from: Optional[str] = None   # defaults to today
-    expires_at: Optional[str] = None
-    change_note: Optional[str] = None
+    value_unit: Optional[str] = Field(default=None, max_length=80)
+    qualifier: Literal["exact", "at_least", "approx"] = "exact"
+    source_ref: Optional[str] = Field(default=None, max_length=500)
+    valid_from: Optional[date] = None   # defaults to today
+    expires_at: Optional[date] = None
+    change_note: Optional[str] = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def dates_are_ordered(self):
+        if self.valid_from and self.expires_at and self.expires_at < self.valid_from:
+            raise ValueError("expires_at must be on or after valid_from")
+        return self
 
 
 class RejectIn(BaseModel):
@@ -122,7 +134,7 @@ def get_fact(fact_id: str, principal: Principal = Depends(require("view_reposito
 def create_fact(body: FactIn, principal: Principal = Depends(require("propose_version"))):
     fact_id, version_id = uuid.uuid4(), uuid.uuid4()
     content_hash = hashlib.sha256(body.value_text.encode()).hexdigest()
-    valid_from = body.valid_from or date.today().isoformat()
+    valid_from = body.valid_from or date.today()
     with tenant_conn(principal.org_id, principal.user_id) as conn:
         existing = conn.execute(
             "SELECT 1 FROM facts WHERE org_id = %s AND key = %s", (principal.org_id, body.key)
@@ -139,15 +151,14 @@ def create_fact(body: FactIn, principal: Principal = Depends(require("propose_ve
                (id, org_id, fact_id, version_no, value_text, value_number, value_unit,
                 qualifier, source_ref, valid_from, expires_at, status, change_note,
                 proposed_by, content_hash)
-               VALUES (%s,%s,%s,1,%s,%s,%s,%s,%s,%s,%s,'approved',%s,%s,%s)""",
+               VALUES (%s,%s,%s,1,%s,%s,%s,%s,%s,%s,%s,'pending_approval',%s,%s,%s)""",
             (version_id, principal.org_id, fact_id, body.value_text, body.value_number,
              body.value_unit, body.qualifier, body.source_ref, valid_from, body.expires_at,
              body.change_note, principal.user_id, content_hash),
         )
-        conn.execute("UPDATE facts SET current_version_id = %s WHERE id = %s", (version_id, fact_id))
         write_audit(conn, principal.user_id, "fact.created", "fact", fact_id,
-                    after={"key": body.key, "version_id": str(version_id)})
-    return {"fact_id": str(fact_id), "version_id": str(version_id)}
+                    after={"key": body.key, "version_id": str(version_id), "status": "pending_approval"})
+    return {"fact_id": str(fact_id), "version_id": str(version_id), "status": "pending_approval"}
 
 
 @router.post("/facts/{fact_id}/versions", status_code=201)
@@ -155,18 +166,18 @@ def propose_fact_version(fact_id: str, body: FactVersionIn,
                           principal: Principal = Depends(require("propose_version"))):
     version_id = uuid.uuid4()
     content_hash = hashlib.sha256(body.value_text.encode()).hexdigest()
-    valid_from = body.valid_from or date.today().isoformat()
+    valid_from = body.valid_from or date.today()
     with tenant_conn(principal.org_id, principal.user_id) as conn:
         fact = conn.execute(
-            "SELECT id FROM facts WHERE id = %s AND org_id = %s",
+            "SELECT id FROM facts WHERE id = %s AND org_id = %s FOR UPDATE",
             (fact_id, principal.org_id),
         ).fetchone()
         if not fact:
             raise ApiError(404, "not_found", "Fact not found")
         max_v = conn.execute(
-            "SELECT COALESCE(MAX(version_no),0) FROM fact_versions WHERE fact_id = %s",
+            "SELECT COALESCE(MAX(version_no),0) AS max_version FROM fact_versions WHERE fact_id = %s",
             (fact_id,),
-        ).fetchone()[0]
+        ).fetchone()["max_version"]
         conn.execute(
             """INSERT INTO fact_versions
                (id, org_id, fact_id, version_no, value_text, value_number, value_unit,
@@ -187,6 +198,7 @@ def submit_fact_version(fact_id: str, version_no: int,
                          principal: Principal = Depends(require("propose_version"))):
     """Move a draft version to pending_approval."""
     with tenant_conn(principal.org_id, principal.user_id) as conn:
+        conn.execute("SELECT id FROM facts WHERE id=%s AND org_id=%s FOR UPDATE", (fact_id, principal.org_id))
         ver = conn.execute(
             "SELECT id, status FROM fact_versions WHERE fact_id=%s AND version_no=%s AND org_id=%s",
             (fact_id, version_no, principal.org_id),
@@ -207,6 +219,7 @@ def approve_fact_version(fact_id: str, version_no: int,
                           principal: Principal = Depends(require("approve_version"))):
     """Approve a pending_approval version."""
     with tenant_conn(principal.org_id, principal.user_id) as conn:
+        conn.execute("SELECT id FROM facts WHERE id=%s AND org_id=%s FOR UPDATE", (fact_id, principal.org_id))
         ver = conn.execute(
             "SELECT id, status, proposed_by FROM fact_versions WHERE fact_id=%s AND version_no=%s AND org_id=%s",
             (fact_id, version_no, principal.org_id),
@@ -237,6 +250,7 @@ def approve_fact_version(fact_id: str, version_no: int,
 def reject_fact_version(fact_id: str, version_no: int, body: RejectIn = RejectIn(),
                          principal: Principal = Depends(require("approve_version"))):
     with tenant_conn(principal.org_id, principal.user_id) as conn:
+        conn.execute("SELECT id FROM facts WHERE id=%s AND org_id=%s FOR UPDATE", (fact_id, principal.org_id))
         ver = conn.execute(
             "SELECT id, status FROM fact_versions WHERE fact_id=%s AND version_no=%s AND org_id=%s",
             (fact_id, version_no, principal.org_id),

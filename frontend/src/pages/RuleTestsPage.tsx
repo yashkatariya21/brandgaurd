@@ -60,10 +60,14 @@ function CaseRow({
   onLabel: (id: string, label: string) => Promise<void>
 }) {
   const [labelling, setLabelling] = useState(false)
+  const [actionError, setActionError] = useState('')
 
   const doLabel = async (label: string) => {
     setLabelling(true)
-    try { await onLabel(c.id, label) } finally { setLabelling(false) }
+    setActionError('')
+    try { await onLabel(c.id, label) }
+    catch (e: unknown) { setActionError(e instanceof Error ? e.message : 'Could not save label') }
+    finally { setLabelling(false) }
   }
 
   return (
@@ -77,7 +81,7 @@ function CaseRow({
       <td className="px-3 py-3">
         <IntendedBadge label={c.intended_label} />
       </td>
-      {/* AI readers */}
+      {/* Rule interpretations */}
       <td className="px-3 py-3">
         <VerdictSummary verdicts={c.verdicts ?? []} />
       </td>
@@ -111,6 +115,7 @@ function CaseRow({
             ))}
           </div>
         )}
+        {actionError && <p className="mt-1 text-xs text-red-700" role="alert">{actionError}</p>}
       </td>
     </tr>
   )
@@ -126,10 +131,14 @@ function IssueCard({
   onResolve: (id: string, status: 'accepted' | 'rejected') => Promise<void>
 }) {
   const [resolving, setResolving] = useState(false)
+  const [actionError, setActionError] = useState('')
 
   const doResolve = async (status: 'accepted' | 'rejected') => {
     setResolving(true)
-    try { await onResolve(issue.id, status) } finally { setResolving(false) }
+    setActionError('')
+    try { await onResolve(issue.id, status) }
+    catch (e: unknown) { setActionError(e instanceof Error ? e.message : 'Could not resolve issue') }
+    finally { setResolving(false) }
   }
 
   return (
@@ -181,6 +190,7 @@ function IssueCard({
           </div>
         )}
       </div>
+      {actionError && <p className="mt-2 text-xs text-red-700" role="alert">{actionError}</p>}
     </div>
   )
 }
@@ -189,6 +199,7 @@ function IssueCard({
 
 export default function RuleTestsPage() {
   const [rules, setRules] = useState<Rule[]>([])
+  const [rulesLoading, setRulesLoading] = useState(true)
   const [selectedRuleId, setSelectedRuleId] = useState('')
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<ChaosRunResult | null>(null)
@@ -203,7 +214,9 @@ export default function RuleTestsPage() {
       const tone = rs.filter((r) => r.category === 'tone')
       setRules(tone)
       if (tone.length > 0) setSelectedRuleId(tone[0].id)
-    })
+    }).catch((e: unknown) => {
+      setError(e instanceof Error ? e.message : 'Could not load tone rules')
+    }).finally(() => setRulesLoading(false))
   }, [])
 
   const runTest = async () => {
@@ -237,14 +250,13 @@ export default function RuleTestsPage() {
 
   const selectedRule = rules.find((r) => r.id === selectedRuleId)
   const clearCases = localCases.filter((c) => !c.is_ambiguous)
-  const ambiguousCases = localCases.filter((c) => c.is_ambiguous)
 
   return (
     <div className="p-8 max-w-6xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Rule Tests</h1>
         <p className="text-gray-500 mt-1">
-          Test tone rules for ambiguity by running {result?.n_interpreters ?? 5} independent AI readers over generated cases.
+          Test tone rules using {result?.n_interpreters ?? 5} separate interpretations of generated cases. Fallback mode may use heuristics; live AI mode uses model-generated interpretations. Mixed runs can include both.
           High agreement = clear rule. Low agreement = rule needs clarification.
         </p>
       </div>
@@ -258,9 +270,10 @@ export default function RuleTestsPage() {
             <select
               value={selectedRuleId}
               onChange={(e) => { setSelectedRuleId(e.target.value); setResult(null) }}
+              disabled={rulesLoading}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="">— choose a tone rule —</option>
+              <option value="">{rulesLoading ? 'Loading rules…' : '— choose a tone rule —'}</option>
               {rules.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.key} – {r.label}
@@ -270,7 +283,7 @@ export default function RuleTestsPage() {
           </div>
           <button
             onClick={runTest}
-            disabled={running || !selectedRuleId}
+            disabled={running || rulesLoading || !selectedRuleId}
             className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {running ? (
@@ -303,7 +316,12 @@ export default function RuleTestsPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
+        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm" role="alert">{error}</div>
+      )}
+      {!rulesLoading && rules.length === 0 && !error && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+          No tone rules are available in this workspace to test.
+        </div>
       )}
 
       {result && (
@@ -326,17 +344,25 @@ export default function RuleTestsPage() {
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <p className="text-2xl font-bold text-gray-900">{result.n_interpreters}</p>
-              <p className="text-sm text-gray-500">AI readers / case</p>
+              <p className="text-sm text-gray-500">Interpretations / case</p>
             </div>
           </div>
 
           {/* Mode badge */}
-          {result.mode === 'demo' && (
+          {(result.mode !== 'llm' || result.demo_note) && (
             <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
               <span className="text-lg flex-shrink-0">⚠️</span>
               <div>
-                <p className="font-semibold">Demo mode (no OPENAI_API_KEY set)</p>
-                <p className="mt-0.5">{result.demo_note ?? 'Interpretations use lightweight heuristics. Set OPENAI_API_KEY for real AI readers.'}</p>
+                <p className="font-semibold">
+                  {result.mode === 'mixed' ? 'Mixed provider mode' : result.mode === 'demo' ? 'Fallback mode' : 'Provider note'}
+                </p>
+                {result.demo_note && <p className="mt-0.5">{result.demo_note}</p>}
+                {!result.demo_note && result.mode === 'demo' && (
+                  <p className="mt-0.5">Some or all interpretations used fallback handling rather than live model output.</p>
+                )}
+                {!result.demo_note && result.mode === 'mixed' && (
+                  <p className="mt-0.5">This run includes both live model interpretations and fallback results.</p>
+                )}
                 <p className="mt-0.5 text-amber-700">Agreement score measures how clear the rule is – not whether the verdict is correct. Human labels are ground truth.</p>
               </div>
             </div>
@@ -372,7 +398,7 @@ export default function RuleTestsPage() {
                 <tr className="border-b border-gray-200">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-64">Case text</th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Expected</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">AI readers</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Interpretations</th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Result</th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Human label</th>
                 </tr>
@@ -392,7 +418,7 @@ export default function RuleTestsPage() {
         </>
       )}
 
-      {!result && !running && (
+      {!result && !running && !rulesLoading && rules.length > 0 && (
         <div className="text-center py-16 text-gray-400">
           <div className="text-5xl mb-4">🧪</div>
           <p className="text-lg font-medium">Select a tone rule and run the test</p>

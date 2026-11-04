@@ -20,19 +20,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-// ── Demo auto-login ────────────────────────────────────────────────────────────
-// When the backend is unavailable or no token exists, we inject a dummy user
-// so reviewers can browse the UI without needing a live backend.
-const DEMO_USER: AuthUser = {
-  userId: 'demo-user',
-  email: 'admin@nimbusdesk.example',
-  displayName: 'Demo Admin',
-  orgId: 'demo-org',
-  orgName: 'NimbusDesk',
-  orgSlug: 'nimbusdesk',
-  role: 'admin',
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
@@ -40,8 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('bg_token')
     if (!token) {
-      // Auto-login with demo user when no token present
-      setUser(DEMO_USER)
+      setUser(null)
       setLoading(false)
       return
     }
@@ -59,25 +45,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
       })
       .catch(() => {
-        // Backend unreachable – fall back to demo user
-        setUser(DEMO_USER)
+        clearToken()
+        setUser(null)
       })
       .finally(() => setLoading(false))
   }, [])
 
   const login = async (email: string, password: string, orgSlug: string) => {
-    const res = await authApi.login(email, password, orgSlug)
-    setToken(res.token)
-    const me = await authApi.me()
-    setUser({
-      userId: me.user.id,
-      email: me.user.email,
-      displayName: me.user.display_name,
-      orgId: me.org.id,
-      orgName: me.org.name,
-      orgSlug: me.org.slug,
-      role: res.role,
-    })
+    try {
+      const res = await authApi.login(email, password, orgSlug)
+      setToken(res.token)
+      const me = await authApi.me()
+      setUser({
+        userId: me.user.id,
+        email: me.user.email,
+        displayName: me.user.display_name,
+        orgId: me.org.id,
+        orgName: me.org.name,
+        orgSlug: me.org.slug,
+        role: me.role,
+      })
+    } catch (error) {
+      clearToken()
+      setUser(null)
+      throw error
+    }
   }
 
   const logout = () => {

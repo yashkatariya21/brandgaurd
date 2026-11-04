@@ -28,7 +28,7 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div role="dialog" aria-modal="true" aria-label="Prosecutor versus Defender debate" className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between p-6 border-b border-gray-200">
           <div>
@@ -38,10 +38,10 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
           <div className="flex items-center gap-2 flex-shrink-0">
             {debate?.mode === 'demo' && (
               <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full font-medium">
-                Demo mode (no AI key)
+                Fallback mode
               </span>
             )}
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+            <button onClick={onClose} aria-label="Close debate" className="text-gray-400 hover:text-gray-600 p-1">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
               </svg>
@@ -51,6 +51,11 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
 
         <div className="overflow-y-auto flex-1 p-6">
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm mb-4">{error}</div>}
+          {debate?.demo_note && (
+            <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900" role="note">
+              {debate.demo_note}
+            </p>
+          )}
 
           {loading ? (
             <div className="flex items-center gap-3 text-gray-500">
@@ -129,14 +134,14 @@ function DecideModal({ finding, onClose, onDecided }: {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+      <div role="dialog" aria-modal="true" aria-label="Decide on finding" className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-start justify-between gap-2">
             <div>
               <h3 className="text-lg font-bold text-gray-900">Decide on Finding</h3>
               <p className="text-sm text-gray-500 mt-1">{finding.issue}</p>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+            <button onClick={onClose} aria-label="Close decision form" className="text-gray-400 hover:text-gray-600 flex-shrink-0">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
               </svg>
@@ -206,10 +211,15 @@ export default function FindingsPage() {
   const [selected, setSelected] = useState<Finding | null>(null)
   const [debating, setDebating] = useState<Finding | null>(null)
   const [filter, setFilter] = useState('open')
+  const [error, setError] = useState('')
 
   const load = () => {
     setLoading(true)
-    findingsApi.list().then(setFindings).finally(() => setLoading(false))
+    setError('')
+    findingsApi.list()
+      .then(setFindings)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load findings'))
+      .finally(() => setLoading(false))
   }
   useEffect(load, [])
 
@@ -233,8 +243,10 @@ export default function FindingsPage() {
         <p className="text-gray-500 mt-1">Review and decide on brand compliance findings. Use "Show debate" to see both sides before deciding.</p>
       </div>
 
+      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">Could not load findings: {error}</div>}
+
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      {!error && <div className="grid grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Open', count: counts.open ?? 0, cls: 'border-orange-200 bg-orange-50', tcls: 'text-orange-700' },
           { label: 'Critical', count: findings.filter((f) => f.severity === 'critical' && f.status === 'open').length, cls: 'border-red-200 bg-red-50', tcls: 'text-red-700' },
@@ -246,7 +258,7 @@ export default function FindingsPage() {
             <p className="text-sm text-gray-600">{s.label}</p>
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* Filter tabs */}
       <div className="flex gap-1 border-b border-gray-200 mb-4">
@@ -260,7 +272,7 @@ export default function FindingsPage() {
 
       {loading ? (
         <p className="text-gray-500 text-sm">Loading…</p>
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 && !error ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg">No {filter !== 'all' ? filter : ''} findings</p>
         </div>

@@ -3,6 +3,7 @@ T3 – Prosecutor vs Defender debate for a single finding.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Optional
 
@@ -15,9 +16,11 @@ from ..core.db import tenant_conn
 from ..core.errors import ApiError
 from ..core.rbac import Principal, require
 from ..services.redteam import run_red_team, run_prosecutor_defender, _has_llm, PERSONAS
+from ..services.llm_config import ProviderCallError, configured_model
 from ..services.retrieval import get_facts_context, get_rules_context, find_cited_fact, find_cited_rule
 
 router = APIRouter(prefix="/v1")
+logger = logging.getLogger(__name__)
 
 
 def _serialise(row: dict) -> dict:
@@ -56,7 +59,8 @@ def run_redteam(item_id: str, principal: Principal = Depends(require("submit_con
         facts_summary = get_facts_context(conn, principal.org_id)
         rules_summary = get_rules_context(conn, principal.org_id)
 
-        mode = "llm" if _has_llm() else "demo"
+        requested_llm = _has_llm()
+        mode = "llm" if requested_llm else "demo"
 
         # Create analysis run
         run_id = uuid.uuid4()
@@ -66,18 +70,29 @@ def run_redteam(item_id: str, principal: Principal = Depends(require("submit_con
                 model_id, prompt_version)
                VALUES (%s,%s,%s,'redteam','running',now(),%s,%s,%s)""",
             (run_id, principal.org_id, content_version_id, principal.user_id,
-             "gpt-4o-mini" if _has_llm() else "stub", "redteam-v1"),
+             configured_model() if requested_llm else "stub", "redteam-v1"),
         )
 
         # Run the red team
         try:
-            persona_results = run_red_team(content_text, facts_summary, rules_summary)
-        except Exception as exc:
+            persona_results = run_red_team(
+                content_text, facts_summary, rules_summary, use_llm=requested_llm
+            )
+        except ProviderCallError:
+            # Do not mix provider output with heuristic findings in one run.
+            logger.warning("Red-team provider failed; using deterministic demo results")
+            mode = "demo"
+            persona_results = run_red_team(
+                content_text, facts_summary, rules_summary, use_llm=False
+            )
+            conn.execute("UPDATE analysis_runs SET model_id='stub' WHERE id=%s", (run_id,))
+        except Exception:
             conn.execute(
                 "UPDATE analysis_runs SET status='failed', finished_at=now(), error=%s WHERE id=%s",
-                (str(exc), run_id),
+                ("Red-team processing failed", run_id),
             )
-            raise ApiError(500, "redteam_failed", str(exc))
+            logger.exception("Red-team processing failed")
+            raise ApiError(500, "redteam_failed", "Red-team analysis failed")
 
         # Persist findings
         all_findings = []
@@ -91,9 +106,13 @@ def run_redteam(item_id: str, principal: Principal = Depends(require("submit_con
                 if severity not in ("low", "medium", "high", "critical"):
                     severity = "medium"
 
-                # Check if finding cites a known fact/rule → medium; else low
-                cited = find_cited_fact(conn, principal.org_id, issue) or \
-                        find_cited_rule(conn, principal.org_id, issue)
+                # Only bind evidence when the model explicitly returns a repository key
+                # and the key is validated against this tenant's approved records.
+                cited = find_cited_fact(
+                    conn, principal.org_id, raw.get("fact_key")
+                ) or find_cited_rule(
+                    conn, principal.org_id, raw.get("rule_key")
+                )
                 confidence = "medium" if cited else "low"
 
                 # Determine span_start / span_end from span_hint
@@ -165,7 +184,11 @@ def run_redteam(item_id: str, principal: Principal = Depends(require("submit_con
         "run_id": str(run_id),
         "mode": mode,
         "findings": all_findings,
-        **({"demo_note": "No OPENAI_API_KEY set – running in demo mode. Results are heuristic, not AI-generated."} if mode == "demo" else {}),
+        **({"demo_note": (
+            "Provider unavailable; the complete run used deterministic heuristics."
+            if requested_llm else
+            "No OPENAI_API_KEY set – running in demo mode. Results are heuristic, not AI-generated."
+        )} if mode == "demo" else {}),
     }
 
 
@@ -179,14 +202,6 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
     finding_id_str = str(finding_id)
 
     with tenant_conn(principal.org_id, principal.user_id) as conn:
-        # Return existing debate if present
-        existing = conn.execute(
-            "SELECT * FROM debates WHERE finding_id = %s AND org_id = %s",
-            (finding_id, principal.org_id),
-        ).fetchone()
-        if existing:
-            return {**_serialise(dict(existing)), "cached": True}
-
         # Load the finding
         finding = conn.execute(
             """SELECT f.*, cv.body_text as content_text
@@ -197,6 +212,28 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
         ).fetchone()
         if not finding:
             raise ApiError(404, "not_found", "Finding not found")
+        if finding["severity"] not in ("high", "critical"):
+            raise ApiError(
+                422, "debate_unavailable",
+                "Prosecutor vs Defender is available only for high- or critical-severity findings",
+            )
+
+        # Return cached debate only after enforcing the same severity gate.
+        existing = conn.execute(
+            "SELECT * FROM debates WHERE finding_id = %s AND org_id = %s",
+            (finding_id, principal.org_id),
+        ).fetchone()
+        if existing:
+            result = _serialise(dict(existing))
+            cached_mode = "demo" if result.get("model_id") == "stub" else "llm"
+            return {
+                **result,
+                "mode": cached_mode,
+                "cached": True,
+                **({"demo_note": "This cached debate was generated by deterministic demo heuristics."}
+                   if cached_mode == "demo" else {}),
+                "footer": "Both arguments are shown so a person can decide. Neither is a verdict.",
+            }
 
         issue = finding["issue"]
         content_text = finding["content_text"] or ""
@@ -227,10 +264,20 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
 
         fact_context = "\n".join(fact_context_parts) if fact_context_parts else "(no specific fact/rule cited)"
 
-        mode = "llm" if _has_llm() else "demo"
+        requested_llm = _has_llm()
+        mode = "llm" if requested_llm else "demo"
 
         # Run debate (no AI verdict returned)
-        debate_result = run_prosecutor_defender(issue, content_text, fact_context)
+        try:
+            debate_result = run_prosecutor_defender(
+                issue, content_text, fact_context, use_llm=requested_llm
+            )
+        except ProviderCallError:
+            logger.warning("Debate provider failed; using deterministic demo arguments")
+            mode = "demo"
+            debate_result = run_prosecutor_defender(
+                issue, content_text, fact_context, use_llm=False
+            )
 
         # Strip any AI verdict — only human can decide
         prosecutor_text = debate_result.get("prosecutor", "")
@@ -247,7 +294,7 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
             (
                 debate_id, principal.org_id, finding_id,
                 prosecutor_text, defender_text, minimal_edit,
-                "gpt-4o-mini" if _has_llm() else "stub",
+                configured_model() if mode == "llm" else "stub",
                 "debate-v1",
             ),
         )
@@ -260,6 +307,9 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
         "minimal_edit": minimal_edit,
         "mode": mode,
         "cached": False,
-        **({"demo_note": "Demo mode – arguments are heuristic, not AI-generated."} if mode == "demo" else {}),
+        **({"demo_note": (
+            "Provider unavailable; deterministic demo arguments were used."
+            if requested_llm else "Demo mode – arguments are heuristic, not AI-generated."
+        )} if mode == "demo" else {}),
         "footer": "Both arguments are shown so a person can decide. Neither is a verdict.",
     }

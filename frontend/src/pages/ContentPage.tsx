@@ -8,6 +8,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
 }) {
   const [detail, setDetail] = useState<ContentDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [detailError, setDetailError] = useState('')
   const [analysing, setAnalysing] = useState(false)
   const [redTeaming, setRedTeaming] = useState(false)
   const [redTeamResult, setRedTeamResult] = useState<RedTeamResult | null>(null)
@@ -15,7 +16,11 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
 
   const load = () => {
     setLoading(true)
-    contentApi.get(item.id).then(setDetail).finally(() => setLoading(false))
+    setDetailError('')
+    contentApi.get(item.id)
+      .then(setDetail)
+      .catch((e: unknown) => setDetailError(e instanceof Error ? e.message : 'Could not load content details'))
+      .finally(() => setLoading(false))
   }
   useEffect(load, [item.id])
 
@@ -38,7 +43,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div role="dialog" aria-modal="true" aria-label="Content details and analysis" className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
@@ -57,7 +62,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
               className="text-sm px-3 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 disabled:opacity-50 flex items-center gap-2">
               {redTeaming ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Running…</> : '🎯 Run Red Team'}
             </button>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+            <button onClick={onClose} aria-label="Close content details" className="text-gray-400 hover:text-gray-600 p-1">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
               </svg>
@@ -70,6 +75,8 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
 
           {loading ? (
             <p className="text-gray-500 text-sm">Loading…</p>
+          ) : detailError ? (
+            <p className="text-red-700 text-sm" role="alert">{detailError}</p>
           ) : detail ? (
             <>
               <div>
@@ -136,12 +143,12 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                 <h4 className="text-sm font-semibold text-gray-700">Red Team Results ({redTeamResult.findings.length} findings)</h4>
                 {redTeamResult.mode === 'demo' && (
                   <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
-                    Demo mode (no AI key)
+                    Fallback mode
                   </span>
                 )}
               </div>
               {redTeamResult.demo_note && (
-                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">{redTeamResult.demo_note}</p>
+                <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3" role="note">{redTeamResult.demo_note}</p>
               )}
               <div className="space-y-2">
                 {redTeamResult.findings.map((f) => (
@@ -184,6 +191,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
 export default function ContentPage() {
   const [items, setItems] = useState<ContentItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [pageError, setPageError] = useState('')
   const [selected, setSelected] = useState<ContentItem | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
@@ -196,7 +204,11 @@ export default function ContentPage() {
 
   const load = () => {
     setLoading(true)
-    contentApi.list().then(setItems).finally(() => setLoading(false))
+    setPageError('')
+    contentApi.list()
+      .then(setItems)
+      .catch((e: unknown) => setPageError(e instanceof Error ? e.message : 'Could not load content'))
+      .finally(() => setLoading(false))
   }
 
   useEffect(load, [])
@@ -265,8 +277,9 @@ export default function ContentPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
+        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm" role="alert">{error}</div>
       )}
+      {pageError && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm" role="alert">Could not load content: {pageError}</div>}
 
       {showForm && (
         <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
@@ -334,7 +347,7 @@ export default function ContentPage() {
 
       {loading ? (
         <p className="text-gray-500 text-sm">Loading…</p>
-      ) : items.length === 0 ? (
+      ) : pageError ? null : items.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg">No content items yet.</p>
           <p className="text-sm mt-1">Submit your first piece of content above.</p>
@@ -355,10 +368,13 @@ export default function ContentPage() {
               {items.map((ci) => (
                 <tr
                   key={ci.id}
-                  onClick={() => setSelected(ci)}
-                  className="hover:bg-indigo-50 cursor-pointer transition-colors"
+                  className="hover:bg-indigo-50 transition-colors"
                 >
-                  <td className="px-4 py-3 font-medium text-gray-900">{ci.title}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    <button type="button" onClick={() => setSelected(ci)} className="text-left text-indigo-700 hover:underline underline-offset-2">
+                      {ci.title}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-gray-600">
                     {channelIcons[ci.channel]} {ci.channel}
                   </td>

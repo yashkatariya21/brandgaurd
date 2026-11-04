@@ -158,6 +158,32 @@ def test_linked_claim_confirms_even_with_wrong_attribute():
     assert r["match_type"] == "confirmed"
 
 
+def test_linked_span_is_claim_specific_and_matching_claim_wins():
+    body = "Our agents handle 50,000 tickets daily; we also serve 50,000 customers."
+    claims = extract_claims(body)
+    ticket = next(c for c in claims if c["attribute"] == "ticket_volume")
+    customer = next(c for c in claims if c["attribute"] == "customer_count")
+    assert (ticket["span_start"], ticket["span_end"]) != (
+        customer["span_start"], customer["span_end"]
+    )
+
+    only_ticket = _scan_item(
+        "Our agents handle 50,000 tickets daily",
+        OLD_NORM, OLD_TEXT, NEW_TEXT, FACT_ATTR, None, FACT_ID,
+        {(customer["span_start"], customer["span_end"])},
+    )
+    assert only_ticket is not None
+    assert only_ticket["match_type"] == "possible"
+
+    both_claims = _scan_item(
+        body, OLD_NORM, OLD_TEXT, NEW_TEXT, FACT_ATTR, None, FACT_ID,
+        {(customer["span_start"], customer["span_end"])},
+    )
+    assert both_claims is not None
+    assert both_claims["match_type"] == "confirmed"
+    assert both_claims["stale_text"].endswith("customers")
+
+
 # ─── Normalisation variant coverage ──────────────────────────────────────────
 
 class TestNormalisationVariants:

@@ -1,6 +1,6 @@
 """T05 – Rules CRUD with versions and approval, mirrors facts API."""
 import uuid
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -17,20 +17,20 @@ router = APIRouter(prefix="/v1")
 class RuleIn(BaseModel):
     key: str = Field(min_length=2, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
     label: str = Field(min_length=2, max_length=200)
-    category: str
-    severity: str
-    applies_to: list[str] = ["all"]
-    description: str = Field(min_length=2)
-    expected_behaviour: Optional[str] = None
-    validation_criteria: Optional[str] = None
-    change_note: Optional[str] = None
+    category: Literal["tone", "terminology", "claims", "accessibility", "embargo", "visual", "other"]
+    severity: Literal["low", "medium", "high", "critical"]
+    applies_to: list[str] = Field(default_factory=lambda: ["all"], max_length=20)
+    description: str = Field(min_length=2, max_length=5000)
+    expected_behaviour: Optional[str] = Field(default=None, max_length=2000)
+    validation_criteria: Optional[str] = Field(default=None, max_length=2000)
+    change_note: Optional[str] = Field(default=None, max_length=2000)
 
 
 class RuleVersionIn(BaseModel):
-    description: str = Field(min_length=2)
-    expected_behaviour: Optional[str] = None
-    validation_criteria: Optional[str] = None
-    change_note: Optional[str] = None
+    description: str = Field(min_length=2, max_length=5000)
+    expected_behaviour: Optional[str] = Field(default=None, max_length=2000)
+    validation_criteria: Optional[str] = Field(default=None, max_length=2000)
+    change_note: Optional[str] = Field(default=None, max_length=2000)
 
 
 class RejectIn(BaseModel):
@@ -113,15 +113,14 @@ def create_rule(body: RuleIn, principal: Principal = Depends(require("propose_ve
             """INSERT INTO rule_versions
                (id, org_id, rule_id, version_no, description, expected_behaviour,
                 validation_criteria, status, change_note, proposed_by)
-               VALUES (%s,%s,%s,1,%s,%s,%s,'approved',%s,%s)""",
+               VALUES (%s,%s,%s,1,%s,%s,%s,'pending_approval',%s,%s)""",
             (version_id, principal.org_id, rule_id, body.description,
              body.expected_behaviour, body.validation_criteria,
              body.change_note, principal.user_id),
         )
-        conn.execute("UPDATE rules SET current_version_id=%s WHERE id=%s", (version_id, rule_id))
         write_audit(conn, principal.user_id, "rule.created", "rule", rule_id,
-                    after={"key": body.key})
-    return {"rule_id": str(rule_id), "version_id": str(version_id)}
+                    after={"key": body.key, "version_id": str(version_id), "status": "pending_approval"})
+    return {"rule_id": str(rule_id), "version_id": str(version_id), "status": "pending_approval"}
 
 
 @router.post("/rules/{rule_id}/versions", status_code=201)
@@ -130,15 +129,15 @@ def propose_rule_version(rule_id: str, body: RuleVersionIn,
     version_id = uuid.uuid4()
     with tenant_conn(principal.org_id, principal.user_id) as conn:
         rule = conn.execute(
-            "SELECT id FROM rules WHERE id=%s AND org_id=%s",
+            "SELECT id FROM rules WHERE id=%s AND org_id=%s FOR UPDATE",
             (rule_id, principal.org_id),
         ).fetchone()
         if not rule:
             raise ApiError(404, "not_found", "Rule not found")
         max_v = conn.execute(
-            "SELECT COALESCE(MAX(version_no),0) FROM rule_versions WHERE rule_id=%s",
+            "SELECT COALESCE(MAX(version_no),0) AS max_version FROM rule_versions WHERE rule_id=%s",
             (rule_id,),
-        ).fetchone()[0]
+        ).fetchone()["max_version"]
         conn.execute(
             """INSERT INTO rule_versions
                (id, org_id, rule_id, version_no, description, expected_behaviour,
@@ -156,6 +155,7 @@ def propose_rule_version(rule_id: str, body: RuleVersionIn,
 def approve_rule_version(rule_id: str, version_no: int,
                           principal: Principal = Depends(require("approve_version"))):
     with tenant_conn(principal.org_id, principal.user_id) as conn:
+        conn.execute("SELECT id FROM rules WHERE id=%s AND org_id=%s FOR UPDATE", (rule_id, principal.org_id))
         ver = conn.execute(
             "SELECT id, status, proposed_by FROM rule_versions WHERE rule_id=%s AND version_no=%s AND org_id=%s",
             (rule_id, version_no, principal.org_id),
@@ -185,6 +185,7 @@ def approve_rule_version(rule_id: str, version_no: int,
 def reject_rule_version(rule_id: str, version_no: int, body: RejectIn = RejectIn(),
                          principal: Principal = Depends(require("approve_version"))):
     with tenant_conn(principal.org_id, principal.user_id) as conn:
+        conn.execute("SELECT id FROM rules WHERE id=%s AND org_id=%s FOR UPDATE", (rule_id, principal.org_id))
         ver = conn.execute(
             "SELECT id, status FROM rule_versions WHERE rule_id=%s AND version_no=%s AND org_id=%s",
             (rule_id, version_no, principal.org_id),

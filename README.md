@@ -17,12 +17,12 @@ Store approved facts (customer counts, prices, certifications, product names) wi
 Nothing is changed automatically. A human decides.
 
 ### 2. Adversarial Brand Red Team
-Three personas — **Brand Police**, **Legal Eagle**, **Customer Voice** — independently review content and flag risks. All Red Team findings are labelled `possible` (AI judgement, not deterministic proof). Legal Eagle findings carry the note "AI risk perspective, not legal advice."
+Three personas — **Brand Police**, **Legal Eagle**, **Customer Voice** — review content from distinct perspectives and flag risks. They use the same configured model, not independent AI systems. All Red Team findings are labelled `possible` (AI judgement, not deterministic proof). Legal Eagle findings carry the note "AI risk perspective, not legal advice."
 
 Each finding can open a **Prosecutor vs Defender** debate: two arguments shown side-by-side so a human can decide. Neither argument is a verdict. The panel never labels anything `confirmed`.
 
 ### 3. Guideline Chaos Testing
-Test tone brand rules for ambiguity by running 5 independent AI readers over a balanced set of generated cases (≈4 clear-pass, 4 clear-fail, 4 borderline). The **agreement score** = how many readers agreed / 5. Low agreement means the rule is ambiguous, not that the verdict is wrong. Human labels are ground truth.
+Test tone brand rules for ambiguity with five interpretations per generated case (≈4 clear-pass, 4 clear-fail, 4 borderline). With an API key these are separate calls to the configured model; demo mode uses five lightweight heuristics instead. The **agreement score** is the number of matching interpretations divided by five. Low agreement flags a case for human review; it does not prove that the rule or verdict is wrong. Human labels record reviewer judgments.
 
 When ≥1 case is ambiguous, a suggested clarification is generated. You can accept or reject it. Round 2 scope: **tone rules only**.
 
@@ -36,7 +36,7 @@ Reviewers accept, edit, dismiss (with reason), or escalate each finding. Full au
 
 ## Demo mode (no AI key)
 
-All AI features (Red Team, Chaos Testing, Debate) work without `OPENAI_API_KEY`. The response includes `mode: "demo"` and the UI shows a **"Demo mode (no AI key)"** badge. Demo-mode results use deterministic heuristics; they are clearly labelled and not presented as AI output.
+Red Team, Chaos Testing, and Debate have deterministic demo paths when `OPENAI_API_KEY` is not set. These are heuristics or canned arguments, not AI output, and responses identify demo mode. With a key, the API calls OpenAI using `OPENAI_MODEL` (default `gpt-4o-mini`). If a provider call fails, Red Team and Debate fall back to demo output; Chaos can return `mixed` when only some interpretations fall back. The UI shows the mode and any fallback note.
 
 Set `OPENAI_API_KEY` in `.env` to enable real AI (gpt-4o-mini by default).
 
@@ -80,6 +80,8 @@ Open http://localhost:3000 and sign in with any of:
 
 ### Backend
 
+Use Python 3.12 (the same version used by the backend container and CI).
+
 ```bash
 cd backend
 python -m venv .venv
@@ -108,7 +110,7 @@ npm install
 npm run dev
 ```
 
-The UI includes **demo auto-login** — if the backend is unavailable it loads a demo user so you can browse the interface without a running server.
+The UI requires a successful backend sign-in. Demo-account buttons fill the configured seed account details, but API-backed pages require the backend and seeded database to be available.
 
 ---
 

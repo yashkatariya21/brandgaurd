@@ -17,6 +17,10 @@ function VersionHistory({ versions, factId, onAction, userRole }: {
   const canPropose = ['admin', 'brand_manager'].includes(userRole)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [diffVersion, setDiffVersion] = useState<number | null>(null)
+  const [diffs, setDiffs] = useState<Record<number, {
+    diff: Record<string, { before: unknown; after: unknown }>
+  }>>({})
 
   const doAction = async (fn: () => Promise<unknown>) => {
     setBusy(true)
@@ -24,6 +28,26 @@ function VersionHistory({ versions, factId, onAction, userRole }: {
     try { await fn(); onAction() }
     catch (e: unknown) { setError(e instanceof Error ? e.message : 'Action failed') }
     finally { setBusy(false) }
+  }
+
+  const showDiff = async (versionNo: number) => {
+    setError('')
+    if (diffVersion === versionNo) {
+      setDiffVersion(null)
+      return
+    }
+    setDiffVersion(versionNo)
+    if (diffs[versionNo]) return
+    setBusy(true)
+    try {
+      const result = await factsApi.diff(factId, versionNo)
+      setDiffs((current) => ({ ...current, [versionNo]: result }))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Could not load version diff')
+      setDiffVersion(null)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -44,7 +68,7 @@ function VersionHistory({ versions, factId, onAction, userRole }: {
               </div>
               <div className="flex gap-1.5 flex-shrink-0">
                 {v.status === 'draft' && canPropose && (
-                  <button disabled={busy} onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
+                  <button disabled={busy} onClick={() => doAction(() => factsApi.submitVersion(factId, v.version_no))}
                     className="text-xs px-2.5 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">
                     Submit for approval
                   </button>
@@ -63,6 +87,41 @@ function VersionHistory({ versions, factId, onAction, userRole }: {
                 )}
               </div>
             </div>
+              {v.version_no > 1 && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    aria-expanded={diffVersion === v.version_no}
+                    onClick={() => showDiff(v.version_no)}
+                    className="text-xs text-indigo-700 hover:text-indigo-900 underline underline-offset-2 disabled:opacity-50"
+                  >
+                    {diffVersion === v.version_no ? 'Hide changes' : `Compare with v${v.version_no - 1}`}
+                  </button>
+                  {diffVersion === v.version_no && (
+                    <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-3" aria-live="polite">
+                      {!diffs[v.version_no] ? (
+                        <p className="text-xs text-slate-500">Loading changes…</p>
+                      ) : Object.keys(diffs[v.version_no].diff).length === 0 ? (
+                        <p className="text-xs text-slate-600">No tracked fields changed from the previous version.</p>
+                      ) : (
+                        <dl className="space-y-2">
+                          {Object.entries(diffs[v.version_no].diff).map(([field, change]) => (
+                            <div key={field} className="text-xs">
+                              <dt className="font-semibold text-slate-700 capitalize">{field.replace(/_/g, ' ')}</dt>
+                              <dd className="mt-0.5 text-slate-600">
+                                <span className="line-through text-rose-700">{String(change.before ?? '—')}</span>
+                                <span className="mx-2" aria-hidden="true">→</span>
+                                <span className="font-medium text-emerald-800">{String(change.after ?? '—')}</span>
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
           </div>
         ))}
       </div>
@@ -77,15 +136,21 @@ function FactModal({ fact: initial, onClose, userRole }: {
 }) {
   const [detail, setDetail] = useState<FactDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [showPropose, setShowPropose] = useState(false)
   const [proposeValue, setProposeValue] = useState('')
   const [proposeNote, setProposeNote] = useState('')
   const [proposing, setProposing] = useState(false)
+  const [proposeError, setProposeError] = useState('')
   const canPropose = ['admin', 'brand_manager'].includes(userRole)
 
   const load = () => {
     setLoading(true)
-    factsApi.get(initial.id).then(setDetail).finally(() => setLoading(false))
+    setLoadError('')
+    factsApi.get(initial.id)
+      .then(setDetail)
+      .catch((e: unknown) => setLoadError(e instanceof Error ? e.message : 'Could not load fact details'))
+      .finally(() => setLoading(false))
   }
 
   useEffect(load, [initial.id])
@@ -93,6 +158,7 @@ function FactModal({ fact: initial, onClose, userRole }: {
   const propose = async (e: React.FormEvent) => {
     e.preventDefault()
     setProposing(true)
+    setProposeError('')
     try {
       await factsApi.proposeVersion(initial.id, { value_text: proposeValue, change_note: proposeNote })
       setProposeValue('')
@@ -100,7 +166,7 @@ function FactModal({ fact: initial, onClose, userRole }: {
       setShowPropose(false)
       load()
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to propose')
+      setProposeError(err instanceof Error ? err.message : 'Failed to propose')
     } finally {
       setProposing(false)
     }
@@ -108,13 +174,13 @@ function FactModal({ fact: initial, onClose, userRole }: {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
+      <div role="dialog" aria-modal="true" aria-label={`${initial.label} fact details`} className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <h3 className="font-bold text-gray-900">{initial.label}</h3>
             <p className="text-xs text-gray-400 font-mono mt-0.5">{initial.key} · {initial.category}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+          <button onClick={onClose} aria-label="Close fact details" className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -123,6 +189,8 @@ function FactModal({ fact: initial, onClose, userRole }: {
         <div className="overflow-y-auto px-6 py-5">
           {loading ? (
             <p className="text-gray-400 text-sm">Loading…</p>
+          ) : loadError ? (
+            <p className="text-red-700 text-sm" role="alert">{loadError}</p>
           ) : detail ? (
             <>
               <div className="grid grid-cols-2 gap-4 mb-5">
@@ -159,6 +227,7 @@ function FactModal({ fact: initial, onClose, userRole }: {
                   {showPropose ? (
                     <form onSubmit={propose} className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-3">
                       <p className="text-xs font-semibold text-indigo-700">Propose new version</p>
+                      {proposeError && <p className="text-sm text-red-700" role="alert">{proposeError}</p>}
                       <input value={proposeValue} onChange={(e) => setProposeValue(e.target.value)} required
                         placeholder="New value text"
                         className="w-full px-3 py-2 text-sm border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
@@ -232,10 +301,10 @@ function CreateFactModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+      <div role="dialog" aria-modal="true" aria-label="Create fact" className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="font-bold text-gray-900">New Fact</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+          <button onClick={onClose} aria-label="Close create fact form" className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -302,6 +371,7 @@ export default function RepositoryPage() {
   const [facts, setFacts] = useState<Fact[]>([])
   const [rules, setRules] = useState<Rule[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [selectedFact, setSelectedFact] = useState<Fact | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [search, setSearch] = useState('')
@@ -310,8 +380,10 @@ export default function RepositoryPage() {
 
   const load = () => {
     setLoading(true)
+    setLoadError('')
     Promise.all([factsApi.list(), rulesApi.list()])
       .then(([f, r]) => { setFacts(f); setRules(r) })
+      .catch((e: unknown) => setLoadError(e instanceof Error ? e.message : 'Could not load repository'))
       .finally(() => setLoading(false))
   }
 
@@ -364,6 +436,8 @@ export default function RepositoryPage() {
         )}
       </div>
 
+      {loadError && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">Could not load repository: {loadError}</div>}
+
       {/* Tabs + search */}
       <div className="flex items-center justify-between border-b border-gray-200 mb-5">
         <div className="flex gap-0">
@@ -372,7 +446,7 @@ export default function RepositoryPage() {
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors capitalize -mb-px ${
                 tab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}>
-              {t === 'facts' ? `Facts (${facts.length})` : `Rules (${rules.length})`}
+              {t === 'facts' ? `Facts (${loadError ? '—' : facts.length})` : `Rules (${loadError ? '—' : rules.length})`}
             </button>
           ))}
         </div>
@@ -387,7 +461,7 @@ export default function RepositoryPage() {
             <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
           ))}
         </div>
-      ) : tab === 'facts' ? (
+      ) : loadError ? null : tab === 'facts' ? (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -404,10 +478,13 @@ export default function RepositoryPage() {
               {filteredFacts.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No facts found</td></tr>
               ) : filteredFacts.map((f) => (
-                <tr key={f.id} onClick={() => setSelectedFact(f)}
-                  className="hover:bg-indigo-50/50 cursor-pointer transition-colors group">
+                <tr key={f.id} className="hover:bg-indigo-50/50 transition-colors group">
                   <td className="px-4 py-3 font-mono text-xs text-gray-500">{f.key}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-indigo-700 transition-colors">{f.label}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    <button type="button" onClick={() => setSelectedFact(f)} className="text-left group-hover:text-indigo-700 focus-visible:text-indigo-700">
+                      {f.label}
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColors[f.category] ?? 'bg-gray-100 text-gray-500'}`}>
                       {f.category}

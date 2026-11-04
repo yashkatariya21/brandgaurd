@@ -31,6 +31,13 @@ class RegisterIn(BaseModel):
             raise ValueError("slug must be 3-40 characters: lowercase letters, digits, hyphens")
         return v
 
+    @field_validator("password")
+    @classmethod
+    def _bcrypt_byte_limit(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("password must be at most 72 UTF-8 bytes")
+        return value
+
 
 class LoginIn(BaseModel):
     email: EmailStr
