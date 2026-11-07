@@ -284,27 +284,35 @@ export default function RuleTestsPage() {
               <option value="">— choose a tone rule —</option>
               {rules.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.key} – {r.label}
+                  {r.key} – {r.label} {r.category !== 'tone' ? `(${r.category} — not supported)` : ''}
                 </option>
               ))}
             </select>
           </div>
-          <button
-            onClick={runTest}
-            disabled={running || !selectedRuleId}
-            className="flex items-center gap-2 px-5 py-2 bg-accent text-white rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {running ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Testing…
-              </>
-            ) : (
-              <>
-                <Atom size={15} /> Run Test
-              </>
+          <div className="flex flex-col gap-1">
+            {!selectedIsTone && selectedRuleId && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                Chaos testing currently supports tone rules only. Select a tone rule to run.
+              </p>
             )}
-          </button>
+            <button
+              onClick={runTest}
+              disabled={running || !selectedRuleId || !selectedIsTone}
+              title={!selectedIsTone && selectedRuleId ? 'Chaos testing currently supports tone rules' : undefined}
+              className="flex items-center gap-2 px-5 py-2 bg-accent text-white rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {running ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Testing…
+                </>
+              ) : (
+                <>
+                  <Atom size={15} /> Run Test
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {selectedRule && (

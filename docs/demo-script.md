@@ -4,11 +4,11 @@
 
 ## Before the room
 
-1. Use a disposable demo environment with the backend, PostgreSQL, and frontend running; the Compose stack exposes the UI at `http://localhost:3000`. Fill the required database/JWT variables in `.env`, including a `SEED_PASSWORD` of at least 10 characters. Keep credentials private; enter the actual configured password at login rather than treating `$SEED_PASSWORD` as a literal password.
+1. Use a disposable demo environment with the backend, PostgreSQL, and frontend running; the Compose stack exposes the UI at `http://localhost:3000`. Fill the required database/JWT variables in `.env`, including a `SEED_PASSWORD` of at least 10 characters. Set `VITE_DEMO_MODE=true` and `VITE_DEMO_PASSWORD` to the same value as `SEED_PASSWORD`. Keep credentials private.
 2. Ensure the fictional NimbusDesk seed exists and is in its initial state. The seed includes 16 facts, 15 rules, 12 registered content assets, and six role accounts. Do not reset a shared or valuable database during a presentation.
-3. Use **two isolated browser profiles** (for example, a normal window and a private window), not two tabs in one profile: the app stores its auth token in shared browser local storage. Sign in to organisation `nimbusdesk` as `brand@nimbusdesk.example` (Brand Manager) in one profile and `approver@nimbusdesk.example` (Approver) in the other, using the configured seed password. Confirm that both profiles show real workspace data; API-backed pages need the live service and seeded data.
-4. Recommended presentation mode: use the default Compose backend with **no `OPENAI_API_KEY`** so the AI-labelled features visibly identify themselves as heuristic demo mode. The Compose file does not forward the key/model to the backend, so placing a key in `.env` alone does not enable live LLM mode. This no-key path avoids dependence on an external LLM and makes the sample outputs more predictable. Do not describe those outputs as AI-generated. If you separately configure a local/live-LLM backend, rehearse it against that actual API and do not promise exact findings, case counts, or response time.
-5. Keep the two named accounts open, and start from the initial seed state. If the count is already changed, use a fresh disposable database prepared before the demo; don't improvise a destructive reset in front of judges.
+3. Sign in using the **Start demo** button (logs in as Brand Manager) or the **Try the demo** role buttons on the login page. To switch roles mid-session (e.g. Brand Manager proposes a version, then you switch to Approver to approve it), use the **Switch role** dropdown in the top navigation bar — no separate browser profile is required.
+4. Recommended presentation mode: use the default Compose backend with **no `OPENAI_API_KEY`** so the AI-labelled features visibly identify themselves as heuristic demo mode. Do not describe those outputs as AI-generated. If you separately configure a live-LLM backend, rehearse it against that actual API and do not promise exact findings, case counts, or response time.
+5. Keep the demo accounts accessible and start from the initial seed state. If the count is already changed, use a fresh disposable database prepared before the demo; don't improvise a destructive reset in front of judges.
 
 ## Run of show
 
@@ -20,8 +20,8 @@
 
 1. In the Brand Manager profile, open **Repository → Facts → Customer count**.
 2. The seed has v1 (`50,000+ customers`, approved) and v2 (`65,000+ customers`, draft). On v2, click **Submit for approval**. The UI calls `factsApi.submitVersion`, which uses the implemented submit endpoint to move the draft to pending approval.
-3. In the isolated Approver profile, refresh/open the same fact and approve the pending v2. This changes the current approved fact only after the approver acts.
-4. Return to the Brand Manager profile, open **Blast Radius**, select `Customer count (customer_count)`, and run the scan.
+3. Use the **Switch role** dropdown in the top nav to switch to the Approver role (this logs out and back in as Approver instantly, staying on the same page). Refresh the fact detail if needed and approve the pending v2. Switch back to Brand Manager to run the scan.
+4. Open **Blast Radius**, select `Customer count (customer_count)`, and run the scan.
 5. Point out the Confirmed and Possible groups and the scope note. In the seeded assets, the source-level acceptance cases expect **A-01, A-03, A-04, A-06** as confirmed and **A-05** (“50,000 tickets”) as possible; A-05 is a numeric match with a different attribute. If the live result differs, report what the screen actually shows—do not substitute the expected list.
 
 **Say:** “Confirmed here means the deterministic value-and-attribute check matched; Possible means a human must verify the context. The scan lists affected registered assets, but it does not edit or publish anything.”

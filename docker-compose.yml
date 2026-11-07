@@ -46,6 +46,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_DEMO_MODE: ${VITE_DEMO_MODE:-true}
+        VITE_DEMO_PASSWORD: ${SEED_PASSWORD}
+        VITE_ORG_SLUG: ${VITE_ORG_SLUG:-nimbusdesk}
     ports: ["3000:3000"]
     depends_on:
       backend:

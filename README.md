@@ -65,14 +65,18 @@ docker compose up --build
 
 The seed script auto-loads the **NimbusDesk** demo workspace on first start.
 
-Open http://localhost:3000 and sign in with any of:
+Open http://localhost:3000 and sign in. With `VITE_DEMO_MODE=true` (the default in docker compose), the login page shows a **"Try the demo"** section with role buttons. Click **Start demo** to sign in as Brand Manager, or pick any role.
 
 | Role | Email | Password |
 |---|---|---|
 | Admin | admin@nimbusdesk.example | `$SEED_PASSWORD` |
 | Brand Manager | brand@nimbusdesk.example | `$SEED_PASSWORD` |
 | Approver | approver@nimbusdesk.example | `$SEED_PASSWORD` |
-| Creator | creator@nimbusdesk.example | `$SEED_PASSWORD` |
+| Manager | manager@nimbusdesk.example | `$SEED_PASSWORD` |
+| Content Creator | creator@nimbusdesk.example | `$SEED_PASSWORD` |
+| External Agency | agency@nimbusdesk.example | `$SEED_PASSWORD` |
+
+To switch roles mid-session (e.g. Brand Manager proposes → Approver approves in the same browser), use the **Switch role** dropdown in the top navigation bar. No separate browser profile is needed.
 
 ---
 
@@ -110,7 +114,7 @@ npm install
 npm run dev
 ```
 
-The UI requires a successful backend sign-in. Demo-account buttons fill the configured seed account details, but API-backed pages require the backend and seeded database to be available.
+The UI requires a successful backend sign-in. When `VITE_DEMO_MODE=true`, the login page shows demo role buttons that log in automatically using the configured `VITE_DEMO_PASSWORD`. Use the **Switch role** dropdown in the nav bar to switch roles without a separate browser profile.
 
 ---
 
