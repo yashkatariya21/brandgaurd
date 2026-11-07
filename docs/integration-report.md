@@ -1,3 +1,80 @@
-# integration report
+# Integration report
 
-_Owner: see CLAUDE.md. Status: not started._
+Date: 2026-11-04
+Scope: Round 2 integration and deployment preparation only. Round 3 was not started.
+
+## Summary
+
+The Round 2 code and integration setup have been updated. `docker compose config -q`, frontend build/lint, Python compilation, 18 database-independent backend tests, the targeted secret guard, and the 20-case blast-radius evaluation were run successfully. The production frontend dependency audit reports zero vulnerabilities.
+
+**End-to-end release status: BLOCKED / NOT VERIFIED.** Docker Desktop's engine is unavailable in this environment, so no containers, database migrations, API journeys, or full database-backed test suite could be run. CI was not run, and `docs/QA-report.md` remains a placeholder; this report is not independent QA sign-off.
+
+## Files changed
+
+- `docker-compose.yml` — required environment checks, optional AI configuration, API health check, and health-based frontend dependency.
+- `backend/Dockerfile` — predictable Python process/runtime environment variables.
+- `.env.example` — safe placeholders and generation guidance; no real secret values intentionally added.
+- `.gitignore` — excludes `.env` and `.env.*`, except the template `.env.example`.
+- `.github/workflows/ci.yml` — secret guard, Python compilation, database-backed backend tests, evaluation, frontend ESLint and build.
+- `backend/scripts/check_secrets.py` — lightweight guard against tracked environment files and selected high-confidence credential patterns.
+- `docs/disclosure.md` — integration/build/CI dependency and AI-assistance disclosure.
+- `docs/integration-report.md` — this report.
+
+Frontend, backend, documentation, CI, and integration changes were coordinated across the session. No external deployment or destructive database operation was performed.
+
+## Decisions made
+
+1. Keep the existing single backend + PostgreSQL/pgvector + Vite frontend Compose topology; add readiness gates instead of adding services or redesigning the app.
+2. Require `OWNER_DB_PASSWORD`, `APP_DB_PASSWORD`, `JWT_SECRET`, and `SEED_PASSWORD` for Compose startup. This fails fast rather than starting with blank or invalid values. The demo seed password must be at least 10 characters.
+3. Keep OpenAI optional and demo-mode usable without an API key. Real keys remain environment-only.
+4. Add a deliberately limited in-repository secret guard rather than claiming broad secret-scanning coverage. It checks the current tracked index, not prior git history and not all credential formats.
+5. Keep the frontend Docker API URL configurable at build time for non-local hosting; the current local Compose image uses `http://localhost:8000`.
+6. Do not deploy externally without human approval. No external deployment configuration has been exercised.
+
+## API compatibility and integration findings
+
+`docs/api-contract.md` now documents the backend routes. Source comparison against the frontend found the earlier issues corrected: fact submission and predecessor diff use the implemented routes, and rule approve/reject helpers use the corresponding backend endpoints. This is a source comparison, not a live API test.
+
+| Area | Current source status | Remaining verification |
+|---|---|---|
+| Fact versions and approvals | UI submits drafts through `/submit`; API requires a distinct approver for activation. | Database-backed role flow not run. |
+| Fact diff and rule decisions | Frontend paths/signatures align with the documented API routes. | Live API calls not run. |
+| OpenAI mode | `openai>=1.30,<2` is declared; model selection uses `OPENAI_MODEL`; fallback states are represented as `demo`/`mixed`. | No live provider call or provider-outage integration test was run. |
+| Frontend API base | Docker build sets `VITE_API_URL` for the local Compose topology. | Non-local hosting needs a build-time override and has not been deployed. |
+
+## Commands/tests and exact actual results
+
+| Command or check | Actual result |
+|---|---|
+| `docker compose config -q` | **Passed.** |
+| Docker daemon / `docker compose up --build` | **Blocked.** `docker ps` could not connect to `dockerDesktopLinuxEngine`; the Docker Desktop service is stopped and could not be opened from this environment. No containers or database were started. |
+| Frontend `npm run build` and `npm run lint` | **Passed** after upgrading to Vite 8 / React Router 7. |
+| `npm audit --omit=dev` | **Passed:** zero production dependency vulnerabilities. Full `npm audit` still reports 15 moderate development-tool advisories in the ESLint/minimatch dependency tree. |
+| `python -m compileall -q app tests scripts` | **Passed** using the available Python 3.9 interpreter. The project CI/container target Python 3.12. |
+| Database-independent backend tests | **Passed:** 18 tests across extraction, LLM safety, request validation. |
+| Full `pytest -q` / database-backed tests | **Not run:** Docker/PostgreSQL unavailable. A separate blast-radius test module also requires Python 3.10+ syntax; the local interpreter is 3.9. |
+| `python -m scripts.evaluate` | **Passed:** on the 20-case fictional NimbusDesk set, precision 100%, recall 100%, false-positive rate 0%; real-world generalization is unmeasured. |
+| `python -m scripts.check_secrets` | **Passed:** scanned 94 tracked files in the current index. This is not a history scan or a comprehensive secret scanner. |
+| CI and hosted-model calls | **Not run.** No CI run or external OpenAI request was made. |
+
+## Blockers
+
+- Docker engine is unavailable; container startup, migrations, live API workflows, and DB/RLS tests remain unverified.
+- The full backend test suite and CI were not run.
+- Full `npm audit` still reports 15 moderate development-tool advisories; production dependencies are clean.
+- Non-local deployment needs a `VITE_API_URL` build-time override and has not been configured or approved.
+- Backend dependency requirements use version ranges rather than a fully resolved lockfile, and container image tags are not digest-pinned. The build is configured for reproducible setup, but bit-for-bit reproducible dependency/image resolution is not established.
+- QA sign-off is unavailable: `docs/QA-report.md` says “not started.”
+- Vercel/Render/Railway deployment has not been configured or approved. Frontend runtime API URL configuration needs UI-owner work before a non-local frontend deployment.
+
+## Status per item
+
+| Item | Status | Evidence |
+|---|---|---|
+| Compose configuration | **Done** | `docker compose config -q` passed. |
+| Container build and full-stack startup | **Blocked / untested** | Docker daemon unavailable. |
+| Frontend build and lint | **Done** | Both local commands passed. |
+| Backend compilation and selected unit tests | **Partial** | Compilation and 18 DB-independent tests passed; full suite not run. |
+| Evaluation | **Done, limited** | Measured only on the fictional 20-case dataset; not evidence of real-world performance. |
+| Production dependency audit | **Done** | `npm audit --omit=dev` reported zero vulnerabilities; 15 moderate dev-tool advisories remain in full audit. |
+| Independent QA and release readiness | **Not ready** | `docs/QA-report.md` remains “not started”; database-backed verification is unavailable. |

@@ -99,6 +99,15 @@ class TestBalancedCaseSet:
         fail_cases = [c for c in cases if c["intended_label"] == "fail"]
         assert len(fail_cases) >= 3  # ~4 clear fail cases
 
+    def test_tone_run_uses_the_same_12_case_balance_in_demo_mode(self):
+        rule = self._get_tone_rule()
+        cases = generate_chaos_cases(rule, use_llm=False)
+        assert len(cases) == 12
+        assert {label: sum(c["intended_label"] == label for c in cases)
+                for label in ("pass", "fail", "borderline")} == {
+                    "pass": 4, "fail": 4, "borderline": 4
+                }
+
 
 # ─── Deterministic interpreter behaviour ────────────────────────────────────
 

@@ -50,41 +50,40 @@ def get_rules_context(conn, org_id) -> str:
     return "\n".join(lines)
 
 
-def find_cited_fact(conn, org_id, issue_text: str) -> Optional[dict]:
+def find_cited_fact(conn, org_id, fact_key: Optional[str]) -> Optional[dict]:
     """
-    Try to find an approved fact that is cited in an issue string.
+    Validate an explicitly returned fact key against approved tenant facts.
     Returns {'fact_id': ..., 'rule_id': None} or None.
-    This is a simple keyword-match approach for Round 2 (no embeddings).
     """
+    if not fact_key:
+        return None
     rows = conn.execute(
-        """SELECT f.id, f.key, f.label, fv.value_text
+        """SELECT f.id, f.key
            FROM facts f
            JOIN fact_versions fv ON fv.id = f.current_version_id
            WHERE f.org_id = %s AND fv.status = 'approved'""",
         (org_id,),
     ).fetchall()
 
-    issue_lower = issue_text.lower()
     for r in rows:
-        if r["key"].lower() in issue_lower or r["label"].lower() in issue_lower:
-            return {"fact_id": str(r["id"]), "rule_id": None}
-        if r["value_text"] and r["value_text"].lower()[:30] in issue_lower:
+        if fact_key.strip() == r["key"]:
             return {"fact_id": str(r["id"]), "rule_id": None}
     return None
 
 
-def find_cited_rule(conn, org_id, issue_text: str) -> Optional[dict]:
-    """Try to find an approved rule cited in an issue string."""
+def find_cited_rule(conn, org_id, rule_key: Optional[str]) -> Optional[dict]:
+    """Validate an explicitly returned rule key against approved tenant rules."""
+    if not rule_key:
+        return None
     rows = conn.execute(
-        """SELECT r.id, r.key, r.label
+        """SELECT r.id, r.key
            FROM rules r
            JOIN rule_versions rv ON rv.id = r.current_version_id
            WHERE r.org_id = %s AND rv.status = 'approved'""",
         (org_id,),
     ).fetchall()
 
-    issue_lower = issue_text.lower()
     for r in rows:
-        if r["key"].lower() in issue_lower or r["label"].lower() in issue_lower:
+        if rule_key.strip() == r["key"]:
             return {"rule_id": str(r["id"]), "fact_id": None}
     return None

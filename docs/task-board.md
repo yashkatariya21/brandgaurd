@@ -1,6 +1,8 @@
 # BrandGuard – Round 2 Task Board
 
-Last updated: November 2026
+Last updated: November 4, 2026
+
+> **Verification status:** This board tracks implementation scope, not release sign-off. The frontend production build and lint pass locally, and `docker compose config -q` passes. The Docker daemon is unavailable in this environment, so container startup and database-backed backend tests remain unverified. No CI result is asserted.
 
 ---
 
@@ -13,7 +15,7 @@ Last updated: November 2026
 | **T3** | Prosecutor vs Defender — endpoint + UI, no AI verdict, human decision | ✅ Done | `api/redteam.py`, `pages/FindingsPage.tsx`, `api.ts` |
 | **T4** | Chaos Testing — endpoint + page, 5 interpreters, agreement score, ambiguity flag, human labels, clarification | ✅ Done | `api/chaos.py` (new), `services/chaos.py`, `pages/RuleTestsPage.tsx` (new), `App.tsx`, `Layout.tsx`, `api.ts` |
 | **T5** | Checker confidence labels — deterministic=confirmed/high, value-only=possible/medium | ✅ Done | `services/checker.py` |
-| **T6** | Tests + evaluation script | ✅ Done | `tests/test_blast_radius.py`, `tests/test_checker.py`, `tests/test_redteam.py`, `tests/test_chaos.py`, `scripts/evaluate.py`, `tests/data/labelled_cases.json` |
+| **T6** | Tests + evaluation script | ⚠️ Implemented; suite/CI results unverified | `tests/test_blast_radius.py`, `tests/test_checker.py`, `tests/test_redteam.py`, `tests/test_chaos.py`, `scripts/evaluate.py`, `tests/data/labelled_cases.json` |
 | **T7** | Retrieval — structured fact/rule context for Red Team and findings | ✅ Done | `services/retrieval.py` (new) |
 | **T8** | Docs — README, disclosure, demo-script, task-board | ✅ Done | `README.md`, `docs/disclosure.md`, `docs/demo-script.md`, `docs/task-board.md` |
 
@@ -28,7 +30,7 @@ Last updated: November 2026
 | Prosecutor vs Defender: endpoint + UI, saved in debates, no AI verdict, human decision recorded | ✅ |
 | Chaos testing: endpoint + page, 5 interpretations/case, agreement score, ambiguity flag, human labels, suggested clarification | ✅ |
 | Checker labels correct; confidence rules followed | ✅ |
-| New tests pass with original 18; CI green; evaluation script prints measured numbers | ✅ |
+| New tests pass with original 18; CI green; evaluation script prints measured numbers | ⏳ Not verified in this work session |
 | README, disclosure, demo-script, task-board updated | ✅ |
 
 ---
