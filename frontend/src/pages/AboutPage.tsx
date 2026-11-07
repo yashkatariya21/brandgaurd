@@ -70,26 +70,34 @@ export default function AboutPage() {
           <h2 className={`text-main text-3xl ${heading}`}>About Me</h2>
         </div>
         <div className="p-8 rounded-2xl glass-panel">
-          <div className="flex items-center gap-4 mb-5">
+          <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 rounded-full flex items-center justify-center bg-accent text-white">
               <User size={28} />
             </div>
             <div>
-              <p className="font-semibold text-main text-lg">Your name here</p>
-              <p className="text-sm text-muted">Builder of BrandGuard</p>
+              <p className="font-semibold text-main text-lg flex items-center gap-1.5">
+                Builder <Sparkles size={14} className="text-accent" />
+              </p>
+              <p className="text-sm text-muted">
+                Fourth-year Integrated M.Tech · Software Engineering · VIT
+              </p>
             </div>
           </div>
-          {/* About-me content placeholder — the author will provide this. */}
-          <div className="border border-dashed border-subtle rounded-xl p-6 text-center">
-            <Sparkles size={20} className="text-accent mx-auto mb-2" />
-            <p className="text-sm text-muted">
-              About-me content coming soon. The author will provide a bio here — background, role,
-              what they built this for, and how to reach them.
+          <div className="space-y-4 text-muted leading-relaxed">
+            <p>
+              A fourth-year Integrated M.Tech student in Software Engineering at Vellore Institute of
+              Technology (VIT), driven by curiosity and a constant desire to explore beyond the
+              familiar. I enjoy stepping into unfamiliar domains, connecting ideas, questioning
+              conventional approaches, and turning possibilities into practical solutions. I
+              believe growth begins where familiarity ends, and I'm always eager to learn,
+              experiment, collaborate, and bring fresh perspectives to the table.
+            </p>
+            <p>
+              Looking forward to meeting fellow innovators, exchanging ideas, learning from diverse
+              perspectives, and collaborating with the community. Excited to see what we can
+              imagine, explore, and build together!
             </p>
           </div>
-          <p className="text-xs text-muted/70 mt-4 italic">
-            (Replace this placeholder with your about-me content when ready.)
-          </p>
         </div>
       </section>
 

@@ -11,7 +11,6 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
   onClose: () => void
   onAnalysed: () => void
 }) {
-  const { isAuthority } = useTheme()
   const [detail, setDetail] = useState<ContentDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [analysing, setAnalysing] = useState(false)

@@ -65,7 +65,6 @@ async function request<T>(
 
 const get = <T>(path: string) => request<T>('GET', path)
 const post = <T>(path: string, body?: unknown) => request<T>('POST', path, body)
-const patch = <T>(path: string, body?: unknown) => request<T>('PATCH', path, body)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

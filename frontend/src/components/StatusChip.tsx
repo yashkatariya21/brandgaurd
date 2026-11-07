@@ -72,10 +72,12 @@ const TONES: Record<Tone, ToneConfig> = {
   none: { color: '#475569', bg: '#F1F5F9', border: '#E2E8F0', Icon: Info, label: 'None' },
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function severityToTone(severity: string): Tone {
   return (severity as Tone) in TONES ? (severity as Tone) : 'low'
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function statusToTone(status: string): Tone {
   return (status as Tone) in TONES ? (status as Tone) : 'none'
 }

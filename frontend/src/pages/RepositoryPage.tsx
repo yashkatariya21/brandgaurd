@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, X, Search, Scale } from 'lucide-react'
+import { Plus, X, Search } from 'lucide-react'
 import { factsApi, rulesApi, Fact, FactDetail, Rule } from '../api'
 import { useAuth } from '../auth'
 import { useTheme } from '../theme'

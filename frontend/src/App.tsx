@@ -1,7 +1,7 @@
 import React from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
-import { ThemeProvider, useTheme } from './theme'
+import { ThemeProvider } from './theme'
 import LoginPage from './pages/LoginPage'
 import Layout from './components/Layout'
 import HomePage from './pages/HomePage'
@@ -15,7 +15,6 @@ import AboutPage from './pages/AboutPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
-  const { isAuthority } = useTheme()
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-canvas">
