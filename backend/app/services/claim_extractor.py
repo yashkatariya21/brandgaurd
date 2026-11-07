@@ -29,22 +29,25 @@ _UNIT_TO_ATTRIBUTE = {
     "day": "free_trial",
     "minutes": "first_response",
     "minute": "first_response",
+    "uptime": "uptime_percent",
+    "availability": "uptime_percent",
 }
 
 # ─── Patterns ────────────────────────────────────────────────────────────────
 
 _CERT_PATTERNS = [
-    (r"\bSOC\s*2(?:\s+Type\s+[I1]{1,2})?\b", "certification", "soc2"),
-    (r"\bISO\s*27001\b", "certification", "iso27001"),
+    (r"\bSOC\s*2(?:\s+Type\s+[I1]{1,2})?\b", re.IGNORECASE, "certification", "soc2"),
+    (r"\bISO\s*27001\b", re.IGNORECASE, "certification", "iso27001"),
 ]
 
 _BANNED_NAME_PATTERNS = [
-    (r"\bNimbus\s+Desk\b", "product_name", "banned_product_name"),
-    (r"\bNimbusDESK\b", "product_name", "banned_product_name"),
+    (r"\bNimbus\s+Desk\b", re.IGNORECASE, "product_name", "banned_product_name"),
+    # Case-sensitive: "NimbusDesk" (the approved form) must NOT match "NimbusDESK".
+    (r"\bNimbusDESK\b", 0, "product_name", "banned_product_name"),
 ]
 
 _EMBARGO_PATTERNS = [
-    (r"\bProject\s+Heron\b", "embargo", "embargo_term"),
+    (r"\bProject\s+Heron\b", re.IGNORECASE, "embargo", "embargo_term"),
 ]
 
 # Word-number table (lower-case key)
@@ -101,13 +104,25 @@ def normalise_number(raw: str) -> Optional[float]:
 
 
 def _infer_attribute(unit: str, attr_hint: str, raw: str, body: str, pos: int) -> str:
-    """Map a unit string to a canonical attribute, falling back to context heuristics."""
+    """Map a unit string to a canonical attribute, falling back to context heuristics.
+
+    A pattern's own attribute hint (e.g. 'price_per_agent_month' from the
+    "$19 per agent per month" pattern) is authoritative when the unit word is
+    absent or generic — context words like "agent" or "customers" must not
+    override it, otherwise "$19 per agent per month" is mislabelled as
+    agent_count and "99.9% uptime" as customer_count.
+    """
     if unit:
         unit_lower = unit.strip().lower()
         for key, attr in _UNIT_TO_ATTRIBUTE.items():
             if key in unit_lower:
                 return attr
-    # Context heuristic
+    # A specific pattern (price / uptime / first_response / free_trial) knows
+    # its own attribute. Only the generic "count" patterns fall through to the
+    # context heuristic below.
+    if attr_hint and attr_hint != "count":
+        return attr_hint
+    # Context heuristic (only for generic count patterns with no unit word)
     window = body[max(0, pos - 40): pos + len(raw) + 40].lower()
     if any(w in window for w in ("ticket", "handle", "resolve")):
         return "ticket_volume"
@@ -156,18 +171,18 @@ def extract_claims(body_text: str) -> List[dict]:
         })
 
     # 1. Certification patterns
-    for pattern, entity, attribute in _CERT_PATTERNS:
-        for m in re.finditer(pattern, body_text, re.IGNORECASE):
+    for pattern, flags, entity, attribute in _CERT_PATTERNS:
+        for m in re.finditer(pattern, body_text, flags):
             _add(m.start(), m.end(), m.group(), entity, attribute)
 
     # 2. Banned product name forms
-    for pattern, entity, attribute in _BANNED_NAME_PATTERNS:
-        for m in re.finditer(pattern, body_text, re.IGNORECASE):
+    for pattern, flags, entity, attribute in _BANNED_NAME_PATTERNS:
+        for m in re.finditer(pattern, body_text, flags):
             _add(m.start(), m.end(), m.group(), entity, attribute)
 
     # 3. Embargo patterns
-    for pattern, entity, attribute in _EMBARGO_PATTERNS:
-        for m in re.finditer(pattern, body_text, re.IGNORECASE):
+    for pattern, flags, entity, attribute in _EMBARGO_PATTERNS:
+        for m in re.finditer(pattern, body_text, flags):
             _add(m.start(), m.end(), m.group(), entity, attribute)
 
     # 4. Word-form numbers (e.g. "fifty thousand customers")

@@ -1,158 +1,168 @@
 import React from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  Database,
+  FileText,
+  Crosshair,
+  ShieldAlert,
+  Atom,
+  Scale,
+  ShieldCheck,
+  Palette,
+  Home,
+  Info,
+  type LucideIcon,
+} from 'lucide-react'
 import { useAuth } from '../auth'
+import { useTheme } from '../theme'
+import Header from './Header'
 
-const navItems = [
-  {
-    to: '/',
-    label: 'Dashboard',
-    desc: 'Overview',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    ),
-  },
-  {
-    to: '/repository',
-    label: 'Repository',
-    desc: 'Facts & Rules',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-      </svg>
-    ),
-  },
-  {
-    to: '/content',
-    label: 'Content',
-    desc: 'Submit & analyse',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-  },
-  {
-    to: '/blast-radius',
-    label: 'Blast Radius',
-    desc: 'Impact analysis',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    ),
-  },
-  {
-    to: '/findings',
-    label: 'Findings',
-    desc: 'Review & decide',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-    ),
-  },
-  {
-    to: '/rule-tests',
-    label: 'Rule Tests',
-    desc: 'Chaos testing',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-      </svg>
-    ),
-  },
-]
-
-const roleConfig: Record<string, { label: string; cls: string }> = {
-  admin: { label: 'Admin', cls: 'bg-violet-100 text-violet-700' },
-  brand_manager: { label: 'Brand Manager', cls: 'bg-indigo-100 text-indigo-700' },
-  approver: { label: 'Approver', cls: 'bg-emerald-100 text-emerald-700' },
-  manager: { label: 'Manager', cls: 'bg-sky-100 text-sky-700' },
-  creator: { label: 'Creator', cls: 'bg-amber-100 text-amber-700' },
-  external_creator: { label: 'External', cls: 'bg-gray-100 text-gray-600' },
+interface NavItem {
+  to: string
+  label: string
+  Icon: LucideIcon
 }
+
+const navItems: NavItem[] = [
+  { to: '/', label: 'Home', Icon: Home },
+  { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { to: '/repository', label: 'Repository', Icon: Database },
+  { to: '/content', label: 'Content', Icon: FileText },
+  { to: '/blast-radius', label: 'Blast Radius', Icon: Crosshair },
+  { to: '/findings', label: 'Findings', Icon: ShieldAlert },
+  { to: '/rule-tests', label: 'Rule Tests', Icon: Atom },
+  { to: '/about', label: 'About', Icon: Info },
+]
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const { isAuthority, toggleTheme } = useTheme()
   const navigate = useNavigate()
-  const roleInfo = roleConfig[user?.role ?? ''] ?? { label: user?.role ?? '', cls: 'bg-gray-100 text-gray-600' }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-56 bg-slate-900 flex flex-col flex-shrink-0">
-        {/* Logo */}
-        <div className="px-5 py-5 border-b border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-indigo-500 rounded-md flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-bold text-white text-sm leading-none">BrandGuard</p>
-              <p className="text-slate-500 text-xs mt-0.5">{user?.orgName ?? 'NimbusDesk'}</p>
-            </div>
+    <div className="min-h-screen flex flex-col bg-canvas">
+      {/* ── Primary top nav ───────────────────────────────────────────── */}
+      <header
+        className={`w-full sticky top-0 z-30 border-b flex items-center justify-between px-5 h-14 ${
+          isAuthority ? 'text-slate-100' : 'text-[#2D3142]'
+        }`}
+        style={{
+          backgroundColor: isAuthority ? '#1f3a5f' : '#f5f2fc',
+          borderColor: isAuthority ? '#162c4a' : 'rgba(126,105,171,0.12)',
+        }}
+      >
+        {/* Brand */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={
+              isAuthority
+                ? { backgroundColor: '#2a7f8e' }
+                : {
+                    backgroundColor: '#7e69ab',
+                    boxShadow: '0 4px 12px rgba(126,105,171,0.25)',
+                  }
+            }
+          >
+            <Scale size={16} className="text-white" />
           </div>
+          <div className="leading-none">
+            <span
+              className={`font-bold text-sm tracking-tight ${
+                isAuthority ? 'font-newsreader' : 'font-jakarta'
+              }`}
+            >
+              BrandGuard
+            </span>
+            <span className="hidden sm:inline text-xs opacity-60 ml-1.5">
+              & Risk Governance
+            </span>
+          </div>
+          <span
+            className="hidden lg:inline text-[10px] font-medium px-2 py-0.5 rounded-full border opacity-70"
+            style={{
+              borderColor: isAuthority ? 'rgba(255,255,255,0.15)' : 'rgba(126,105,171,0.2)',
+            }}
+          >
+            {user?.orgName ?? 'Workspace'} · v0.2
+          </span>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
-          {navItems.map((item) => (
+        {/* Nav items */}
+        <nav className="flex items-center gap-1 overflow-x-auto scrollbar-thin mx-2">
+          {navItems.map(({ to, label, Icon }) => (
             <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
+              key={to}
+              to={to}
+              end={to === '/'}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors group ${
+                `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                   isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    ? 'bg-accent text-white'
+                    : isAuthority
+                    ? 'hover:bg-white/10'
+                    : 'hover:bg-white/60'
                 }`
               }
             >
-              {item.icon}
-              <div>
-                <p className="font-medium leading-none">{item.label}</p>
-                <p className="text-[10px] opacity-60 mt-0.5">{item.desc}</p>
-              </div>
+              <Icon size={14} strokeWidth={1.75} />
+              <span className="hidden md:inline">{label}</span>
             </NavLink>
           ))}
         </nav>
 
-        {/* User */}
-        <div className="px-3 py-4 border-t border-slate-800">
-          <div className="px-3 py-2 mb-1">
-            <p className="text-white text-sm font-medium truncate">{user?.displayName ?? 'Demo Admin'}</p>
-            <p className="text-slate-500 text-xs truncate">{user?.email}</p>
-            <span className={`inline-block mt-1.5 px-2 py-0.5 rounded text-xs font-medium ${roleInfo.cls}`}>
-              {roleInfo.label}
-            </span>
-          </div>
+        {/* Right cluster: theme toggle + user */}
+        <div className="flex items-center gap-3 flex-shrink-0">
           <button
-            onClick={() => { logout(); navigate('/login') }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg text-sm transition-colors"
+            onClick={toggleTheme}
+            title="Toggle theme"
+            className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-lg border transition-colors"
+            style={{
+              borderColor: isAuthority ? 'rgba(255,255,255,0.15)' : 'rgba(126,105,171,0.2)',
+            }}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
+            <Palette size={13} strokeWidth={1.75} />
+            <span className="hidden sm:inline">{isAuthority ? 'Navy' : 'Lavender'}</span>
+          </button>
+
+          <div className="hidden lg:flex items-center gap-2">
+            <div className="text-right leading-tight">
+              <p className="text-xs font-medium">{user?.displayName ?? 'User'}</p>
+              <p className="text-[10px] opacity-60 capitalize">{user?.role ?? ''}</p>
+            </div>
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+              style={{
+                backgroundColor: isAuthority ? '#2a7f8e' : '#7e69ab',
+                color: '#fff',
+              }}
+            >
+              {(user?.displayName ?? 'U')[0].toUpperCase()}
+            </div>
+            <ShieldCheck size={16} className="text-emerald-400" />
+          </div>
+
+          <button
+            onClick={() => {
+              logout()
+              navigate('/login')
+            }}
+            className="text-xs px-2.5 py-1 rounded-lg border transition-colors"
+            style={{
+              borderColor: isAuthority ? 'rgba(255,255,255,0.15)' : 'rgba(126,105,171,0.2)',
+            }}
+          >
             Sign out
           </button>
         </div>
-      </aside>
+      </header>
 
-      {/* Main */}
-      <main className="flex-1 overflow-y-auto">
+      {/* ── Secondary breadcrumb bar ─────────────────────────────────── */}
+      <Header />
+
+      {/* ── Main content ──────────────────────────────────────────────── */}
+      <main className="flex-1 overflow-y-auto scrollbar-thin">
         <Outlet />
       </main>
     </div>

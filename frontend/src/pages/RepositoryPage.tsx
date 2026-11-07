@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
+import { Plus, X, Search, Scale } from 'lucide-react'
 import { factsApi, rulesApi, Fact, FactDetail, Rule } from '../api'
 import { useAuth } from '../auth'
+import { useTheme } from '../theme'
 import StatusBadge from '../components/StatusBadge'
 
 type Tab = 'facts' | 'rules'
@@ -21,42 +23,58 @@ function VersionHistory({ versions, factId, onAction, userRole }: {
   const doAction = async (fn: () => Promise<unknown>) => {
     setBusy(true)
     setError('')
-    try { await fn(); onAction() }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Action failed') }
-    finally { setBusy(false) }
+    try {
+      await fn()
+      onAction()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Action failed')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
     <div className="mt-5">
-      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Version history</h4>
+      <h4 className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-3">
+        Version history
+      </h4>
       {error && <p className="text-red-600 text-xs mb-2">{error}</p>}
       <div className="space-y-2">
         {[...versions].reverse().map((v) => (
-          <div key={v.id} className="border border-gray-200 rounded-lg p-3">
+          <div key={v.id} className="border border-subtle rounded-lg p-3 bg-canvas">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-mono text-gray-400">v{v.version_no}</span>
+                  <span className="text-xs font-mono text-muted">v{v.version_no}</span>
                   <StatusBadge status={v.status} />
                 </div>
-                <p className="text-sm font-medium text-gray-900">{v.value_text}</p>
-                {v.change_note && <p className="text-xs text-gray-400 mt-1">{v.change_note}</p>}
+                <p className="text-sm font-medium text-main">{v.value_text}</p>
+                {v.change_note && <p className="text-xs text-muted mt-1">{v.change_note}</p>}
               </div>
               <div className="flex gap-1.5 flex-shrink-0">
                 {v.status === 'draft' && canPropose && (
-                  <button disabled={busy} onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
-                    className="text-xs px-2.5 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">
+                  <button
+                    disabled={busy}
+                    onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
+                    className="text-xs px-2.5 py-1 bg-accent text-white rounded-md hover:opacity-90 disabled:opacity-50"
+                  >
                     Submit for approval
                   </button>
                 )}
                 {v.status === 'pending_approval' && canApprove && (
                   <>
-                    <button disabled={busy} onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
-                      className="text-xs px-2.5 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50">
+                    <button
+                      disabled={busy}
+                      onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
+                      className="text-xs px-2.5 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                    >
                       Approve
                     </button>
-                    <button disabled={busy} onClick={() => doAction(() => factsApi.rejectVersion(factId, v.version_no))}
-                      className="text-xs px-2.5 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50">
+                    <button
+                      disabled={busy}
+                      onClick={() => doAction(() => factsApi.rejectVersion(factId, v.version_no))}
+                      className="text-xs px-2.5 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                    >
                       Reject
                     </button>
                   </>
@@ -73,7 +91,9 @@ function VersionHistory({ versions, factId, onAction, userRole }: {
 // ── Fact detail modal ────────────────────────────────────────────────────────
 
 function FactModal({ fact: initial, onClose, userRole }: {
-  fact: Fact; onClose: () => void; userRole: string
+  fact: Fact
+  onClose: () => void
+  userRole: string
 }) {
   const [detail, setDetail] = useState<FactDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -94,7 +114,10 @@ function FactModal({ fact: initial, onClose, userRole }: {
     e.preventDefault()
     setProposing(true)
     try {
-      await factsApi.proposeVersion(initial.id, { value_text: proposeValue, change_note: proposeNote })
+      await factsApi.proposeVersion(initial.id, {
+        value_text: proposeValue,
+        change_note: proposeNote,
+      })
       setProposeValue('')
       setProposeNote('')
       setShowPropose(false)
@@ -107,48 +130,57 @@ function FactModal({ fact: initial, onClose, userRole }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="glass-modal rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-subtle">
           <div>
-            <h3 className="font-bold text-gray-900">{initial.label}</h3>
-            <p className="text-xs text-gray-400 font-mono mt-0.5">{initial.key} · {initial.category}</p>
+            <h3 className="font-bold text-main font-newsreader text-lg">{initial.label}</h3>
+            <p className="text-xs text-muted font-mono mt-0.5">
+              {initial.key} · {initial.category}
+            </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <button onClick={onClose} className="text-muted hover:text-main p-1 rounded-lg hover:bg-accent-subtle">
+            <X size={18} />
           </button>
         </div>
-        <div className="overflow-y-auto px-6 py-5">
+        <div className="overflow-y-auto scrollbar-thin px-6 py-5">
           {loading ? (
-            <p className="text-gray-400 text-sm">Loading…</p>
+            <p className="text-muted text-sm">Loading…</p>
           ) : detail ? (
             <>
               <div className="grid grid-cols-2 gap-4 mb-5">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Current value</p>
-                  <p className="text-sm font-semibold text-gray-900">{detail.value_text}</p>
+                <div className="bg-canvas-secondary rounded-lg p-3">
+                  <p className="text-xs text-muted mb-1">Current value</p>
+                  <p className="text-sm font-semibold text-main">{detail.value_text}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Status</p>
+                <div className="bg-canvas-secondary rounded-lg p-3">
+                  <p className="text-xs text-muted mb-1">Status</p>
                   <StatusBadge status={detail.version_status ?? 'draft'} />
                 </div>
                 {detail.expires_at && (
-                  <div className="bg-amber-50 rounded-lg p-3 col-span-2">
-                    <p className="text-xs text-amber-600 font-medium">Expires: {detail.expires_at}</p>
+                  <div className="bg-amber-50 rounded-lg p-3 col-span-2 border border-amber-200">
+                    <p className="text-xs text-amber-700 font-medium">
+                      Expires: {detail.expires_at}
+                    </p>
                   </div>
                 )}
               </div>
 
               {detail.aliases.length > 0 && (
                 <div className="mb-5">
-                  <p className="text-xs text-gray-500 mb-2">Aliases & banned forms</p>
+                  <p className="text-xs text-muted mb-2">Aliases & banned forms</p>
                   <div className="flex flex-wrap gap-1.5">
                     {detail.aliases.map((a, i) => (
-                      <span key={i} className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        a.kind === 'banned_form' ? 'bg-red-100 text-red-600 line-through' : 'bg-blue-100 text-blue-700'
-                      }`}>{a.alias_text}</span>
+                      <span
+                        key={i}
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          a.kind === 'banned_form'
+                            ? 'bg-red-100 text-red-600 line-through'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}
+                      >
+                        {a.alias_text}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -157,35 +189,58 @@ function FactModal({ fact: initial, onClose, userRole }: {
               {canPropose && (
                 <div className="mb-5">
                   {showPropose ? (
-                    <form onSubmit={propose} className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-3">
-                      <p className="text-xs font-semibold text-indigo-700">Propose new version</p>
-                      <input value={proposeValue} onChange={(e) => setProposeValue(e.target.value)} required
+                    <form
+                      onSubmit={propose}
+                      className="bg-accent-subtle border border-accent/20 rounded-xl p-4 space-y-3"
+                    >
+                      <p className="text-xs font-semibold text-accent">Propose new version</p>
+                      <input
+                        value={proposeValue}
+                        onChange={(e) => setProposeValue(e.target.value)}
+                        required
                         placeholder="New value text"
-                        className="w-full px-3 py-2 text-sm border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
-                      <input value={proposeNote} onChange={(e) => setProposeNote(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-subtle rounded-lg focus:outline-none focus:border-accent bg-surface text-main"
+                      />
+                      <input
+                        value={proposeNote}
+                        onChange={(e) => setProposeNote(e.target.value)}
                         placeholder="Change note (optional)"
-                        className="w-full px-3 py-2 text-sm border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                        className="w-full px-3 py-2 text-sm border border-subtle rounded-lg focus:outline-none focus:border-accent bg-surface text-main"
+                      />
                       <div className="flex gap-2">
-                        <button type="submit" disabled={proposing}
-                          className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                        <button
+                          type="submit"
+                          disabled={proposing}
+                          className="px-3 py-1.5 bg-accent text-white text-sm rounded-lg hover:opacity-90 disabled:opacity-50"
+                        >
                           {proposing ? 'Saving…' : 'Propose'}
                         </button>
-                        <button type="button" onClick={() => setShowPropose(false)}
-                          className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800">
+                        <button
+                          type="button"
+                          onClick={() => setShowPropose(false)}
+                          className="px-3 py-1.5 text-sm text-muted hover:text-main"
+                        >
                           Cancel
                         </button>
                       </div>
                     </form>
                   ) : (
-                    <button onClick={() => setShowPropose(true)}
-                      className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                    <button
+                      onClick={() => setShowPropose(true)}
+                      className="text-sm text-accent hover:opacity-80 font-medium"
+                    >
                       + Propose new version
                     </button>
                   )}
                 </div>
               )}
 
-              <VersionHistory versions={detail.versions} factId={detail.id} onAction={load} userRole={userRole} />
+              <VersionHistory
+                versions={detail.versions}
+                factId={detail.id}
+                onAction={load}
+                userRole={userRole}
+              />
             </>
           ) : (
             <p className="text-red-500 text-sm">Failed to load</p>
@@ -230,61 +285,98 @@ function CreateFactModal({ onClose, onCreated }: { onClose: () => void; onCreate
     }
   }
 
+  const inputCls =
+    'w-full px-3 py-2 text-sm border border-subtle rounded-lg focus:outline-none focus:border-accent bg-surface text-main'
+
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-900">New Fact</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="glass-modal rounded-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-subtle">
+          <h3 className="font-bold text-main font-newsreader">New Fact</h3>
+          <button onClick={onClose} className="text-muted hover:text-main p-1 rounded-lg hover:bg-accent-subtle">
+            <X size={18} />
           </button>
         </div>
         <form onSubmit={submit} className="px-6 py-5 space-y-4">
           {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Key</label>
-              <input value={key} onChange={(e) => setKey(e.target.value)} required placeholder="customer_count"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+              <label className="block text-xs font-medium text-muted mb-1">Key</label>
+              <input
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                required
+                placeholder="customer_count"
+                className={`${inputCls} font-mono`}
+              />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                {['statistic','pricing','certification','name','person','award','embargo','location','other'].map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
+              <label className="block text-xs font-medium text-muted mb-1">Category</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className={inputCls}
+              >
+                {['statistic', 'pricing', 'certification', 'name', 'person', 'award', 'embargo', 'location', 'other'].map(
+                  (c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Label</label>
-            <input value={label} onChange={(e) => setLabel(e.target.value)} required placeholder="Human-readable label"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label className="block text-xs font-medium text-muted mb-1">Label</label>
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              required
+              placeholder="Human-readable label"
+              className={inputCls}
+            />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Value</label>
-            <input value={valueText} onChange={(e) => setValueText(e.target.value)} required placeholder="e.g. 50,000+ customers"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label className="block text-xs font-medium text-muted mb-1">Value</label>
+            <input
+              value={valueText}
+              onChange={(e) => setValueText(e.target.value)}
+              required
+              placeholder="e.g. 50,000+ customers"
+              className={inputCls}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Numeric value</label>
-              <input value={valueNumber} onChange={(e) => setValueNumber(e.target.value)} type="number" placeholder="50000"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label className="block text-xs font-medium text-muted mb-1">Numeric value</label>
+              <input
+                value={valueNumber}
+                onChange={(e) => setValueNumber(e.target.value)}
+                type="number"
+                placeholder="50000"
+                className={inputCls}
+              />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Unit</label>
-              <input value={valueUnit} onChange={(e) => setValueUnit(e.target.value)} placeholder="customers, USD…"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label className="block text-xs font-medium text-muted mb-1">Unit</label>
+              <input
+                value={valueUnit}
+                onChange={(e) => setValueUnit(e.target.value)}
+                placeholder="customers, USD…"
+                className={inputCls}
+              />
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Cancel</button>
-            <button type="submit" disabled={saving}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted hover:text-main">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-accent text-white text-sm rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
+            >
               {saving ? 'Creating…' : 'Create Fact'}
             </button>
           </div>
@@ -298,6 +390,7 @@ function CreateFactModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
 export default function RepositoryPage() {
   const { user } = useAuth()
+  const { isAuthority } = useTheme()
   const [tab, setTab] = useState<Tab>('facts')
   const [facts, setFacts] = useState<Fact[]>([])
   const [rules, setRules] = useState<Rule[]>([])
@@ -311,7 +404,10 @@ export default function RepositoryPage() {
   const load = () => {
     setLoading(true)
     Promise.all([factsApi.list(), rulesApi.list()])
-      .then(([f, r]) => { setFacts(f); setRules(r) })
+      .then(([f, r]) => {
+        setFacts(f)
+        setRules(r)
+      })
       .finally(() => setLoading(false))
   }
 
@@ -336,122 +432,168 @@ export default function RepositoryPage() {
     low: 'bg-gray-400',
   }
 
-  const filteredFacts = facts.filter((f) =>
-    !search || f.label.toLowerCase().includes(search.toLowerCase()) ||
-    f.key.toLowerCase().includes(search.toLowerCase()) ||
-    f.value_text?.toLowerCase().includes(search.toLowerCase())
+  const filteredFacts = facts.filter(
+    (f) =>
+      !search ||
+      f.label.toLowerCase().includes(search.toLowerCase()) ||
+      f.key.toLowerCase().includes(search.toLowerCase()) ||
+      f.value_text?.toLowerCase().includes(search.toLowerCase()),
   )
-  const filteredRules = rules.filter((r) =>
-    !search || r.label.toLowerCase().includes(search.toLowerCase()) ||
-    r.key.toLowerCase().includes(search.toLowerCase())
+  const filteredRules = rules.filter(
+    (r) =>
+      !search ||
+      r.label.toLowerCase().includes(search.toLowerCase()) ||
+      r.key.toLowerCase().includes(search.toLowerCase()),
   )
 
   return (
-    <div className="p-8">
-      <div className="flex items-start justify-between mb-6">
+    <div className="space-y-6 max-w-[1440px] mx-auto p-6 pb-12">
+      <div className="flex items-start justify-between mb-2">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Repository</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Approved facts and brand governance rules</p>
+          <h1
+            className={`text-main ${isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'}`}
+          >
+            Fact & Rule Repository
+          </h1>
+          <p className="text-sm text-muted mt-1">Approved facts and brand governance rules with version history.</p>
         </div>
         {canCreate && tab === 'facts' && (
-          <button onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-accent text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+          >
+            <Plus size={15} strokeWidth={2} />
             New Fact
           </button>
         )}
       </div>
 
       {/* Tabs + search */}
-      <div className="flex items-center justify-between border-b border-gray-200 mb-5">
-        <div className="flex gap-0">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex gap-1 bg-canvas-secondary p-1 rounded-lg">
           {(['facts', 'rules'] as Tab[]).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors capitalize -mb-px ${
-                tab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}>
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors capitalize ${
+                tab === t ? 'bg-surface text-accent shadow-sm' : 'text-muted hover:text-main'
+              }`}
+            >
               {t === 'facts' ? `Facts (${facts.length})` : `Rules (${rules.length})`}
             </button>
           ))}
         </div>
-        <input value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search…"
-          className="mb-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 w-48" />
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/50" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search…"
+            className="pl-9 pr-3 py-1.5 text-sm border border-subtle rounded-lg focus:outline-none focus:border-accent bg-surface text-main w-56"
+          />
+        </div>
       </div>
 
       {loading ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-12 bg-canvas-secondary rounded-lg animate-pulse" />
           ))}
         </div>
       ) : tab === 'facts' ? (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="rounded-xl glass-panel overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Key</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Label</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Category</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Value</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Expires</th>
+              <tr className="border-b border-subtle bg-canvas-secondary/50">
+                {['Key', 'Label', 'Category', 'Value', 'Status', 'Expires'].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody>
               {filteredFacts.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No facts found</td></tr>
-              ) : filteredFacts.map((f) => (
-                <tr key={f.id} onClick={() => setSelectedFact(f)}
-                  className="hover:bg-indigo-50/50 cursor-pointer transition-colors group">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{f.key}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-indigo-700 transition-colors">{f.label}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColors[f.category] ?? 'bg-gray-100 text-gray-500'}`}>
-                      {f.category}
-                    </span>
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">
+                    No facts found
                   </td>
-                  <td className="px-4 py-3 text-gray-700 max-w-xs truncate text-xs">{f.value_text ?? '—'}</td>
-                  <td className="px-4 py-3"><StatusBadge status={f.version_status ?? 'draft'} /></td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{f.expires_at ?? '—'}</td>
                 </tr>
-              ))}
+              ) : (
+                filteredFacts.map((f) => (
+                  <tr
+                    key={f.id}
+                    onClick={() => setSelectedFact(f)}
+                    className="governance-row cursor-pointer"
+                  >
+                    <td className="px-4 py-3 font-mono text-xs text-muted">{f.key}</td>
+                    <td className="px-4 py-3 font-medium text-main">{f.label}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          categoryColors[f.category] ?? 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {f.category}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted max-w-xs truncate text-xs">{f.value_text ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={f.version_status ?? 'draft'} />
+                    </td>
+                    <td className="px-4 py-3 text-muted text-xs">{f.expires_at ?? '—'}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="rounded-xl glass-panel overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Key</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Label</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Category</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Severity</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Description</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</th>
+              <tr className="border-b border-subtle bg-canvas-secondary/50">
+                {['Key', 'Label', 'Category', 'Severity', 'Description', 'Status'].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody>
               {filteredRules.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No rules found</td></tr>
-              ) : filteredRules.map((r) => (
-                <tr key={r.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs font-semibold text-indigo-600">{r.key}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{r.label}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500 capitalize">{r.category}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${severityDot[r.severity] ?? 'bg-gray-400'}`} />
-                      <span className="text-xs text-gray-700 capitalize">{r.severity}</span>
-                    </div>
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">
+                    No rules found
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate">{r.description ?? '—'}</td>
-                  <td className="px-4 py-3"><StatusBadge status={r.version_status ?? 'draft'} /></td>
                 </tr>
-              ))}
+              ) : (
+                filteredRules.map((r) => (
+                  <tr key={r.id} className="governance-row">
+                    <td className="px-4 py-3 font-mono text-xs font-semibold text-accent">{r.key}</td>
+                    <td className="px-4 py-3 font-medium text-main">{r.label}</td>
+                    <td className="px-4 py-3 text-xs text-muted capitalize">{r.category}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${severityDot[r.severity] ?? 'bg-gray-400'}`} />
+                        <span className="text-xs text-main capitalize">{r.severity}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted max-w-xs truncate">
+                      {r.description ?? '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={r.version_status ?? 'draft'} />
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -460,9 +602,7 @@ export default function RepositoryPage() {
       {selectedFact && (
         <FactModal fact={selectedFact} onClose={() => setSelectedFact(null)} userRole={user?.role ?? ''} />
       )}
-      {showCreate && (
-        <CreateFactModal onClose={() => setShowCreate(false)} onCreated={load} />
-      )}
+      {showCreate && <CreateFactModal onClose={() => setShowCreate(false)} onCreated={load} />}
     </div>
   )
 }

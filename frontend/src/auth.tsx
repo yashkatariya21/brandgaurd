@@ -1,36 +1,52 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { authApi, clearToken, setToken } from './api'
+import {
+  ensureSeedUser,
+  registerUser,
+  loginUser,
+  getSessionUser,
+  setSession,
+  clearSession,
+  type LocalUser,
+} from './lib/localUsers'
 
-interface AuthUser {
+/**
+ * Auth — local-first authentication.
+ * Users live in the browser (see lib/localUsers.ts). Login & registration
+ * happen entirely client-side; no backend is required to use the app.
+ *
+ * AuthUser keeps the fields the feature pages already read (displayName,
+ * role, orgName) so existing pages work unchanged.
+ */
+export interface AuthUser {
   userId: string
-  email: string
   displayName: string
-  orgId: string
-  orgName: string
-  orgSlug: string
+  phone: string
   role: string
+  orgName: string
+  orgId: string
+  orgSlug: string
 }
 
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
-  login: (email: string, password: string, orgSlug: string) => Promise<void>
+  login: (phone: string, password: string) => Promise<void>
+  register: (name: string, phone: string, password: string) => Promise<void>
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-// ── Demo auto-login ────────────────────────────────────────────────────────────
-// When the backend is unavailable or no token exists, we inject a dummy user
-// so reviewers can browse the UI without needing a live backend.
-const DEMO_USER: AuthUser = {
-  userId: 'demo-user',
-  email: 'admin@nimbusdesk.example',
-  displayName: 'Demo Admin',
-  orgId: 'demo-org',
-  orgName: 'NimbusDesk',
-  orgSlug: 'nimbusdesk',
-  role: 'admin',
+function toAuthUser(u: LocalUser): AuthUser {
+  return {
+    userId: u.id,
+    displayName: u.name,
+    phone: u.phone,
+    role: 'admin',
+    orgName: 'Local Workspace',
+    orgId: 'local',
+    orgSlug: 'local',
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -38,55 +54,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('bg_token')
-    if (!token) {
-      // Auto-login with demo user when no token present
-      setUser(DEMO_USER)
-      setLoading(false)
-      return
-    }
-    authApi
-      .me()
-      .then((data) => {
-        setUser({
-          userId: data.user.id,
-          email: data.user.email,
-          displayName: data.user.display_name,
-          orgId: data.org.id,
-          orgName: data.org.name,
-          orgSlug: data.org.slug,
-          role: data.role,
-        })
-      })
-      .catch(() => {
-        // Backend unreachable – fall back to demo user
-        setUser(DEMO_USER)
-      })
-      .finally(() => setLoading(false))
+    ensureSeedUser()
+    const session = getSessionUser()
+    if (session) setUser(toAuthUser(session))
+    setLoading(false)
   }, [])
 
-  const login = async (email: string, password: string, orgSlug: string) => {
-    const res = await authApi.login(email, password, orgSlug)
-    setToken(res.token)
-    const me = await authApi.me()
-    setUser({
-      userId: me.user.id,
-      email: me.user.email,
-      displayName: me.user.display_name,
-      orgId: me.org.id,
-      orgName: me.org.name,
-      orgSlug: me.org.slug,
-      role: res.role,
-    })
+  const login = async (phone: string, password: string) => {
+    const res = loginUser(phone, password)
+    if (!res.ok || !res.user) throw new Error(res.error ?? 'Login failed')
+    setSession(res.user.id)
+    setUser(toAuthUser(res.user))
+  }
+
+  const register = async (name: string, phone: string, password: string) => {
+    const res = registerUser(name, phone, password)
+    if (!res.ok || !res.user) throw new Error(res.error ?? 'Registration failed')
+    setSession(res.user.id)
+    setUser(toAuthUser(res.user))
   }
 
   const logout = () => {
-    clearToken()
+    clearSession()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   )

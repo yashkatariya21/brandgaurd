@@ -9,6 +9,7 @@ Acceptance criteria from the brief:
   normalisation: 50k, fifty thousand, 50,000 all → 50000
 """
 import pytest
+from typing import Optional
 
 from app.services.claim_extractor import normalise_number, extract_claims
 from app.api.blast_radius import _scan_item, _normalise_old_value
@@ -48,7 +49,7 @@ FACT_ATTR = "customer_count"
 FACT_ID   = "fact-customer-count"
 
 
-def _scan(body: str, linked: bool = False) -> dict | None:
+def _scan(body: str, linked: bool = False) -> Optional[dict]:
     return _scan_item(
         body,
         OLD_NORM,

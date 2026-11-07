@@ -7,13 +7,37 @@ from fastapi.testclient import TestClient
 from app.core.db import close_pool, tenant_conn
 
 
+# Modules that only exercise pure functions (no database) — they must run
+# even when the DB environment is not configured.
+PURE_MODULES = {
+    "test_blast_radius",
+    "test_checker",
+    "test_redteam",
+    "test_chaos",
+}
+
+
+def pytest_collection_modifyitems(config, items):
+    missing = [k for k in ("DATABASE_URL", "MIGRATION_DATABASE_URL", "APP_DB_PASSWORD", "JWT_SECRET") if not os.environ.get(k)]
+    if not missing:
+        return
+    skip = pytest.mark.skip(reason=f"missing env: {missing}")
+    for item in items:
+        module = item.module.__name__.split(".")[-1]
+        if module in PURE_MODULES:
+            continue
+        item.add_marker(skip)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _env():
-    missing = [k for k in ("DATABASE_URL", "MIGRATION_DATABASE_URL", "APP_DB_PASSWORD", "JWT_SECRET") if not os.environ.get(k)]
-    if missing:
-        pytest.skip(f"missing env: {missing}", allow_module_level=True)
+    # Pure-function tests are filtered in pytest_collection_modifyitems; this
+    # fixture only manages the DB pool lifecycle for the tests that need it.
     yield
-    close_pool()
+    try:
+        close_pool()
+    except Exception:
+        pass
 
 
 @pytest.fixture(scope="session")

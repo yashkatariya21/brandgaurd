@@ -3,7 +3,7 @@
  * JWT is stored in localStorage under the key "bg_token".
  */
 
-const BASE = import.meta.env.VITE_API_URL ?? ''
+const BASE = (import.meta.env as Record<string, string | undefined>).VITE_API_URL ?? ''
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -51,8 +51,8 @@ async function request<T>(
   })
 
   if (res.status === 401) {
-    clearToken()
-    window.location.href = '/login'
+    // Local auth is session-based; a 401 from an optional backend should not
+    // kick the user out of their local session. Just surface the error.
     throw new Error('Unauthorised')
   }
 
