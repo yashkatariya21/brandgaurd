@@ -17,6 +17,7 @@ import { useAuth } from '../auth'
 import { useTheme } from '../theme'
 import Header from './Header'
 import BrandGuardLogo from './BrandGuardLogo'
+import DemoStepper from './DemoStepper'
 import { DEMO_ACCOUNTS, ORG_SLUG, DEMO_PASSWORD, IS_DEMO_MODE } from '../lib/demoAccounts'
 
 interface NavItem {
@@ -188,6 +189,9 @@ export default function Layout() {
           </button>
         </div>
       </header>
+
+      {/* ── Demo stepper (demo mode only, hidden on home/login) ─── */}
+      <DemoStepper />
 
       {/* ── Secondary breadcrumb bar ─────────────────────────────────── */}
       <Header />
