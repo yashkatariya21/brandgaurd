@@ -7,9 +7,14 @@ import BrandGuardLogo from '../components/BrandGuardLogo'
 import { DEMO_ACCOUNTS, ORG_SLUG, DEMO_PASSWORD, IS_DEMO_MODE } from '../lib/demoAccounts'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, user } = useAuth()
   const { isAuthority } = useTheme()
   const navigate = useNavigate()
+
+  // If already authenticated (demo auto-login), skip straight to home
+  React.useEffect(() => {
+    if (user) navigate('/', { replace: true })
+  }, [user, navigate])
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -24,7 +29,19 @@ export default function LoginPage() {
       await login(e, p, slug)
       navigate('/')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Sign-in failed. Check your credentials.')
+      const msg = err instanceof Error ? err.message : 'Sign-in failed.'
+      // "Failed to fetch" means no backend — in demo mode the auth fallback
+      // already signed the user in, so just navigate without showing an error.
+      if (
+        IS_DEMO_MODE &&
+        (msg.toLowerCase().includes('fetch') ||
+          msg.toLowerCase().includes('network') ||
+          msg.toLowerCase().includes('load failed'))
+      ) {
+        navigate('/')
+        return
+      }
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -40,11 +57,9 @@ export default function LoginPage() {
   }
 
   const handleDemoRole = (acctEmail: string) => {
-    if (!DEMO_PASSWORD) {
-      setError('Demo password not configured (VITE_DEMO_PASSWORD env var missing).')
-      return
-    }
-    doLogin(acctEmail, DEMO_PASSWORD, ORG_SLUG)
+    // In demo mode without a backend, login() will fall back to a local user,
+    // so we attempt login even if DEMO_PASSWORD is empty.
+    doLogin(acctEmail, DEMO_PASSWORD || 'demo', ORG_SLUG)
   }
 
   const handleStartDemo = () => {
