@@ -3,10 +3,12 @@ import { authApi, setToken, clearToken, getToken } from './api'
 
 /**
  * auth.tsx — backend-based authentication.
- * Login calls POST /v1/auth/login, stores the JWT in localStorage under
- * 'bg_token', then calls GET /v1/me to hydrate AuthUser.
- * On load, if a token exists, /v1/me is called to restore the session; on
- * failure the token is cleared and the user is shown the login page.
+ *
+ * On load: if a token exists, call /v1/me to restore the session.
+ *          If the backend is unreachable OR returns 401, clear the token and
+ *          show the login page (never loop redirect).
+ * login(): POST /v1/auth/login → store token → GET /v1/me → hydrate AuthUser.
+ * logout(): clear token + state.
  */
 
 export interface AuthUser {
@@ -28,6 +30,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+function buildUser(me: Awaited<ReturnType<typeof authApi.me>>, role: string): AuthUser {
+  return {
+    userId: me.user.id,
+    email: me.user.email,
+    displayName: me.user.display_name,
+    role,
+    orgName: me.org.name,
+    orgId: me.org.id,
+    orgSlug: me.org.slug,
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
@@ -38,40 +52,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
+    // Restore session from stored token
     authApi
       .me()
-      .then((data) => {
-        setUser({
-          userId: data.user.id,
-          email: data.user.email,
-          displayName: data.user.display_name,
-          role: data.role,
-          orgName: data.org.name,
-          orgId: data.org.id,
-          orgSlug: data.org.slug,
-        })
-      })
+      .then((me) => setUser(buildUser(me, me.role)))
       .catch(() => {
-        // Token is invalid or backend unreachable — clear it and show login.
+        // Token expired, revoked, or backend unreachable — clear and show login
         clearToken()
       })
       .finally(() => setLoading(false))
   }, [])
 
-  const login = async (email: string, password: string, orgSlug: string) => {
+  const login = async (email: string, password: string, orgSlug: string): Promise<void> => {
+    // This can throw — callers handle the error message
     const res = await authApi.login(email, password, orgSlug)
     setToken(res.token)
-    const me = await authApi.me()
-    setUser({
-      userId: me.user.id,
-      email: me.user.email,
-      displayName: me.user.display_name,
-      // Use the role returned by /login (which may be multi-org specific)
-      role: res.role,
-      orgName: me.org.name,
-      orgId: me.org.id,
-      orgSlug: me.org.slug,
-    })
+    try {
+      const me = await authApi.me()
+      setUser(buildUser(me, res.role))
+    } catch {
+      // me() failed after login — use the role from the login response
+      setUser({
+        userId: '',
+        email,
+        displayName: email.split('@')[0],
+        role: res.role,
+        orgName: orgSlug,
+        orgId: '',
+        orgSlug,
+      })
+    }
   }
 
   const logout = () => {

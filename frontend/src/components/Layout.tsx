@@ -7,8 +7,6 @@ import {
   Crosshair,
   ShieldAlert,
   Atom,
-  Scale,
-  ShieldCheck,
   Palette,
   Home,
   Info,
@@ -18,6 +16,7 @@ import {
 import { useAuth } from '../auth'
 import { useTheme } from '../theme'
 import Header from './Header'
+import BrandGuardLogo from './BrandGuardLogo'
 import { DEMO_ACCOUNTS, ORG_SLUG, DEMO_PASSWORD, IS_DEMO_MODE } from '../lib/demoAccounts'
 
 interface NavItem {
@@ -57,34 +56,24 @@ export default function Layout() {
         }}
       >
         {/* Brand */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={
-              isAuthority
-                ? { backgroundColor: '#2a7f8e' }
-                : {
-                    backgroundColor: '#7e69ab',
-                    boxShadow: '0 4px 12px rgba(126,105,171,0.25)',
-                  }
-            }
-          >
-            <Scale size={16} className="text-white" />
-          </div>
+        <div className="flex items-center gap-2.5 flex-shrink-0">
+          <BrandGuardLogo
+            size={28}
+            color={isAuthority ? '#5eead4' : '#c4b5fd'}
+            showText={false}
+          />
           <div className="leading-none">
             <span
-              className={`font-bold text-sm tracking-tight ${
-                isAuthority ? 'font-newsreader' : 'font-jakarta'
-              }`}
+              className={`font-bold text-sm tracking-tight font-newsreader`}
             >
               BrandGuard
             </span>
-            <span className="hidden sm:inline text-xs opacity-60 ml-1.5">
-              & Risk Governance
+            <span className="hidden sm:inline text-xs opacity-50 ml-1.5">
+              Risk Governance
             </span>
           </div>
           <span
-            className="hidden lg:inline text-[10px] font-medium px-2 py-0.5 rounded-full border opacity-70"
+            className="hidden lg:inline text-[10px] font-medium px-2 py-0.5 rounded-full border opacity-60"
             style={{
               borderColor: isAuthority ? 'rgba(255,255,255,0.15)' : 'rgba(126,105,171,0.2)',
             }}
@@ -183,7 +172,6 @@ export default function Layout() {
             >
               {(user?.displayName ?? 'U')[0].toUpperCase()}
             </div>
-            <ShieldCheck size={16} className="text-emerald-400" />
           </div>
 
           <button
