@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, X, Search } from 'lucide-react'
+import { Plus, X, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import { factsApi, rulesApi, Fact, FactDetail, Rule } from '../api'
 import { useAuth } from '../auth'
 import { useTheme } from '../theme'
 import StatusBadge from '../components/StatusBadge'
+import ExpiryChip from '../components/ExpiryChip'
 
 type Tab = 'facts' | 'rules'
 
-// ── Version history inside fact detail ──────────────────────────────────────
+// ── Version timeline ────────────────────────────────────────────────────────
 
-function VersionHistory({ versions, factId, onAction, userRole }: {
+function VersionTimeline({ versions, factId, onAction, userRole }: {
   versions: FactDetail['versions']
   factId: string
   onAction: () => void
@@ -19,19 +20,33 @@ function VersionHistory({ versions, factId, onAction, userRole }: {
   const canPropose = ['admin', 'brand_manager'].includes(userRole)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [expandedDiff, setExpandedDiff] = useState<number | null>(null)
+  const [diffData, setDiffData] = useState<Record<number, Record<string, { before: unknown; after: unknown }>>>({})
 
   const doAction = async (fn: () => Promise<unknown>) => {
     setBusy(true)
     setError('')
+    try { await fn(); onAction() }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Action failed') }
+    finally { setBusy(false) }
+  }
+
+  const loadDiff = async (versionNo: number) => {
+    if (versionNo <= 1) return
+    if (diffData[versionNo]) {
+      setExpandedDiff(expandedDiff === versionNo ? null : versionNo)
+      return
+    }
     try {
-      await fn()
-      onAction()
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Action failed')
-    } finally {
-      setBusy(false)
+      const res = await factsApi.diff(factId, versionNo)
+      setDiffData((d) => ({ ...d, [versionNo]: res.diff }))
+      setExpandedDiff(versionNo)
+    } catch {
+      // diff not available — silently ignore
     }
   }
+
+  const sorted = [...versions].sort((a, b) => b.version_no - a.version_no)
 
   return (
     <div className="mt-5">
@@ -39,50 +54,114 @@ function VersionHistory({ versions, factId, onAction, userRole }: {
         Version history
       </h4>
       {error && <p className="text-red-600 text-xs mb-2">{error}</p>}
-      <div className="space-y-2">
-        {[...versions].reverse().map((v) => (
-          <div key={v.id} className="border border-subtle rounded-lg p-3 bg-canvas">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-mono text-muted">v{v.version_no}</span>
-                  <StatusBadge status={v.status} />
+      <div className="relative">
+        {/* Timeline line */}
+        <div className="absolute left-3.5 top-0 bottom-0 w-px bg-subtle" />
+
+        <div className="space-y-4">
+          {sorted.map((v, idx) => {
+            const isFirst = idx === sorted.length - 1
+            const hasDiff = v.version_no > 1
+            const diff = diffData[v.version_no]
+            const isExpanded = expandedDiff === v.version_no
+
+            return (
+              <div key={v.id} className="flex gap-3">
+                {/* Timeline dot */}
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 z-10 border-2 bg-surface"
+                  style={{ borderColor: v.status === 'approved' ? '#15803d' : v.status === 'rejected' ? '#dc2626' : 'var(--border-subtle)' }}
+                >
+                  <span className="text-[10px] font-bold text-muted">v{v.version_no}</span>
                 </div>
-                <p className="text-sm font-medium text-main">{v.value_text}</p>
-                {v.change_note && <p className="text-xs text-muted mt-1">{v.change_note}</p>}
+
+                {/* Content */}
+                <div className="flex-1 pb-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <StatusBadge status={v.status} />
+                        <span className="text-xs text-muted">
+                          {new Date(v.created_at).toLocaleDateString()}
+                        </span>
+                        {isFirst && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                            Initial version
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-main">{v.value_text}</p>
+                      {v.change_note && <p className="text-xs text-muted mt-0.5">{v.change_note}</p>}
+                      {v.proposed_by && (
+                        <p className="text-[11px] text-muted/70 mt-0.5">
+                          Proposed by {v.proposed_by}
+                          {v.approved_by && ` · Approved by ${v.approved_by}`}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-1.5 flex-shrink-0 flex-wrap">
+                      {hasDiff && (
+                        <button
+                          onClick={() => loadDiff(v.version_no)}
+                          className="text-xs px-2 py-1 border border-subtle text-muted rounded hover:bg-accent-subtle flex items-center gap-1"
+                        >
+                          View changes
+                          {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                        </button>
+                      )}
+                      {v.status === 'draft' && canPropose && (
+                        <button
+                          disabled={busy}
+                          onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
+                          className="text-xs px-2.5 py-1 bg-accent text-white rounded-md hover:opacity-90 disabled:opacity-50"
+                        >
+                          Submit for approval
+                        </button>
+                      )}
+                      {v.status === 'pending_approval' && canApprove && (
+                        <>
+                          <button
+                            disabled={busy}
+                            onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
+                            className="text-xs px-2.5 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            disabled={busy}
+                            onClick={() => doAction(() => factsApi.rejectVersion(factId, v.version_no))}
+                            className="text-xs px-2.5 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Diff view */}
+                  {isExpanded && diff && (
+                    <div className="mt-2 rounded-lg border border-subtle bg-canvas-secondary p-3 space-y-2">
+                      {Object.entries(diff).map(([field, { before, after }]) => (
+                        <div key={field} className="text-xs">
+                          <span className="text-muted font-medium capitalize">{field.replace(/_/g, ' ')}: </span>
+                          <span className="line-through text-red-600 bg-red-50 px-1 rounded">
+                            {String(before ?? '—')}
+                          </span>
+                          <span className="mx-1 text-muted">→</span>
+                          <span className="text-green-700 bg-green-50 px-1 rounded font-medium">
+                            {String(after ?? '—')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-1.5 flex-shrink-0">
-                {v.status === 'draft' && canPropose && (
-                  <button
-                    disabled={busy}
-                    onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
-                    className="text-xs px-2.5 py-1 bg-accent text-white rounded-md hover:opacity-90 disabled:opacity-50"
-                  >
-                    Submit for approval
-                  </button>
-                )}
-                {v.status === 'pending_approval' && canApprove && (
-                  <>
-                    <button
-                      disabled={busy}
-                      onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
-                      className="text-xs px-2.5 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      disabled={busy}
-                      onClick={() => doAction(() => factsApi.rejectVersion(factId, v.version_no))}
-                      className="text-xs px-2.5 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Reject
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -158,10 +237,9 @@ function FactModal({ fact: initial, onClose, userRole }: {
                   <StatusBadge status={detail.version_status ?? 'draft'} />
                 </div>
                 {detail.expires_at && (
-                  <div className="bg-amber-50 rounded-lg p-3 col-span-2 border border-amber-200">
-                    <p className="text-xs text-amber-700 font-medium">
-                      Expires: {detail.expires_at}
-                    </p>
+                  <div className="bg-canvas-secondary rounded-lg p-3 col-span-2 border border-subtle">
+                    <p className="text-xs text-muted mb-1">Expiry</p>
+                    <ExpiryChip expiresAt={detail.expires_at} />
                   </div>
                 )}
               </div>
@@ -235,7 +313,7 @@ function FactModal({ fact: initial, onClose, userRole }: {
                 </div>
               )}
 
-              <VersionHistory
+              <VersionTimeline
                 versions={detail.versions}
                 factId={detail.id}
                 onAction={load}
@@ -544,7 +622,7 @@ export default function RepositoryPage() {
                     <td className="px-4 py-3">
                       <StatusBadge status={f.version_status ?? 'draft'} />
                     </td>
-                    <td className="px-4 py-3 text-muted text-xs">{f.expires_at ?? '—'}</td>
+                    <td className="px-4 py-3"><ExpiryChip expiresAt={f.expires_at} /></td>
                   </tr>
                 ))
               )}

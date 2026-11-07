@@ -34,23 +34,77 @@ function IntendedBadge({ label }: { label: string }) {
   )
 }
 
-function VerdictSummary({ verdicts }: { verdicts: string[] }) {
+// ─── Clarity ring SVG ────────────────────────────────────────────────────────
+
+function ClarityRing({ clarityPct, nInterpreters, mode }: {
+  clarityPct: number
+  nInterpreters: number
+  mode: 'llm' | 'demo'
+}) {
+  const r = 42
+  const circ = 2 * Math.PI * r
+  const dash = (clarityPct / 100) * circ
+  const color = clarityPct >= 80 ? '#15803d' : clarityPct >= 50 ? '#b45309' : '#dc2626'
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <svg width={120} height={120} viewBox="0 0 100 100" aria-label={`Guideline clarity: ${clarityPct}%`}>
+        <circle cx={50} cy={50} r={r} fill="none" stroke="#e2e8f0" strokeWidth={8} />
+        <circle
+          cx={50} cy={50} r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={8}
+          strokeDasharray={`${dash} ${circ - dash}`}
+          strokeDashoffset={circ * 0.25}
+          strokeLinecap="round"
+          transform="rotate(-90 50 50)"
+        />
+        <text x={50} y={47} textAnchor="middle" dominantBaseline="middle" fontSize={18} fontWeight="bold" fill={color}>
+          {clarityPct}%
+        </text>
+        <text x={50} y={62} textAnchor="middle" fontSize={8} fill="#94a3b8">
+          clarity
+        </text>
+      </svg>
+      <p className="text-xs text-muted text-center">
+        Guideline clarity from {nInterpreters} readings
+      </p>
+      {mode === 'demo' && (
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 text-center">
+          Demo mode: heuristic readers, not AI
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── Verdict dots per case ────────────────────────────────────────────────────
+
+function VerdictDots({ verdicts }: { verdicts: string[] }) {
   if (!verdicts || verdicts.length === 0) return null
-  const counts: Record<string, number> = {}
-  for (const v of verdicts) counts[v] = (counts[v] ?? 0) + 1
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1])
-  const total = verdicts.length
-  if (sorted.length === 1) {
-    return (
-      <span className="text-xs text-muted">
-        All {total} agree: <strong className="text-main">{sorted[0][0]}</strong>
-      </span>
-    )
+  const config: Record<string, { bg: string; label: string; letter: string }> = {
+    pass:      { bg: '#15803d', label: 'Pass',      letter: 'P' },
+    fail:      { bg: '#dc2626', label: 'Fail',      letter: 'F' },
+    borderline:{ bg: '#b45309', label: 'Borderline', letter: 'B' },
   }
   return (
-    <span className="text-xs text-muted">
-      Readers split: {sorted.map(([v, c]) => `${c}× ${v}`).join(', ')}
-    </span>
+    <div className="flex items-center gap-1 flex-wrap" aria-label="Verdict dots">
+      {verdicts.map((v, i) => {
+        const c = config[v] ?? { bg: '#64748b', label: v, letter: '?' }
+        return (
+          <span
+            key={i}
+            title={c.label}
+            className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+            style={{ backgroundColor: c.bg }}
+            aria-label={c.label}
+          >
+            {c.letter}
+          </span>
+        )
+      })}
+    </div>
   )
 }
 
@@ -84,7 +138,8 @@ function CaseRow({
         <IntendedBadge label={c.intended_label} />
       </td>
       <td className="px-3 py-3">
-        <VerdictSummary verdicts={c.verdicts ?? []} />
+        <VerdictDots verdicts={c.verdicts ?? []} />
+        <span className="text-xs text-muted mt-1 block">{Math.round(c.agreement * 100)}% agree</span>
       </td>
       <td className="px-3 py-3">
         <AgreementBadge agreement={c.agreement} isAmbiguous={c.is_ambiguous} />
@@ -327,22 +382,14 @@ export default function RuleTestsPage() {
 
       {result && (
         <div className="glass-panel rounded-xl">
-          {/* Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-5 border-b border-subtle">
+          {/* Summary + clarity ring */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-5 border-b border-subtle items-start">
             <div>
               <p className="text-2xl font-bold text-main font-mono-numbers">{result.cases_count}</p>
               <p className="text-sm text-muted">Cases tested</p>
             </div>
-            <div
-              className={`rounded-xl p-3 ${
-                result.ambiguous_count > 0 ? 'bg-amber-50' : 'bg-green-50'
-              }`}
-            >
-              <p
-                className={`text-2xl font-bold font-mono-numbers ${
-                  result.ambiguous_count > 0 ? 'text-amber-700' : 'text-green-700'
-                }`}
-              >
+            <div className={`rounded-xl p-3 ${result.ambiguous_count > 0 ? 'bg-amber-50' : 'bg-green-50'}`}>
+              <p className={`text-2xl font-bold font-mono-numbers ${result.ambiguous_count > 0 ? 'text-amber-700' : 'text-green-700'}`}>
                 {result.ambiguous_count}
               </p>
               <p className="text-sm text-muted">Ambiguous</p>
@@ -354,6 +401,13 @@ export default function RuleTestsPage() {
             <div>
               <p className="text-2xl font-bold text-main font-mono-numbers">{result.n_interpreters}</p>
               <p className="text-sm text-muted">AI readers / case</p>
+            </div>
+            <div className="md:row-span-1 flex justify-center">
+              <ClarityRing
+                clarityPct={Math.round(100 * (1 - result.ambiguous_count / Math.max(result.cases_count, 1)))}
+                nInterpreters={result.n_interpreters}
+                mode={result.mode}
+              />
             </div>
           </div>
 

@@ -247,9 +247,9 @@ export const factsApi = {
     post<{ status: string }>(`/v1/facts/${factId}/versions/${versionNo}/approve`),
   rejectVersion: (factId: string, versionNo: number, reason?: string) =>
     post<{ status: string }>(`/v1/facts/${factId}/versions/${versionNo}/reject`, { reason }),
-  diff: (factId: string, v1: number, v2: number) =>
-    get<{ before: Record<string, unknown>; after: Record<string, unknown> }>(
-      `/v1/facts/${factId}/diff/${v1}/${v2}`,
+  diff: (factId: string, versionNo: number) =>
+    get<{ version_no: number; diff: Record<string, { before: unknown; after: unknown }> }>(
+      `/v1/facts/${factId}/versions/${versionNo}/diff`,
     ),
   blastRadius: (factId: string) => post<BlastRadiusResult>(`/v1/facts/${factId}/blast-radius`),
 }
