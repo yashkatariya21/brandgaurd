@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { Plus, X, Play, Crosshair, CheckCircle2, FileText, Upload, BookOpen } from 'lucide-react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { Plus, X, Play, Crosshair, CheckCircle2, FileText, Upload, BookOpen, ChevronDown } from 'lucide-react'
 import { contentApi, redTeamApi, ContentItem, ContentDetail, RedTeamResult } from '../api'
 import { useTheme } from '../theme'
 import StatusBadge from '../components/StatusBadge'
 import SeverityBadge from '../components/SeverityBadge'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
+import HighlightedText, { SeverityLegend } from '../components/HighlightedText'
+import { type AnnotatedRange } from '../lib/segments'
 import { IS_DEMO_MODE } from '../lib/demoAccounts'
 import { DEMO_SAMPLES } from '../lib/demoSamples'
 
@@ -19,12 +21,16 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
   const [redTeaming, setRedTeaming] = useState(false)
   const [redTeamResult, setRedTeamResult] = useState<RedTeamResult | null>(null)
   const [error, setError] = useState('')
+  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null)
+  const [showClaims, setShowClaims] = useState(false)
+  const findingRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true)
     contentApi.get(item.id).then(setDetail).finally(() => setLoading(false))
-  }
-  useEffect(load, [item.id])
+  }, [item.id])
+
+  useEffect(load, [load])
 
   const analyse = async () => {
     setAnalysing(true)
@@ -53,6 +59,46 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
       setRedTeaming(false)
     }
   }
+
+  const handleSelectHighlight = useCallback((id: string | null) => {
+    setSelectedFindingId(id)
+    if (id && findingRefs.current[id]) {
+      findingRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [])
+
+  // Build annotation ranges from findings (only those with valid spans)
+  const textLen = detail?.body_text.length ?? 0
+  const findingRanges: AnnotatedRange[] = (detail?.findings ?? [])
+    .filter((f) => f.span_start != null && f.span_end != null && f.span_start < f.span_end && f.span_end <= textLen)
+    .map((f) => ({
+      id: f.id,
+      start: f.span_start as number,
+      end: f.span_end as number,
+      severity: f.severity,
+      label: f.issue,
+      kind: 'finding' as const,
+    }))
+
+  const claimRanges: AnnotatedRange[] = (detail?.claims ?? [])
+    .filter((c) => c.span_start >= 0 && c.span_end > c.span_start && c.span_end <= textLen)
+    .map((c) => ({
+      id: c.id,
+      start: c.span_start,
+      end: c.span_end,
+      severity: 'low',
+      label: c.raw_text,
+      kind: 'claim' as const,
+    }))
+
+  const activeRanges = showClaims ? [...findingRanges, ...claimRanges] : findingRanges
+
+  const locatedFindings = (detail?.findings ?? []).filter(
+    (f) => f.span_start != null && f.span_end != null && f.span_start < f.span_end,
+  )
+  const unlocatedFindings = (detail?.findings ?? []).filter(
+    (f) => f.span_start == null || f.span_end == null || f.span_start >= f.span_end,
+  )
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -99,7 +145,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                 </>
               )}
             </button>
-            <button onClick={onClose} className="text-muted hover:text-main p-1">
+            <button onClick={onClose} className="text-muted hover:text-main p-1" aria-label="Close">
               <X size={18} />
             </button>
           </div>
@@ -109,58 +155,60 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
 
           {loading ? (
-            <p className="text-muted text-sm">Loading…</p>
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-6 bg-canvas-secondary rounded animate-pulse" />
+              ))}
+            </div>
           ) : detail ? (
             <>
+              {/* ── Highlighted body text ── */}
               <div>
-                <h4 className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">Content</h4>
-                <div className="bg-canvas-secondary rounded-lg p-4 text-sm text-main whitespace-pre-wrap max-h-36 overflow-y-auto scrollbar-thin">
-                  {detail.body_text}
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-[11px] font-semibold text-muted uppercase tracking-wide">Content</h4>
+                  <div className="flex items-center gap-3">
+                    <SeverityLegend />
+                    {detail.claims.length > 0 && (
+                      <button
+                        onClick={() => setShowClaims((v) => !v)}
+                        className="flex items-center gap-1 text-xs text-accent hover:opacity-80"
+                      >
+                        {showClaims ? 'Hide' : 'Show'} claims
+                        <ChevronDown
+                          size={12}
+                          className={`transition-transform ${showClaims ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="bg-canvas-secondary rounded-lg p-4 overflow-y-auto scrollbar-thin max-h-56">
+                  <HighlightedText
+                    text={detail.body_text}
+                    ranges={activeRanges}
+                    selectedId={selectedFindingId}
+                    onSelect={handleSelectHighlight}
+                  />
                 </div>
               </div>
 
-              {detail.claims.length > 0 && (
+              {/* ── Located findings ── */}
+              {locatedFindings.length > 0 && (
                 <div>
                   <h4 className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">
-                    Extracted Claims ({detail.claims.length})
-                  </h4>
-                  <div className="space-y-1.5">
-                    {detail.claims.map((c) => (
-                      <div
-                        key={c.id}
-                        className="flex items-center gap-3 bg-blue-50 rounded-lg px-3 py-2 border border-blue-100"
-                      >
-                        <span className="text-xs font-mono bg-white border border-blue-200 px-2 py-0.5 rounded text-blue-700">
-                          {c.raw_text}
-                        </span>
-                        {c.value_number !== null && (
-                          <span className="text-xs text-muted">
-                            = {c.value_number} {c.value_unit}
-                          </span>
-                        )}
-                        <span
-                          className={`ml-auto text-xs ${
-                            c.link_status === 'auto' ? 'text-green-600' : 'text-muted'
-                          }`}
-                        >
-                          {c.link_status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {detail.findings.length > 0 && (
-                <div>
-                  <h4 className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">
-                    Deterministic Findings ({detail.findings.length})
+                    Deterministic Findings ({locatedFindings.length})
                   </h4>
                   <div className="space-y-2">
-                    {detail.findings.map((f) => (
+                    {locatedFindings.map((f) => (
                       <div
                         key={f.id}
-                        className="border border-amber-200 bg-amber-50 rounded-lg p-3"
+                        ref={(el) => { findingRefs.current[f.id] = el }}
+                        onClick={() => handleSelectHighlight(selectedFindingId === f.id ? null : f.id)}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                          selectedFindingId === f.id
+                            ? 'border-accent bg-accent-subtle ring-1 ring-accent/30'
+                            : 'border-amber-200 bg-amber-50 hover:border-accent/40'
+                        }`}
                       >
                         <div className="flex items-start gap-2">
                           <SeverityBadge severity={f.severity} />
@@ -186,67 +234,149 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                 </div>
               )}
 
+              {/* ── Unlocated findings ── */}
+              {unlocatedFindings.length > 0 && (
+                <div>
+                  <h4 className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">
+                    Not located in the text ({unlocatedFindings.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {unlocatedFindings.map((f) => (
+                      <div key={f.id} className="border border-slate-200 bg-slate-50 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <SeverityBadge severity={f.severity} />
+                          <p className="text-sm text-main">{f.issue}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {detail.findings.length === 0 && detail.claims.length > 0 && (
                 <div className="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg border border-green-200">
                   <CheckCircle2 size={18} />
-                  <span className="text-sm font-medium">
-                    No deterministic findings — content looks clean!
-                  </span>
+                  <span className="text-sm font-medium">No deterministic findings — content looks clean!</span>
+                </div>
+              )}
+
+              {/* ── Extracted claims (collapsible via toggle above) ── */}
+              {showClaims && detail.claims.length > 0 && (
+                <div>
+                  <h4 className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">
+                    Extracted Claims ({detail.claims.length})
+                  </h4>
+                  <div className="space-y-1.5">
+                    {detail.claims.map((c) => (
+                      <div
+                        key={c.id}
+                        className="flex items-center gap-3 bg-blue-50 rounded-lg px-3 py-2 border border-blue-100"
+                      >
+                        <span className="text-xs font-mono bg-white border border-blue-200 px-2 py-0.5 rounded text-blue-700">
+                          {c.raw_text}
+                        </span>
+                        {c.value_number !== null && (
+                          <span className="text-xs text-muted">= {c.value_number} {c.value_unit}</span>
+                        )}
+                        <span className={`ml-auto text-xs ${c.link_status === 'auto' ? 'text-green-600' : 'text-muted'}`}>
+                          {c.link_status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </>
           ) : null}
 
-          {/* Red Team Results */}
+          {/* ── Red Team Results (persona cards) ── */}
           {redTeamResult && (
             <div>
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center justify-between mb-3">
                 <h4 className="text-[11px] font-semibold text-muted uppercase tracking-wide">
-                  Red Team Results ({redTeamResult.findings.length} findings)
+                  Red Team ({redTeamResult.findings.length} findings)
                 </h4>
-                {redTeamResult.mode === 'demo' && (
-                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
-                    Demo mode (no AI key)
-                  </span>
-                )}
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  redTeamResult.mode === 'demo'
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {redTeamResult.mode === 'demo' ? 'Demo mode · heuristic output, not AI' : 'AI-generated · review required'}
+                </span>
               </div>
               {redTeamResult.demo_note && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
                   {redTeamResult.demo_note}
                 </p>
               )}
-              <div className="space-y-2">
-                {redTeamResult.findings.map((f) => (
-                  <div key={f.id} className="border border-rose-200 bg-rose-50 rounded-lg p-3">
-                    <div className="flex items-start gap-2">
-                      <SeverityBadge severity={f.severity} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-main">{f.issue}</p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
-                            Possible · {f.persona}
-                          </span>
-                          <span className="text-xs text-muted">confidence: {f.confidence}</span>
-                          {f.why_it_matters && f.persona === 'Legal Eagle' && (
-                            <span className="text-xs text-muted italic">{f.why_it_matters}</span>
+
+              {/* Group by persona */}
+              {(() => {
+                const personaNames = ['Legal Eagle', 'Brand Police', 'Customer Voice']
+                const personaIcons: Record<string, string> = {
+                  'Legal Eagle': '⚖️',
+                  'Brand Police': '🛡️',
+                  'Customer Voice': '💬',
+                }
+                const grouped = personaNames.map((name) => ({
+                  name,
+                  icon: personaIcons[name] ?? '👁️',
+                  findings: redTeamResult.findings.filter((f) => f.persona === name),
+                }))
+                return (
+                  <div className="space-y-3">
+                    {grouped.map(({ name, icon, findings: pf }) => {
+                      const worstSev = ['critical', 'high', 'medium', 'low'].find((s) =>
+                        pf.some((f) => f.severity === s),
+                      )
+                      return (
+                        <div key={name} className="border border-subtle rounded-xl overflow-hidden">
+                          <div className="flex items-center gap-2 px-4 py-3 bg-canvas-secondary/50">
+                            <span className="text-base">{icon}</span>
+                            <span className="text-sm font-semibold text-main">{name}</span>
+                            {pf.length === 0 ? (
+                              <span className="ml-auto text-xs text-green-600 font-medium">No concerns raised</span>
+                            ) : (
+                              <>
+                                <span className="text-xs text-muted ml-auto">{pf.length} finding{pf.length !== 1 ? 's' : ''}</span>
+                                {worstSev && <SeverityBadge severity={worstSev} />}
+                              </>
+                            )}
+                          </div>
+                          {pf.length > 0 && (
+                            <div className="divide-y divide-subtle">
+                              {pf.map((f) => (
+                                <div key={f.id} className="px-4 py-3">
+                                  <div className="flex items-start gap-2">
+                                    <SeverityBadge severity={f.severity} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm text-main">{f.issue}</p>
+                                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                        <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                                          Possible · {f.persona}
+                                        </span>
+                                        <span className="text-xs text-muted">confidence: {f.confidence}</span>
+                                        {f.why_it_matters && f.persona === 'Legal Eagle' && (
+                                          <span className="text-xs text-muted italic">{f.why_it_matters}</span>
+                                        )}
+                                      </div>
+                                      {f.suggested_text && (
+                                        <p className="text-xs text-green-700 mt-1.5">Suggested: {f.suggested_text}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
-                        {f.suggested_text && (
-                          <p className="text-xs text-green-700 mt-1.5">
-                            Suggested: {f.suggested_text}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                      )
+                    })}
                   </div>
-                ))}
-                {redTeamResult.findings.length === 0 && (
-                  <div className="text-center py-4 text-muted text-sm">
-                    No red team findings generated.
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-muted mt-2">
+                )
+              })()}
+
+              <p className="text-xs text-muted mt-3">
                 Red team findings are saved in the Findings page. Go to Findings → Decide to review each one.
               </p>
             </div>
