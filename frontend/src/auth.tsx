@@ -1,26 +1,18 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import {
-  ensureSeedUser,
-  registerUser,
-  loginUser,
-  getSessionUser,
-  setSession,
-  clearSession,
-  type LocalUser,
-} from './lib/localUsers'
+import { authApi, setToken, clearToken, getToken } from './api'
 
 /**
- * Auth — local-first authentication.
- * Users live in the browser (see lib/localUsers.ts). Login & registration
- * happen entirely client-side; no backend is required to use the app.
- *
- * AuthUser keeps the fields the feature pages already read (displayName,
- * role, orgName) so existing pages work unchanged.
+ * auth.tsx — backend-based authentication.
+ * Login calls POST /v1/auth/login, stores the JWT in localStorage under
+ * 'bg_token', then calls GET /v1/me to hydrate AuthUser.
+ * On load, if a token exists, /v1/me is called to restore the session; on
+ * failure the token is cleared and the user is shown the login page.
  */
+
 export interface AuthUser {
   userId: string
+  email: string
   displayName: string
-  phone: string
   role: string
   orgName: string
   orgId: string
@@ -30,57 +22,65 @@ export interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
-  login: (phone: string, password: string) => Promise<void>
-  register: (name: string, phone: string, password: string) => Promise<void>
+  login: (email: string, password: string, orgSlug: string) => Promise<void>
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
-
-function toAuthUser(u: LocalUser): AuthUser {
-  return {
-    userId: u.id,
-    displayName: u.name,
-    phone: u.phone,
-    role: 'admin',
-    orgName: 'Local Workspace',
-    orgId: 'local',
-    orgSlug: 'local',
-  }
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    ensureSeedUser()
-    const session = getSessionUser()
-    if (session) setUser(toAuthUser(session))
-    setLoading(false)
+    const token = getToken()
+    if (!token) {
+      setLoading(false)
+      return
+    }
+    authApi
+      .me()
+      .then((data) => {
+        setUser({
+          userId: data.user.id,
+          email: data.user.email,
+          displayName: data.user.display_name,
+          role: data.role,
+          orgName: data.org.name,
+          orgId: data.org.id,
+          orgSlug: data.org.slug,
+        })
+      })
+      .catch(() => {
+        // Token is invalid or backend unreachable — clear it and show login.
+        clearToken()
+      })
+      .finally(() => setLoading(false))
   }, [])
 
-  const login = async (phone: string, password: string) => {
-    const res = loginUser(phone, password)
-    if (!res.ok || !res.user) throw new Error(res.error ?? 'Login failed')
-    setSession(res.user.id)
-    setUser(toAuthUser(res.user))
-  }
-
-  const register = async (name: string, phone: string, password: string) => {
-    const res = registerUser(name, phone, password)
-    if (!res.ok || !res.user) throw new Error(res.error ?? 'Registration failed')
-    setSession(res.user.id)
-    setUser(toAuthUser(res.user))
+  const login = async (email: string, password: string, orgSlug: string) => {
+    const res = await authApi.login(email, password, orgSlug)
+    setToken(res.token)
+    const me = await authApi.me()
+    setUser({
+      userId: me.user.id,
+      email: me.user.email,
+      displayName: me.user.display_name,
+      // Use the role returned by /login (which may be multi-org specific)
+      role: res.role,
+      orgName: me.org.name,
+      orgId: me.org.id,
+      orgSlug: me.org.slug,
+    })
   }
 
   const logout = () => {
-    clearSession()
+    clearToken()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

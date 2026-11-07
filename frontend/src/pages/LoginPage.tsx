@@ -1,48 +1,46 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Scale, Crosshair, ShieldAlert, Atom, ArrowRight, LogIn, UserPlus } from 'lucide-react'
+import { Scale, Crosshair, ShieldAlert, Atom, ArrowRight, Users } from 'lucide-react'
 import { useAuth } from '../auth'
 import { useTheme } from '../theme'
-
-type Mode = 'login' | 'register'
+import { DEMO_ACCOUNTS, ORG_SLUG, DEMO_PASSWORD, IS_DEMO_MODE } from '../lib/demoAccounts'
 
 export default function LoginPage() {
-  const { login, register: registerUser } = useAuth()
+  const { login } = useAuth()
   const { isAuthority } = useTheme()
   const navigate = useNavigate()
-  const [mode, setMode] = useState<Mode>('login')
 
-  // shared
-  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  // register-only
-  const [name, setName] = useState('')
-
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const doLogin = async (e: string, p: string, slug: string) => {
     setError('')
     setLoading(true)
     try {
-      if (mode === 'login') {
-        await login(phone, password)
-      } else {
-        await registerUser(name, phone, password)
-      }
+      await login(e, p, slug)
       navigate('/')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      // Surface the backend error message verbatim (wrong password etc.)
+      setError(err instanceof Error ? err.message : 'Sign-in failed')
     } finally {
       setLoading(false)
     }
   }
 
-  const fillDemo = () => {
-    setMode('login')
-    setPhone('1234567890')
-    setPassword('demo123')
+  const handleSubmit = (ev: React.FormEvent) => {
+    ev.preventDefault()
+    doLogin(email, password, ORG_SLUG)
+  }
+
+  const handleDemoRole = (acctEmail: string) => {
+    doLogin(acctEmail, DEMO_PASSWORD, ORG_SLUG)
+  }
+
+  const handleStartDemo = () => {
+    const bm = DEMO_ACCOUNTS.find((a) => a.role === 'brand_manager')
+    if (bm) doLogin(bm.email, DEMO_PASSWORD, ORG_SLUG)
   }
 
   const features = [
@@ -93,7 +91,6 @@ export default function LoginPage() {
             fact repository — catching stale statistics, wrong prices, and embargo
             violations before they go live.
           </p>
-
           <div className="space-y-4">
             {features.map((f) => (
               <div key={f.title} className="flex items-start gap-3">
@@ -120,8 +117,9 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right panel ── */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-sm">
+      <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
+        <div className="w-full max-w-sm py-6">
+          {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mb-6">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-accent">
               <Scale size={18} className="text-white" />
@@ -129,34 +127,46 @@ export default function LoginPage() {
             <span className="font-bold text-main font-newsreader text-lg">BrandGuard</span>
           </div>
 
-          <div className="rounded-2xl glass-modal p-8 border border-subtle">
-            {/* Mode tabs */}
-            <div className="flex gap-1 bg-canvas-secondary p-1 rounded-lg mb-6">
-              {(['login', 'register'] as Mode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => {
-                    setMode(m)
-                    setError('')
-                  }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    mode === m ? 'bg-surface text-accent shadow-sm' : 'text-muted hover:text-main'
-                  }`}
-                >
-                  {m === 'login' ? <LogIn size={14} /> : <UserPlus size={14} />}
-                  {m === 'login' ? 'Sign in' : 'Create account'}
-                </button>
-              ))}
-            </div>
+          {/* ── Demo section (shown only when VITE_DEMO_MODE=true) ── */}
+          {IS_DEMO_MODE && (
+            <div className="rounded-2xl glass-panel p-5 mb-5 border border-subtle">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-main flex items-center gap-1.5">
+                  <Users size={15} className="text-accent" /> Try the demo
+                </h3>
+                <p className="text-[11px] text-muted italic">Demo data is fictional.</p>
+              </div>
 
-            <h2 className="text-xl font-bold text-main mb-1 font-newsreader">
-              {mode === 'login' ? 'Welcome back' : 'Create your account'}
-            </h2>
-            <p className="text-xs text-muted mb-6">
-              {mode === 'login'
-                ? 'Sign in with your phone number and password.'
-                : 'Register to start using BrandGuard. Stored locally on this device.'}
-            </p>
+              {/* Prominent "Start demo" button */}
+              <button
+                disabled={loading}
+                onClick={handleStartDemo}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-accent hover:opacity-90 disabled:opacity-60 mb-3 flex items-center justify-center gap-2"
+              >
+                {loading ? 'Signing in…' : 'Start demo (Brand Manager)'}
+                {!loading && <ArrowRight size={15} />}
+              </button>
+
+              {/* Role buttons */}
+              <div className="grid grid-cols-2 gap-1.5">
+                {DEMO_ACCOUNTS.map((acct) => (
+                  <button
+                    key={acct.role}
+                    disabled={loading}
+                    onClick={() => handleDemoRole(acct.email)}
+                    className="text-xs px-2.5 py-2 rounded-lg border border-subtle text-muted hover:bg-accent-subtle hover:text-accent hover:border-accent/30 transition-colors disabled:opacity-50 text-left"
+                  >
+                    {acct.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Manual sign-in ── */}
+          <div className="rounded-2xl glass-modal p-7 border border-subtle">
+            <h2 className="text-xl font-bold text-main mb-1 font-newsreader">Sign in</h2>
+            <p className="text-xs text-muted mb-5">Enter your email and password.</p>
 
             {error && (
               <div className="mb-4 px-3 py-2.5 rounded-xl text-xs bg-red-50 border border-red-200 text-red-700">
@@ -164,26 +174,16 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={submit} className="space-y-3">
-              {mode === 'register' && (
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1.5">Full name</label>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
-                    required
-                    className={inputCls}
-                  />
-                </div>
-              )}
+            <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-muted mb-1.5">Phone number</label>
+                <label className="block text-xs font-medium text-muted mb-1.5">Email</label>
                 <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 1234567890"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   required
+                  autoComplete="email"
                   className={inputCls}
                 />
               </div>
@@ -195,32 +195,20 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
+                  autoComplete="current-password"
                   className={inputCls}
                 />
               </div>
-
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-accent hover:opacity-90 transition-opacity disabled:opacity-60 mt-2 flex items-center justify-center gap-2"
               >
-                {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
+                {loading ? 'Signing in…' : 'Sign in'}
                 {!loading && <ArrowRight size={16} />}
               </button>
             </form>
-
-            {mode === 'login' && (
-              <button
-                onClick={fillDemo}
-                className="w-full mt-4 text-xs text-accent hover:opacity-80 text-center"
-              >
-                Use demo account (1234567890 / demo123)
-              </button>
-            )}
           </div>
-          <p className="text-center text-xs text-muted mt-4">
-            Your account is stored locally on this device. A human makes every decision.
-          </p>
         </div>
       </div>
     </div>

@@ -377,12 +377,21 @@ export default function FindingsPage() {
                   <StatusBadge status={f.status} />
                   {f.status === 'open' && (
                     <>
-                      <button
-                        onClick={() => setDebating(f)}
-                        className="text-xs px-2 py-1 border border-subtle text-muted rounded hover:bg-accent-subtle"
-                      >
-                        Show debate
-                      </button>
+                      {['high', 'critical'].includes(f.severity) ? (
+                        <button
+                          onClick={() => setDebating(f)}
+                          className="text-xs px-2 py-1 border border-subtle text-muted rounded hover:bg-accent-subtle"
+                        >
+                          Show debate
+                        </button>
+                      ) : (
+                        <span
+                          title="Debate runs on high or critical findings"
+                          className="text-xs px-2 py-1 border border-subtle text-muted/40 rounded cursor-not-allowed"
+                        >
+                          Show debate
+                        </span>
+                      )}
                       <button
                         onClick={() => setSelected(f)}
                         className="text-xs px-2 py-1 bg-accent text-white rounded hover:opacity-90"

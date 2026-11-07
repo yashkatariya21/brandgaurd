@@ -1,0 +1,30 @@
+{
+  "_comment": "Propose these version changes as Brand Manager, then approve as Approver, then run Blast Radius.",
+  "changes": [
+    {
+      "fact_key": "customer_count",
+      "scenario": "Scenario 1 — customer_count update",
+      "new_value_text": "65,000+ customers",
+      "new_value_number": 65000,
+      "new_value_unit": "customers",
+      "qualifier": "at_least",
+      "source_ref": "Q3 Fact Sheet (current edition)",
+      "change_note": "Updated to Q3 2026 verified count",
+      "expected_confirmed": ["A-01", "A-03", "A-04", "A-06"],
+      "expected_possible": ["A-05"],
+      "known_miss": "A-09 — 'Starter: $19 / Pro: $49 per agent per month' is not matched by the numeric extractor"
+    },
+    {
+      "fact_key": "starter_price",
+      "scenario": "Scenario 2 — starter_price increase",
+      "new_value_text": "$22 per agent per month, billed annually",
+      "new_value_number": 22,
+      "new_value_unit": "USD",
+      "qualifier": "exact",
+      "source_ref": "Pricing Sheet v2",
+      "change_note": "Price increase effective Q4 2026",
+      "expected_confirmed": ["A-08"],
+      "known_miss": "A-09 — same extractor limitation as above"
+    }
+  ]
+}

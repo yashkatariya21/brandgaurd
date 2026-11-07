@@ -1,5 +1,5 @@
-import React from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import React, { useState } from 'react'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   Database,
@@ -12,11 +12,13 @@ import {
   Palette,
   Home,
   Info,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '../auth'
 import { useTheme } from '../theme'
 import Header from './Header'
+import { DEMO_ACCOUNTS, ORG_SLUG, DEMO_PASSWORD, IS_DEMO_MODE } from '../lib/demoAccounts'
 
 interface NavItem {
   to: string
@@ -36,9 +38,11 @@ const navItems: NavItem[] = [
 ]
 
 export default function Layout() {
-  const { user, logout } = useAuth()
+  const { user, logout, login } = useAuth()
   const { isAuthority, toggleTheme } = useTheme()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [switching, setSwitching] = useState(false)
 
   return (
     <div className="min-h-screen flex flex-col bg-canvas">
@@ -112,7 +116,7 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Right cluster: theme toggle + user */}
+        {/* Right cluster: theme toggle + role switcher (demo) + user */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <button
             onClick={toggleTheme}
@@ -125,6 +129,45 @@ export default function Layout() {
             <Palette size={13} strokeWidth={1.75} />
             <span className="hidden sm:inline">{isAuthority ? 'Navy' : 'Lavender'}</span>
           </button>
+
+          {/* Role switcher — demo mode only */}
+          {IS_DEMO_MODE && (
+            <div className="relative hidden md:block">
+              <select
+                disabled={switching}
+                value={user?.role ?? ''}
+                onChange={async (e) => {
+                  const acct = DEMO_ACCOUNTS.find((a) => a.role === e.target.value)
+                  if (!acct) return
+                  setSwitching(true)
+                  logout()
+                  try {
+                    await login(acct.email, DEMO_PASSWORD, ORG_SLUG)
+                    // Stay on current route
+                    navigate(location.pathname, { replace: true })
+                  } catch {
+                    navigate('/login')
+                  } finally {
+                    setSwitching(false)
+                  }
+                }}
+                className="appearance-none text-[11px] font-medium px-2 py-1 rounded-lg border cursor-pointer disabled:opacity-60"
+                style={{
+                  borderColor: isAuthority ? 'rgba(255,255,255,0.15)' : 'rgba(126,105,171,0.2)',
+                  background: 'transparent',
+                  color: isAuthority ? '#e2e8f0' : '#2D3142',
+                }}
+                title="Switch demo role"
+              >
+                {DEMO_ACCOUNTS.map((a) => (
+                  <option key={a.role} value={a.role} style={{ background: '#fff', color: '#1e293b' }}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>
+              <Users size={12} className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+            </div>
+          )}
 
           <div className="hidden lg:flex items-center gap-2">
             <div className="text-right leading-tight">

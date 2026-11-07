@@ -1,0 +1,24 @@
+[
+  {
+    "key": "support_hours",
+    "label": "Support availability",
+    "category": "statistic",
+    "value_text": "24/7 support on Enterprise plan; Business Hours (9–6 IST) on Starter and Pro",
+    "value_number": null,
+    "value_unit": null,
+    "qualifier": "exact",
+    "source_ref": "Support Policy v3",
+    "change_note": "Initial approved value"
+  },
+  {
+    "key": "data_centres",
+    "label": "Data centre regions",
+    "category": "statistic",
+    "value_text": "Three regions: India (primary), EU (Frankfurt), US-East (Virginia)",
+    "value_number": 3,
+    "value_unit": "regions",
+    "qualifier": "exact",
+    "source_ref": "Infrastructure Sheet",
+    "change_note": "Initial approved value"
+  }
+]

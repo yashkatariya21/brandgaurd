@@ -210,8 +210,10 @@ export default function RuleTestsPage() {
 
   useEffect(() => {
     rulesApi.list().then((rs) => {
+      // Tone rules first, then others — chaos testing only supports tone.
       const tone = rs.filter((r) => r.category === 'tone')
-      setRules(tone)
+      const rest = rs.filter((r) => r.category !== 'tone')
+      setRules([...tone, ...rest])
       if (tone.length > 0) setSelectedRuleId(tone[0].id)
     })
   }, [])
@@ -247,6 +249,7 @@ export default function RuleTestsPage() {
 
   const selectedRule = rules.find((r) => r.id === selectedRuleId)
   const clearCases = localCases.filter((c) => !c.is_ambiguous)
+  const selectedIsTone = selectedRule?.category === 'tone'
 
   return (
     <div className="space-y-6 max-w-[1440px] mx-auto p-6 pb-12">

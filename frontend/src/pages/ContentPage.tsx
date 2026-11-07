@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Plus, X, Play, Crosshair, CheckCircle2, FileText, Upload } from 'lucide-react'
+import { Plus, X, Play, Crosshair, CheckCircle2, FileText, Upload, BookOpen } from 'lucide-react'
 import { contentApi, redTeamApi, ContentItem, ContentDetail, RedTeamResult } from '../api'
 import { useTheme } from '../theme'
 import StatusBadge from '../components/StatusBadge'
 import SeverityBadge from '../components/SeverityBadge'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
+import { IS_DEMO_MODE } from '../lib/demoAccounts'
+import { DEMO_SAMPLES } from '../lib/demoSamples'
 
 function ContentDetailModal({ item, onClose, onAnalysed }: {
   item: ContentItem
@@ -358,6 +360,32 @@ export default function ContentPage() {
           <h3 className="text-sm font-semibold text-main mb-4 flex items-center gap-2">
             <FileText size={15} /> Submit New Content
           </h3>
+
+          {/* Demo sample loader — only when VITE_DEMO_MODE=true */}
+          {IS_DEMO_MODE && (
+            <div className="mb-4 flex items-center gap-2">
+              <BookOpen size={14} className="text-accent flex-shrink-0" />
+              <label className="text-xs font-medium text-muted">Load sample text:</label>
+              <select
+                onChange={(e) => {
+                  const idx = parseInt(e.target.value, 10)
+                  if (isNaN(idx)) return
+                  const s = DEMO_SAMPLES[idx]
+                  setTitle(s.title)
+                  setChannel(s.channel)
+                  setBodyText(s.body)
+                  e.target.value = ''
+                }}
+                defaultValue=""
+                className="flex-1 px-2.5 py-1.5 text-xs border border-subtle rounded-lg bg-surface text-main focus:outline-none focus:border-accent"
+              >
+                <option value="" disabled>— pick a sample —</option>
+                {DEMO_SAMPLES.map((s, i) => (
+                  <option key={i} value={i}>{s.title}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <form onSubmit={submit} className="space-y-3 mb-6">
             <div className="grid grid-cols-2 gap-3">

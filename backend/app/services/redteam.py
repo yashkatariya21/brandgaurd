@@ -238,11 +238,15 @@ def _stub_persona_findings(persona: dict, content: str) -> list[dict]:
     findings = []
 
     if persona["name"] == "Brand Police":
-        if re.search(r"Nimbus\s+Desk|NimbusDESK", content, re.IGNORECASE):
+        # Match "Nimbus Desk" (with space) or casing variants like "NimbusDESK",
+        # but NOT the correct single-word "NimbusDesk".
+        bad_name_pat = re.compile(r"Nimbus\s+Desk|NimbusDESK", re.IGNORECASE)
+        match = bad_name_pat.search(content)
+        if match:
             findings.append({
                 "issue": "Incorrect product name format detected (should be 'NimbusDesk', one word).",
                 "severity": "high",
-                "span_hint": re.search(r"Nimbus\s+Desk|NimbusDESK", content, re.IGNORECASE).group(),
+                "span_hint": match.group(),
                 "suggested_fix": "NimbusDesk",
             })
         if re.search(r"\busers?\b", content, re.IGNORECASE):
@@ -300,13 +304,7 @@ def _stub_persona_findings(persona: dict, content: str) -> list[dict]:
                 "span_hint": "",
                 "suggested_fix": "Add source and date for any rating or award claim.",
             })
-        if not findings:
-            findings.append({
-                "issue": "Content appears clear and credible from a customer perspective.",
-                "severity": "low",
-                "span_hint": "",
-                "suggested_fix": None,
-            })
+        # No filler "all clear" finding — a persona with no concerns returns an empty list.
 
     return findings
 

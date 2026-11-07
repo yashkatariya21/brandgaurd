@@ -51,8 +51,12 @@ async function request<T>(
   })
 
   if (res.status === 401) {
-    // Local auth is session-based; a 401 from an optional backend should not
-    // kick the user out of their local session. Just surface the error.
+    // On 401 from any call other than /v1/auth/login, clear the token and
+    // redirect to login so the user is not stuck in a broken state.
+    if (!path.startsWith('/v1/auth/')) {
+      clearToken()
+      window.location.href = '/login'
+    }
     throw new Error('Unauthorised')
   }
 

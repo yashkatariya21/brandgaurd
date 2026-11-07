@@ -1,0 +1,28 @@
+[
+  {
+    "key": "R-16",
+    "label": "Active voice",
+    "category": "tone",
+    "applies_to": ["all"],
+    "severity": "low",
+    "description": "Prefer active voice over passive voice in customer-facing content.",
+    "expected_behaviour": "Flag clearly passive constructions and suggest active rewrites.",
+    "examples": [
+      { "kind": "good", "text": "Our team resolves tickets in under four minutes." },
+      { "kind": "bad", "text": "Tickets are resolved by our team in under four minutes." }
+    ]
+  },
+  {
+    "key": "R-17",
+    "label": "Avoid filler phrases",
+    "category": "tone",
+    "applies_to": ["web", "email"],
+    "severity": "low",
+    "description": "Remove filler phrases such as 'please note that', 'it is important to', 'in order to'.",
+    "expected_behaviour": "Flag filler phrases and suggest direct alternatives.",
+    "examples": [
+      { "kind": "good", "text": "To start your trial, click here." },
+      { "kind": "bad", "text": "In order to start your trial, please click here." }
+    ]
+  }
+]
