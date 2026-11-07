@@ -3,7 +3,7 @@
  * JWT is stored in localStorage under the key "bg_token".
  */
 
-const BASE = import.meta.env.VITE_API_URL ?? ''
+const BASE = (import.meta.env as Record<string, string | undefined>).VITE_API_URL ?? ''
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -50,15 +50,13 @@ async function request<T>(
       : undefined,
   })
 
-  const data = await res.json().catch(() => ({}))
   if (res.status === 401) {
-    clearToken()
-    if (path !== '/v1/auth/login') {
-      window.location.href = '/login'
-    }
-    throw new Error(data?.message ?? 'Unauthorised')
+    // Local auth is session-based; a 401 from an optional backend should not
+    // kick the user out of their local session. Just surface the error.
+    throw new Error('Unauthorised')
   }
 
+  const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     throw new Error(data?.message ?? `HTTP ${res.status}`)
   }
@@ -241,17 +239,14 @@ export const factsApi = {
   create: (body: Record<string, unknown>) => post<{ fact_id: string }>('/v1/facts', body),
   proposeVersion: (factId: string, body: Record<string, unknown>) =>
     post<{ version_id: string; version_no: number }>(`/v1/facts/${factId}/versions`, body),
-  submitVersion: (factId: string, versionNo: number) =>
-    post<{ status: string }>(`/v1/facts/${factId}/versions/${versionNo}/submit`),
   approveVersion: (factId: string, versionNo: number) =>
     post<{ status: string }>(`/v1/facts/${factId}/versions/${versionNo}/approve`),
   rejectVersion: (factId: string, versionNo: number, reason?: string) =>
     post<{ status: string }>(`/v1/facts/${factId}/versions/${versionNo}/reject`, { reason }),
-  diff: (factId: string, versionNo: number) =>
-    get<{
-      version_no: number
-      diff: Record<string, { before: unknown; after: unknown }>
-    }>(`/v1/facts/${factId}/versions/${versionNo}/diff`),
+  diff: (factId: string, v1: number, v2: number) =>
+    get<{ before: Record<string, unknown>; after: Record<string, unknown> }>(
+      `/v1/facts/${factId}/diff/${v1}/${v2}`,
+    ),
   blastRadius: (factId: string) => post<BlastRadiusResult>(`/v1/facts/${factId}/blast-radius`),
 }
 
@@ -259,11 +254,11 @@ export const factsApi = {
 
 export const rulesApi = {
   list: () => get<{ rules: Rule[] }>('/v1/rules').then(r => r.rules ?? (r as unknown as Rule[])),
-  get: (id: string) => get<Rule & { versions: unknown[] }>(`/v1/rules/${id}`),
-  approveVersion: (ruleId: string, versionNo: number) =>
-    post<{ status: string }>(`/v1/rules/${ruleId}/versions/${versionNo}/approve`),
-  rejectVersion: (ruleId: string, versionNo: number) =>
-    post<{ status: string }>(`/v1/rules/${ruleId}/versions/${versionNo}/reject`),
+  get: (id: string) => get<{ rule: Rule; versions: unknown[]; examples: unknown[] }>(`/v1/rules/${id}`),
+  approveVersion: (ruleId: string, versionId: string) =>
+    post<{ status: string }>(`/v1/rules/${ruleId}/versions/${versionId}/approve`, { action: 'approve' }),
+  rejectVersion: (ruleId: string, versionId: string) =>
+    post<{ status: string }>(`/v1/rules/${ruleId}/versions/${versionId}/approve`, { action: 'reject' }),
 }
 
 // ─── Content ──────────────────────────────────────────────────────────────────
@@ -401,7 +396,7 @@ export interface ChaosIssue {
 export interface ChaosRunResult {
   run_id: string
   rule_key: string
-  mode: 'llm' | 'demo' | 'mixed'
+  mode: 'llm' | 'demo'
   n_interpreters: number
   cases_count: number
   ambiguous_count: number

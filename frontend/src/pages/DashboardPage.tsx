@@ -1,21 +1,29 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { factsApi, rulesApi, contentApi, findingsApi } from '../api'
+import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, ShieldAlert, CheckCircle2, Scale, ArrowUpRight, Sparkles } from 'lucide-react'
+import { factsApi, rulesApi, contentApi, findingsApi, ContentItem, Finding } from '../api'
 import { useAuth } from '../auth'
+import { useTheme } from '../theme'
+import StatusBadge from '../components/StatusBadge'
+import SeverityBadge from '../components/SeverityBadge'
+import Footer from '../components/Footer'
 
 interface Stats {
-  facts: number | null
-  rules: number | null
-  content: number | null
-  openFindings: number | null
-  criticalFindings: number | null
+  facts: number
+  rules: number
+  content: number
+  openFindings: number
+  criticalFindings: number
 }
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const { isAuthority } = useTheme()
+  const navigate = useNavigate()
   const [stats, setStats] = useState<Stats | null>(null)
+  const [content, setContent] = useState<ContentItem[]>([])
+  const [findings, setFindings] = useState<Finding[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadIssues, setLoadIssues] = useState<string[]>([])
 
   useEffect(() => {
     Promise.allSettled([
@@ -24,146 +32,239 @@ export default function DashboardPage() {
       contentApi.list(),
       findingsApi.list(),
     ]).then(([f, r, c, fi]) => {
-      const failures = [
-        f.status === 'rejected' ? 'facts' : null,
-        r.status === 'rejected' ? 'rules' : null,
-        c.status === 'rejected' ? 'content' : null,
-        fi.status === 'rejected' ? 'findings' : null,
-      ].filter((value): value is string => value !== null)
-      setLoadIssues(failures)
-      const allFindings = fi.status === 'fulfilled' ? fi.value : null
+      const allFindings = fi.status === 'fulfilled' ? fi.value : []
       setStats({
-        facts: f.status === 'fulfilled' ? f.value.length : null,
-        rules: r.status === 'fulfilled' ? r.value.length : null,
-        content: c.status === 'fulfilled' ? c.value.length : null,
-        openFindings: allFindings?.filter((x) => x.status === 'open').length ?? null,
-        criticalFindings: allFindings?.filter((x) => x.status === 'open' && x.severity === 'critical').length ?? null,
+        facts: f.status === 'fulfilled' ? f.value.length : 0,
+        rules: r.status === 'fulfilled' ? r.value.length : 0,
+        content: c.status === 'fulfilled' ? c.value.length : 0,
+        openFindings: allFindings.filter((x) => x.status === 'open').length,
+        criticalFindings: allFindings.filter(
+          (x) => x.status === 'open' && x.severity === 'critical',
+        ).length,
       })
+      if (c.status === 'fulfilled') setContent(c.value)
+      if (fi.status === 'fulfilled') setFindings(fi.value)
     }).finally(() => setLoading(false))
   }, [])
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
+  const kpis = [
+    {
+      label: 'Approved Facts',
+      value: stats?.facts ?? 0,
+      to: '/repository',
+      Icon: Scale,
+      color: '#2a7f8e',
+    },
+    {
+      label: 'Brand Rules',
+      value: stats?.rules ?? 0,
+      to: '/repository',
+      Icon: CheckCircle2,
+      color: '#15803D',
+    },
+    {
+      label: 'Content Items',
+      value: stats?.content ?? 0,
+      to: '/content',
+      Icon: ArrowUpRight,
+      color: '#1D4ED8',
+    },
+    {
+      label: 'Open Findings',
+      value: stats?.openFindings ?? 0,
+      to: '/findings',
+      Icon: stats?.criticalFindings ? ShieldAlert : AlertTriangle,
+      color: stats?.criticalFindings ? '#DC2626' : '#B45309',
+      sub: stats?.criticalFindings ? `${stats.criticalFindings} critical` : undefined,
+    },
+  ]
+
+  // findings grouped by severity for the "exposure matrix"
+  const sevCounts: Record<string, number> = {}
+  for (const f of findings) sevCounts[f.severity] = (sevCounts[f.severity] ?? 0) + 1
+  const totalFindings = findings.length || 1
+  const exposure = [
+    { label: 'Critical', pct: Math.round(((sevCounts.critical ?? 0) / totalFindings) * 100), color: '#DC2626' },
+    { label: 'High', pct: Math.round(((sevCounts.high ?? 0) / totalFindings) * 100), color: '#B45309' },
+    { label: 'Medium', pct: Math.round(((sevCounts.medium ?? 0) / totalFindings) * 100), color: '#CA8A04' },
+    { label: 'Low', pct: Math.round(((sevCounts.low ?? 0) / totalFindings) * 100), color: '#475569' },
+  ]
+
+  const recentFindings = [...findings]
+    .sort((a, b) => (a.status === 'open' ? -1 : 1) - (b.status === 'open' ? -1 : 1))
+    .slice(0, 6)
+
   return (
-    <div className="p-8 max-w-5xl">
-      {/* Header */}
-      <div className="mb-8">
-        <p className="text-gray-500 text-sm">{greeting}</p>
-        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">
-          {user?.displayName ?? 'Welcome back'}
-        </h1>
-      </div>
-
-      {loadIssues.length > 0 && (
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
-          Some dashboard data could not be loaded ({loadIssues.join(', ')}). Unavailable counts are shown as —, not zero.
-        </div>
-      )}
-
-      {/* Stats row */}
-      {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl p-5 animate-pulse">
-              <div className="h-7 w-10 bg-gray-200 rounded mb-2" />
-              <div className="h-4 w-20 bg-gray-100 rounded" />
-            </div>
-          ))}
-        </div>
-      ) : stats ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Link to="/repository" className="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition-colors group">
-            <p className="text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{stats.facts ?? '—'}</p>
-            <p className="text-sm text-gray-500 mt-0.5">Approved facts</p>
-          </Link>
-          <Link to="/repository" className="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition-colors group">
-            <p className="text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{stats.rules ?? '—'}</p>
-            <p className="text-sm text-gray-500 mt-0.5">Brand rules</p>
-          </Link>
-          <Link to="/content" className="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition-colors group">
-            <p className="text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{stats.content ?? '—'}</p>
-            <p className="text-sm text-gray-500 mt-0.5">Content items</p>
-          </Link>
-          <Link to="/findings" className={`rounded-xl p-5 border transition-colors group ${
-            stats.criticalFindings !== null && stats.criticalFindings > 0
-              ? 'bg-red-50 border-red-200 hover:border-red-400'
-              : stats.openFindings !== null && stats.openFindings > 0
-              ? 'bg-amber-50 border-amber-200 hover:border-amber-400'
-              : 'bg-white border-gray-200 hover:border-green-300'
-          }`}>
-            <p className={`text-2xl font-bold ${
-              stats.criticalFindings !== null && stats.criticalFindings > 0 ? 'text-red-700' : stats.openFindings !== null && stats.openFindings > 0 ? 'text-amber-700' : 'text-gray-700'
-            }`}>{stats.openFindings ?? '—'}</p>
-            <p className="text-sm text-gray-500 mt-0.5">Open findings</p>
-            {stats.criticalFindings !== null && stats.criticalFindings > 0 && (
-              <p className="text-xs text-red-600 font-medium mt-1">{stats.criticalFindings} critical</p>
-            )}
-          </Link>
-        </div>
-      ) : null}
-
-      {/* How it works */}
-      <div className="mb-8">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">How BrandGuard works</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            {
-              step: '01',
-              title: 'Build your fact repository',
-              desc: 'Add approved facts — customer counts, prices, certifications, product names — with version history and expiry dates.',
-              to: '/repository',
-              cta: 'Go to Repository →',
-            },
-            {
-              step: '02',
-              title: 'Submit content for analysis',
-              desc: 'Paste text or upload a PDF/DOCX. BrandGuard extracts every factual claim and checks it against your approved facts.',
-              to: '/content',
-              cta: 'Submit Content →',
-            },
-            {
-              step: '03',
-              title: 'Review findings & blast radius',
-              desc: 'See exactly what\'s wrong, decide to accept, edit, or dismiss each finding. Run blast-radius to catch stale content across all assets.',
-              to: '/findings',
-              cta: 'View Findings →',
-            },
-          ].map((s) => (
-            <Link
-              key={s.step}
-              to={s.to}
-              className="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-sm transition-all group"
+    <div className="min-h-full">
+      <div className="space-y-6 max-w-[1440px] mx-auto p-6 pb-12">
+        {/* Title header */}
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <p className="text-xs font-medium text-muted uppercase tracking-wider mb-1">
+              {greeting}, {user?.displayName ?? 'Counsel'}
+            </p>
+            <h1
+              className={`text-main ${
+                isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'
+              }`}
             >
-              <span className="text-xs font-bold text-indigo-400 tracking-widest">{s.step}</span>
-              <h3 className="font-semibold text-gray-900 mt-2 mb-2">{s.title}</h3>
-              <p className="text-sm text-gray-500 leading-relaxed mb-3">{s.desc}</p>
-              <span className="text-sm text-indigo-600 font-medium group-hover:underline">{s.cta}</span>
-            </Link>
-          ))}
+              Executive Scorecard
+            </h1>
+            <p className="text-sm text-muted mt-1">
+              Governance posture across every registered content asset.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/content')}
+            className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg text-white bg-accent transition-colors hover:opacity-90"
+          >
+            <Sparkles size={15} strokeWidth={1.75} />
+            Submit New Content
+          </button>
+        </div>
+
+        {/* KPI grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {loading
+            ? [...Array(4)].map((_, i) => (
+                <div key={i} className="h-28 rounded-xl glass-panel animate-pulse" />
+              ))
+            : kpis.map((k) => (
+                <button
+                  key={k.label}
+                  onClick={() => navigate(k.to)}
+                  className="text-left p-4 rounded-xl glass-panel transition-all hover:-translate-y-0.5"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span
+                      className="w-9 h-9 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: `${k.color}1a`, color: k.color }}
+                    >
+                      <k.Icon size={18} strokeWidth={1.75} />
+                    </span>
+                    <ArrowUpRight size={14} className="text-muted/40" />
+                  </div>
+                  <p className="font-mono-numbers text-3xl font-semibold text-main">{k.value}</p>
+                  <p className="text-xs text-muted mt-1">{k.label}</p>
+                  {k.sub && <p className="text-[11px] mt-1 font-medium text-red-600">{k.sub}</p>}
+                </button>
+              ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Recent content table */}
+          <div className="lg:col-span-2 rounded-xl glass-panel overflow-hidden">
+            <div className="px-5 py-3 border-b border-subtle flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-main">Registered Content</h2>
+              <button
+                onClick={() => navigate('/content')}
+                className="text-xs text-accent font-medium hover:underline"
+              >
+                View all
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-subtle">
+                    {['Content', 'Channel', 'Status', 'State'].map((h) => (
+                      <th
+                        key={h}
+                        className="text-left px-5 py-2.5 text-[11px] font-semibold text-muted uppercase tracking-wide"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-8 text-center text-muted text-sm">
+                        Loading…
+                      </td>
+                    </tr>
+                  ) : content.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-8 text-center text-muted text-sm">
+                        No content registered yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    content.slice(0, 7).map((c) => (
+                      <tr
+                        key={c.id}
+                        onClick={() => navigate('/content')}
+                        className="governance-row cursor-pointer"
+                      >
+                        <td className="px-5 py-3 font-medium text-main max-w-xs truncate">
+                          {c.title}
+                        </td>
+                        <td className="px-5 py-3 text-muted text-xs capitalize">{c.channel}</td>
+                        <td className="px-5 py-3">
+                          <StatusBadge status={c.status} />
+                        </td>
+                        <td className="px-5 py-3">
+                          {c.registered_state !== 'none' ? (
+                            <StatusBadge status={c.registered_state} />
+                          ) : (
+                            <span className="text-xs text-muted/50">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Severity exposure matrix */}
+          <div className="rounded-xl glass-panel p-5">
+            <h2 className="text-sm font-semibold text-main mb-4">Finding Exposure</h2>
+            <div className="space-y-3">
+              {exposure.map((e) => (
+                <div key={e.label}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-muted">{e.label}</span>
+                    <span className="font-mono-numbers text-main font-medium">
+                      {findings.length === 0 ? 0 : e.pct}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${findings.length === 0 ? 0 : e.pct}%`, backgroundColor: e.color }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 pt-4 border-t border-subtle">
+              <p className="text-[11px] text-muted uppercase tracking-wide font-semibold mb-2">
+                Recent findings
+              </p>
+              <div className="space-y-2">
+                {recentFindings.length === 0 ? (
+                  <p className="text-xs text-muted/60">No findings recorded.</p>
+                ) : (
+                  recentFindings.slice(0, 4).map((f) => (
+                    <div key={f.id} className="flex items-center gap-2">
+                      <SeverityBadge severity={f.severity} />
+                      <span className="text-xs text-muted truncate flex-1">{f.content_title}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Roles reference */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Demo roles — NimbusDesk workspace</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          {[
-            { role: 'admin', email: 'admin@nimbusdesk.example', color: 'text-violet-700', badge: 'bg-violet-100' },
-            { role: 'brand_manager', email: 'brand@nimbusdesk.example', color: 'text-indigo-700', badge: 'bg-indigo-100' },
-            { role: 'approver', email: 'approver@nimbusdesk.example', color: 'text-emerald-700', badge: 'bg-emerald-100' },
-            { role: 'creator', email: 'creator@nimbusdesk.example', color: 'text-amber-700', badge: 'bg-amber-100' },
-          ].map((r) => (
-            <div key={r.role} className="bg-white border border-slate-200 rounded-lg p-3">
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded ${r.badge} ${r.color}`}>
-                {r.role.replace('_', ' ')}
-              </span>
-              <p className="text-xs text-gray-500 mt-2 font-mono break-all">{r.email}</p>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-gray-400 mt-3">Password for all demo accounts: <span className="font-mono">password</span></p>
-      </div>
+      <Footer />
     </div>
   )
 }

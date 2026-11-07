@@ -1,185 +1,226 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Scale, Crosshair, ShieldAlert, Atom, ArrowRight, LogIn, UserPlus } from 'lucide-react'
 import { useAuth } from '../auth'
+import { useTheme } from '../theme'
 
-const demoAccounts: Record<string, string> = {
-  admin: 'admin@nimbusdesk.example',
-  brand: 'brand@nimbusdesk.example',
-  approver: 'approver@nimbusdesk.example',
-  creator: 'creator@nimbusdesk.example',
-}
+type Mode = 'login' | 'register'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, register: registerUser } = useAuth()
+  const { isAuthority } = useTheme()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [mode, setMode] = useState<Mode>('login')
+
+  // shared
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
-  const [orgSlug, setOrgSlug] = useState('nimbusdesk')
+  // register-only
+  const [name, setName] = useState('')
+
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      await login(email, password, orgSlug)
+      if (mode === 'login') {
+        await login(phone, password)
+      } else {
+        await registerUser(name, phone, password)
+      }
       navigate('/')
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Sign in failed. Check your connection and credentials.')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
       setLoading(false)
     }
   }
 
-  const quickLogin = (role: string) => {
-    setEmail(demoAccounts[role] ?? email)
-    setPassword('password')
-    setOrgSlug('nimbusdesk')
+  const fillDemo = () => {
+    setMode('login')
+    setPhone('1234567890')
+    setPassword('demo123')
   }
 
+  const features = [
+    { Icon: Crosshair, title: 'Blast-Radius Intelligence', desc: 'See every asset affected when a key fact changes' },
+    { Icon: ShieldAlert, title: 'Adversarial Red Team', desc: '3 AI personas + Prosecutor vs Defender debate' },
+    { Icon: Atom, title: 'Guideline Chaos Testing', desc: 'Find ambiguity in brand rules before they cause problems' },
+  ]
+
+  const inputCls =
+    'w-full px-3.5 py-2.5 rounded-xl text-sm text-main bg-canvas border border-subtle focus:outline-none focus:border-accent transition-all'
+
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 flex-col justify-between p-12">
+    <div className="min-h-screen flex bg-canvas">
+      {/* ── Left panel ── */}
+      <div
+        className="hidden lg:flex lg:w-[55%] relative flex-col justify-between p-14"
+        style={
+          isAuthority
+            ? { background: 'linear-gradient(160deg, #1f3a5f 0%, #152740 100%)', color: '#fff' }
+            : { background: 'linear-gradient(160deg, #7e69ab 0%, #5b4a8c 100%)', color: '#fff' }
+        }
+      >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: isAuthority ? '#2a7f8e' : 'rgba(255,255,255,0.18)' }}
+          >
+            <Scale size={20} className="text-white" />
           </div>
-          <span className="text-white font-semibold text-lg tracking-tight">BrandGuard</span>
+          <span className="font-bold text-lg tracking-tight font-newsreader">BrandGuard</span>
         </div>
 
-        <div>
-          <h1 className="text-4xl font-bold text-white leading-tight mb-4">
-            Keep every claim<br />accurate, every time.
+        <div className="max-w-md">
+          <div
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-6"
+            style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-white inline-block animate-pulse" />
+            Brand Truth & Risk Governance
+          </div>
+          <h1 className="text-5xl font-bold leading-tight mb-5 font-newsreader">
+            Keep every<br />
+            <span style={{ color: isAuthority ? '#5eead4' : '#f5d0fe' }}>brand claim</span><br />
+            accurate.
           </h1>
-          <p className="text-slate-400 text-lg leading-relaxed mb-10">
-            BrandGuard automatically checks marketing content against your approved fact repository — catching stale stats, wrong prices, and embargo violations before they go live.
+          <p className="text-base leading-relaxed mb-10" style={{ color: 'rgba(255,255,255,0.75)' }}>
+            BrandGuard automatically checks marketing content against your approved
+            fact repository — catching stale statistics, wrong prices, and embargo
+            violations before they go live.
           </p>
 
           <div className="space-y-4">
-            {[
-              { icon: '🔍', title: 'Automated claim extraction', desc: 'Identifies every factual claim in a piece of content' },
-              { icon: '💥', title: 'Blast-radius analysis', desc: 'See every asset affected when a key fact changes' },
-              { icon: '✅', title: 'Approval workflows', desc: 'Structured review before any correction goes live' },
-            ].map((f) => (
+            {features.map((f) => (
               <div key={f.title} className="flex items-start gap-3">
-                <span className="text-xl flex-shrink-0 mt-0.5">{f.icon}</span>
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+                >
+                  <f.Icon size={16} className="text-white" />
+                </div>
                 <div>
-                  <p className="text-white font-medium text-sm">{f.title}</p>
-                  <p className="text-slate-400 text-sm">{f.desc}</p>
+                  <p className="text-sm font-semibold">{f.title}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    {f.desc}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="text-slate-600 text-sm">Built for the Inkloom AI Hackathon · 2026</p>
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          © 2026 BrandGuard · Built for Inkloom AI Hackathon
+        </p>
       </div>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
+      {/* ── Right panel ── */}
+      <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
-          {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2 mb-8">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
+          <div className="lg:hidden flex items-center gap-2 mb-6">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-accent">
+              <Scale size={18} className="text-white" />
             </div>
-            <span className="font-semibold text-lg text-gray-900">BrandGuard</span>
+            <span className="font-bold text-main font-newsreader text-lg">BrandGuard</span>
           </div>
 
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">Sign in</h2>
-          <p className="text-gray-500 text-sm mb-8">Choose a demo account to fill the form, then sign in through the backend.</p>
-
-          {/* Quick access */}
-          <div className="mb-6">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Fill demo account — NimbusDesk</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { role: 'admin', label: 'Admin', color: 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100' },
-                { role: 'brand', label: 'Brand Manager', color: 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100' },
-                { role: 'approver', label: 'Approver', color: 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' },
-                { role: 'creator', label: 'Creator', color: 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100' },
-              ].map((r) => (
+          <div className="rounded-2xl glass-modal p-8 border border-subtle">
+            {/* Mode tabs */}
+            <div className="flex gap-1 bg-canvas-secondary p-1 rounded-lg mb-6">
+              {(['login', 'register'] as Mode[]).map((m) => (
                 <button
-                  key={r.role}
-                  type="button"
-                  aria-pressed={email === demoAccounts[r.role]}
-                  onClick={() => quickLogin(r.role)}
-                  className={`px-3 py-2 border rounded-lg text-xs font-medium transition-colors ${r.color}`}
+                  key={m}
+                  onClick={() => {
+                    setMode(m)
+                    setError('')
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    mode === m ? 'bg-surface text-accent shadow-sm' : 'text-muted hover:text-main'
+                  }`}
                 >
-                  {r.label}
+                  {m === 'login' ? <LogIn size={14} /> : <UserPlus size={14} />}
+                  {m === 'login' ? 'Sign in' : 'Create account'}
                 </button>
               ))}
             </div>
+
+            <h2 className="text-xl font-bold text-main mb-1 font-newsreader">
+              {mode === 'login' ? 'Welcome back' : 'Create your account'}
+            </h2>
+            <p className="text-xs text-muted mb-6">
+              {mode === 'login'
+                ? 'Sign in with your phone number and password.'
+                : 'Register to start using BrandGuard. Stored locally on this device.'}
+            </p>
+
+            {error && (
+              <div className="mb-4 px-3 py-2.5 rounded-xl text-xs bg-red-50 border border-red-200 text-red-700">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={submit} className="space-y-3">
+              {mode === 'register' && (
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1.5">Full name</label>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name"
+                    required
+                    className={inputCls}
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1.5">Phone number</label>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. 1234567890"
+                  required
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1.5">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className={inputCls}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-accent hover:opacity-90 transition-opacity disabled:opacity-60 mt-2 flex items-center justify-center gap-2"
+              >
+                {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
+                {!loading && <ArrowRight size={16} />}
+              </button>
+            </form>
+
+            {mode === 'login' && (
+              <button
+                onClick={fillDemo}
+                className="w-full mt-4 text-xs text-accent hover:opacity-80 text-center"
+              >
+                Use demo account (1234567890 / demo123)
+              </button>
+            )}
           </div>
-
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-xs text-gray-400">or sign in manually</span>
-            </div>
-          </div>
-
-          {error && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm" role="alert">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="org-slug" className="block text-sm font-medium text-gray-700 mb-1.5">Organisation</label>
-              <input
-                id="org-slug"
-                type="text"
-                value={orgSlug}
-                onChange={(e) => setOrgSlug(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                placeholder="nimbusdesk"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                placeholder="admin@nimbusdesk.example"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
+          <p className="text-center text-xs text-muted mt-4">
+            Your account is stored locally on this device. A human makes every decision.
+          </p>
         </div>
       </div>
     </div>
