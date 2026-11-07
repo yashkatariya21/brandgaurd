@@ -1,18 +1,116 @@
-import React, { useEffect, useState } from 'react'
-import { X, Scale, Shield, Gavel, Pencil, XCircle, ArrowUp } from 'lucide-react'
-import { findingsApi, debateApi, Finding, Debate } from '../api'
+import React, { useEffect, useRef, useState } from 'react'
+import { X, Scale, Shield, Gavel, Pencil, XCircle, ArrowUp, FileText, ChevronDown } from 'lucide-react'
+import { findingsApi, debateApi, contentApi, Finding, Debate } from '../api'
 import { useTheme } from '../theme'
 import SeverityBadge from '../components/SeverityBadge'
 import StatusBadge from '../components/StatusBadge'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
+import HighlightedText, { SeverityLegend } from '../components/HighlightedText'
+import { type AnnotatedRange } from '../lib/segments'
 
 const REASON_CODES = [
-  { value: 'not_applicable', label: 'Not applicable' },
+  { value: 'not_applicable',  label: 'Not applicable' },
   { value: 'intended_meaning', label: 'Intended meaning' },
-  { value: 'rule_unclear', label: 'Rule is unclear' },
-  { value: 'evidence_wrong', label: 'Evidence wrong' },
-  { value: 'other', label: 'Other' },
+  { value: 'rule_unclear',    label: 'Rule is unclear' },
+  { value: 'evidence_wrong',  label: 'Evidence wrong' },
+  { value: 'other',           label: 'Other' },
 ]
+
+// ── Draft-text panel (shows highlighted body for one content item) ─────────────
+
+function DraftPanel({
+  contentItemId,
+  findings,
+  selectedFindingId,
+  onSelectFinding,
+}: {
+  contentItemId: string
+  findings: Finding[]
+  selectedFindingId: string | null
+  onSelectFinding: (id: string | null) => void
+}) {
+  const [bodyText, setBodyText] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    contentApi
+      .get(contentItemId)
+      .then((d) => setBodyText(d.body_text))
+      .catch(() => setBodyText(null))
+      .finally(() => setLoading(false))
+  }, [contentItemId])
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full text-left px-4 py-2 text-xs text-accent font-medium flex items-center gap-1 border border-subtle rounded-lg hover:bg-accent-subtle"
+      >
+        <FileText size={13} /> Show draft text
+        <ChevronDown size={13} className="ml-auto" />
+      </button>
+    )
+  }
+
+  const textLen = bodyText?.length ?? 0
+  const ranges: AnnotatedRange[] = findings
+    .filter(
+      (f) =>
+        f.content_item_id === contentItemId &&
+        f.span_start != null &&
+        f.span_end != null &&
+        (f.span_start as number) < (f.span_end as number) &&
+        (f.span_end as number) <= textLen,
+    )
+    .map((f) => ({
+      id: f.id,
+      start: f.span_start as number,
+      end: f.span_end as number,
+      severity: f.severity,
+      label: f.issue,
+      kind: 'finding' as const,
+    }))
+
+  return (
+    <div className="glass-panel rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-subtle">
+        <span className="text-xs font-semibold text-muted uppercase tracking-wide flex items-center gap-1.5">
+          <FileText size={13} /> Draft text
+        </span>
+        <div className="flex items-center gap-3">
+          <SeverityLegend />
+          <button
+            onClick={() => setOpen(false)}
+            className="text-xs text-muted hover:text-main"
+            aria-label="Collapse draft text"
+          >
+            <ChevronDown size={14} className="rotate-180" />
+          </button>
+        </div>
+      </div>
+      <div className="p-4 max-h-48 overflow-y-auto scrollbar-thin">
+        {loading ? (
+          <div className="space-y-2">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-4 bg-canvas-secondary rounded animate-pulse" />
+            ))}
+          </div>
+        ) : bodyText ? (
+          <HighlightedText
+            text={bodyText}
+            ranges={ranges}
+            selectedId={selectedFindingId}
+            onSelect={onSelectFinding}
+          />
+        ) : (
+          <p className="text-xs text-muted italic">Could not load draft text.</p>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // ── Debate Panel ──────────────────────────────────────────────────────────────
 
@@ -41,10 +139,10 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
           <div className="flex items-center gap-2 flex-shrink-0">
             {debate?.mode === 'demo' && (
               <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full font-medium">
-                Demo mode (no AI key)
+                Demo mode · heuristic, not AI
               </span>
             )}
-            <button onClick={onClose} className="text-muted hover:text-main p-1">
+            <button onClick={onClose} className="text-muted hover:text-main p-1" aria-label="Close debate">
               <X size={18} />
             </button>
           </div>
@@ -65,9 +163,7 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
                 <div className="border-2 border-red-200 rounded-xl p-4 bg-red-50">
                   <div className="flex items-center gap-2 mb-3">
                     <Scale size={18} className="text-red-700" />
-                    <h4 className="font-bold text-red-700 text-sm uppercase tracking-wide">
-                      Prosecutor
-                    </h4>
+                    <h4 className="font-bold text-red-700 text-sm uppercase tracking-wide">Prosecutor</h4>
                     <span className="ml-auto text-xs text-red-500 font-medium">The case FOR fixing</span>
                   </div>
                   <p className="text-sm text-main leading-relaxed">{debate.prosecutor_text}</p>
@@ -76,9 +172,7 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
                 <div className="border-2 border-green-200 rounded-xl p-4 bg-green-50">
                   <div className="flex items-center gap-2 mb-3">
                     <Shield size={18} className="text-green-700" />
-                    <h4 className="font-bold text-green-700 text-sm uppercase tracking-wide">
-                      Defender
-                    </h4>
+                    <h4 className="font-bold text-green-700 text-sm uppercase tracking-wide">Defender</h4>
                     <span className="ml-auto text-xs text-green-600 font-medium">The case AGAINST</span>
                   </div>
                   <p className="text-sm text-main leading-relaxed">{debate.defender_text}</p>
@@ -94,6 +188,10 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
                 </div>
               )}
 
+              {debate.demo_note && (
+                <p className="text-xs text-amber-700 mb-3">{debate.demo_note}</p>
+              )}
+
               <div className="p-3 bg-slate-50 border border-subtle rounded-lg text-center">
                 <p className="text-xs text-muted italic">{debate.footer}</p>
               </div>
@@ -101,7 +199,11 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
           ) : null}
         </div>
 
-        <AIDisclaimerFooter />
+        {/* Sticky decision bar */}
+        <div className="border-t border-subtle px-6 py-3 bg-surface flex items-center gap-3">
+          <p className="text-xs text-muted flex-1">A human makes the final decision.</p>
+          <AIDisclaimerFooter className="border-0 p-0 text-[11px]" />
+        </div>
       </div>
     </div>
   )
@@ -131,8 +233,7 @@ function DecideModal({ finding, onClose, onDecided }: {
     setError('')
     try {
       await findingsApi.decide(
-        finding.id,
-        action,
+        finding.id, action,
         reasonCode || undefined,
         reasonText || undefined,
         finalText || undefined,
@@ -147,10 +248,10 @@ function DecideModal({ finding, onClose, onDecided }: {
   }
 
   const actionOpts = [
-    { value: 'accept', label: 'Accept', Icon: Shield, cls: 'border-green-300 bg-green-50 text-green-700' },
-    { value: 'edit', label: 'Edit', Icon: Pencil, cls: 'border-blue-300 bg-blue-50 text-blue-700' },
-    { value: 'dismiss', label: 'Dismiss', Icon: XCircle, cls: 'border-gray-300 bg-gray-50 text-gray-700' },
-    { value: 'escalate', label: 'Escalate', Icon: ArrowUp, cls: 'border-purple-300 bg-purple-50 text-purple-700' },
+    { value: 'accept',   label: 'Accept',   Icon: Shield,   cls: 'border-green-300 bg-green-50 text-green-700' },
+    { value: 'edit',     label: 'Edit',     Icon: Pencil,   cls: 'border-blue-300 bg-blue-50 text-blue-700' },
+    { value: 'dismiss',  label: 'Dismiss',  Icon: XCircle,  cls: 'border-gray-300 bg-gray-50 text-gray-700' },
+    { value: 'escalate', label: 'Escalate', Icon: ArrowUp,  cls: 'border-purple-300 bg-purple-50 text-purple-700' },
   ]
 
   return (
@@ -162,7 +263,7 @@ function DecideModal({ finding, onClose, onDecided }: {
               <h3 className="text-lg font-bold text-main font-newsreader">Decide on Finding</h3>
               <p className="text-sm text-muted mt-1">{finding.issue}</p>
             </div>
-            <button onClick={onClose} className="text-muted hover:text-main flex-shrink-0">
+            <button onClick={onClose} className="text-muted hover:text-main flex-shrink-0" aria-label="Close">
               <X size={18} />
             </button>
           </div>
@@ -200,9 +301,7 @@ function DecideModal({ finding, onClose, onDecided }: {
               >
                 <option value="">— select reason —</option>
                 {REASON_CODES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
+                  <option key={r.value} value={r.value}>{r.label}</option>
                 ))}
               </select>
             </div>
@@ -242,6 +341,7 @@ function DecideModal({ finding, onClose, onDecided }: {
               {loading ? 'Saving…' : 'Save Decision'}
             </button>
           </div>
+          <p className="text-xs text-muted text-center pt-1">A human makes the final decision.</p>
         </div>
       </div>
     </div>
@@ -257,6 +357,9 @@ export default function FindingsPage() {
   const [selected, setSelected] = useState<Finding | null>(null)
   const [debating, setDebating] = useState<Finding | null>(null)
   const [filter, setFilter] = useState('open')
+  const [expandedContentId, setExpandedContentId] = useState<string | null>(null)
+  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null)
+  const findingRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const load = () => {
     setLoading(true)
@@ -270,32 +373,44 @@ export default function FindingsPage() {
     return acc
   }, {})
 
+  // Group filtered findings by content item for the draft panel
+  const byContent = filtered.reduce<Record<string, Finding[]>>((acc, f) => {
+    const cid = f.content_item_id
+    if (!acc[cid]) acc[cid] = []
+    acc[cid].push(f)
+    return acc
+  }, {})
+
+  const handleSelectHighlight = (id: string | null) => {
+    setSelectedFindingId(id)
+    if (id && findingRefs.current[id]) {
+      findingRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }
+
   const filterOptions = [
-    { value: 'all', label: `All (${findings.length})` },
-    { value: 'open', label: `Open (${counts.open ?? 0})` },
-    { value: 'accepted', label: `Accepted (${counts.accepted ?? 0})` },
+    { value: 'all',       label: `All (${findings.length})` },
+    { value: 'open',      label: `Open (${counts.open ?? 0})` },
+    { value: 'accepted',  label: `Accepted (${counts.accepted ?? 0})` },
     { value: 'dismissed', label: `Dismissed (${counts.dismissed ?? 0})` },
     { value: 'escalated', label: `Escalated (${counts.escalated ?? 0})` },
   ]
 
   const statCards = [
-    { label: 'Open', count: counts.open ?? 0, cls: 'border-amber-200 bg-amber-50', tcls: 'text-amber-700' },
-    {
-      label: 'Critical',
-      count: findings.filter((f) => f.severity === 'critical' && f.status === 'open').length,
-      cls: 'border-red-200 bg-red-50',
-      tcls: 'text-red-700',
-    },
-    { label: 'Accepted', count: counts.accepted ?? 0, cls: 'border-green-200 bg-green-50', tcls: 'text-green-700' },
-    { label: 'Total', count: findings.length, cls: 'border-subtle bg-canvas-secondary', tcls: 'text-main' },
+    { label: 'Open',     count: counts.open ?? 0,
+      cls: 'border-amber-200 bg-amber-50', tcls: 'text-amber-700' },
+    { label: 'Critical', count: findings.filter((f) => f.severity === 'critical' && f.status === 'open').length,
+      cls: 'border-red-200 bg-red-50',    tcls: 'text-red-700' },
+    { label: 'Accepted', count: counts.accepted ?? 0,
+      cls: 'border-green-200 bg-green-50', tcls: 'text-green-700' },
+    { label: 'Total',    count: findings.length,
+      cls: 'border-subtle bg-canvas-secondary', tcls: 'text-main' },
   ]
 
   return (
-    <div className="space-y-6 max-w-[1440px] mx-auto p-6 pb-12">
+    <div className="space-y-6 max-w-[1440px] mx-auto p-4 md:p-6 pb-12">
       <div className="mb-2">
-        <h1
-          className={`text-main ${isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'}`}
-        >
+        <h1 className={`text-main ${isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'}`}>
           Findings & Decisions
         </h1>
         <p className="text-sm text-muted mt-1">
@@ -304,7 +419,7 @@ export default function FindingsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {statCards.map((s) => (
           <div key={s.label} className={`border rounded-xl p-4 ${s.cls}`}>
             <p className={`text-2xl font-bold font-mono-numbers ${s.tcls}`}>{s.count}</p>
@@ -314,12 +429,12 @@ export default function FindingsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 bg-canvas-secondary p-1 rounded-lg w-fit">
+      <div className="flex gap-1 bg-canvas-secondary p-1 rounded-lg w-fit overflow-x-auto">
         {filterOptions.map((fo) => (
           <button
             key={fo.value}
             onClick={() => setFilter(fo.value)}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
               filter === fo.value ? 'bg-surface text-accent shadow-sm' : 'text-muted hover:text-main'
             }`}
           >
@@ -329,81 +444,134 @@ export default function FindingsPage() {
       </div>
 
       {loading ? (
-        <p className="text-muted text-sm">Loading…</p>
+        <div className="space-y-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-20 bg-canvas-secondary rounded-xl animate-pulse" />
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-muted">
-          <p className="text-lg font-medium text-main">No {filter !== 'all' ? filter : ''} findings</p>
+        <div className="text-center py-16 glass-panel rounded-xl">
+          <p className="text-lg font-medium text-main">
+            No {filter !== 'all' ? filter : ''} findings
+          </p>
+          <p className="text-sm text-muted mt-1">
+            {filter === 'open'
+              ? 'All findings have been decided.'
+              : 'Nothing here yet.'}
+          </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((f) => (
-            <div
-              key={f.id}
-              className={`glass-panel rounded-xl p-4 hover:border-accent/40 transition-colors ${
-                f.severity === 'critical' && f.status === 'open' ? 'border-red-300' : ''
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 pt-0.5">
-                  <SeverityBadge severity={f.severity} />
+        /* Group by content item so draft panel appears once per content */
+        <div className="space-y-6">
+          {Object.entries(byContent).map(([contentItemId, groupFindings]) => {
+            const contentTitle = groupFindings[0]?.content_title ?? 'Unknown content'
+            const isExpanded = expandedContentId === contentItemId
+
+            return (
+              <div key={contentItemId} className="space-y-3">
+                {/* Content group header */}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wide">
+                    {contentTitle}
+                  </p>
+                  <button
+                    onClick={() =>
+                      setExpandedContentId(isExpanded ? null : contentItemId)
+                    }
+                    className="text-xs text-accent hover:opacity-80 flex items-center gap-1"
+                  >
+                    <FileText size={12} />
+                    {isExpanded ? 'Hide' : 'Show'} draft
+                    <ChevronDown size={12} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-main leading-snug">{f.issue}</p>
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <span className="text-xs text-muted">{f.content_title}</span>
-                    <span className="text-xs text-muted/40">·</span>
-                    {f.source_kind === 'persona' ? (
-                      <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
-                        Possible · {f.persona ?? 'Persona'}
-                      </span>
-                    ) : (
-                      <span
-                        className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                          f.finding_type === 'confirmed'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        {f.finding_type === 'confirmed' ? 'Confirmed' : 'Possible'} · {f.source_kind}
-                      </span>
-                    )}
-                    <span className="text-xs text-muted/40">·</span>
-                    <span className="text-xs text-muted/60">
-                      {new Date(f.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <StatusBadge status={f.status} />
-                  {f.status === 'open' && (
-                    <>
-                      {['high', 'critical'].includes(f.severity) ? (
-                        <button
-                          onClick={() => setDebating(f)}
-                          className="text-xs px-2 py-1 border border-subtle text-muted rounded hover:bg-accent-subtle"
-                        >
-                          Show debate
-                        </button>
-                      ) : (
-                        <span
-                          title="Debate runs on high or critical findings"
-                          className="text-xs px-2 py-1 border border-subtle text-muted/40 rounded cursor-not-allowed"
-                        >
-                          Show debate
-                        </span>
-                      )}
-                      <button
-                        onClick={() => setSelected(f)}
-                        className="text-xs px-2 py-1 bg-accent text-white rounded hover:opacity-90"
-                      >
-                        Decide
-                      </button>
-                    </>
-                  )}
+
+                {/* Draft text panel */}
+                {isExpanded && (
+                  <DraftPanel
+                    contentItemId={contentItemId}
+                    findings={groupFindings}
+                    selectedFindingId={selectedFindingId}
+                    onSelectFinding={handleSelectHighlight}
+                  />
+                )}
+
+                {/* Finding cards */}
+                <div className="space-y-2">
+                  {groupFindings.map((f) => (
+                    <div
+                      key={f.id}
+                      ref={(el) => { findingRefs.current[f.id] = el }}
+                      className={`glass-panel rounded-xl p-4 transition-all ${
+                        selectedFindingId === f.id
+                          ? 'ring-2 ring-accent/40 border-accent/30'
+                          : f.severity === 'critical' && f.status === 'open'
+                          ? 'border-red-300'
+                          : ''
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 pt-0.5">
+                          <SeverityBadge severity={f.severity} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-main leading-snug">{f.issue}</p>
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            {f.source_kind === 'persona' ? (
+                              <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                                Possible · {f.persona ?? 'Persona'}
+                              </span>
+                            ) : (
+                              <span
+                                className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                                  f.finding_type === 'confirmed'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-amber-100 text-amber-700'
+                                }`}
+                              >
+                                {f.finding_type === 'confirmed' ? 'Confirmed' : 'Possible'} · {f.source_kind}
+                              </span>
+                            )}
+                            <span className="text-xs text-muted/60">
+                              {new Date(f.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                          <StatusBadge status={f.status} />
+                          {f.status === 'open' && (
+                            <>
+                              {['high', 'critical'].includes(f.severity) ? (
+                                <button
+                                  onClick={() => setDebating(f)}
+                                  className="text-xs px-2 py-1 border border-subtle text-muted rounded hover:bg-accent-subtle"
+                                >
+                                  Show debate
+                                </button>
+                              ) : (
+                                <span
+                                  title="Debate runs on high or critical findings"
+                                  className="text-xs px-2 py-1 border border-subtle text-muted/40 rounded cursor-not-allowed"
+                                >
+                                  Show debate
+                                </span>
+                              )}
+                              <button
+                                onClick={() => setSelected(f)}
+                                className="text-xs px-2 py-1 bg-accent text-white rounded hover:opacity-90"
+                              >
+                                Decide
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
