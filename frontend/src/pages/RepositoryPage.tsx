@@ -580,6 +580,7 @@ export default function RepositoryPage() {
         </div>
       ) : tab === 'facts' ? (
         <div className="rounded-xl glass-panel overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-subtle bg-canvas-secondary/50">
@@ -628,9 +629,11 @@ export default function RepositoryPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       ) : (
         <div className="rounded-xl glass-panel overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-subtle bg-canvas-secondary/50">
@@ -674,6 +677,7 @@ export default function RepositoryPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

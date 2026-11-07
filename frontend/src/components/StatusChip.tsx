@@ -108,10 +108,12 @@ export default function StatusChip({
 
   return (
     <span
+      role="status"
+      aria-label={label ?? cfg.label}
       className={`inline-flex items-center gap-1.5 rounded-full border font-semibold tracking-tight ${sizeCls} ${className}`}
       style={{ color: cfg.color, backgroundColor: cfg.bg, borderColor: cfg.border }}
     >
-      {showIcon && <cfg.Icon size={iconSize} strokeWidth={1.5} />}
+      {showIcon && <cfg.Icon size={iconSize} strokeWidth={1.5} aria-hidden="true" />}
       <span>{label ?? cfg.label}</span>
     </span>
   )

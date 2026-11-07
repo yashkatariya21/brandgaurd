@@ -524,11 +524,13 @@ export default function ContentPage() {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Title"
                 required
+                aria-label="Content title"
                 className={inputCls}
               />
               <select
                 value={channel}
                 onChange={(e) => setChannel(e.target.value)}
+                aria-label="Channel"
                 className={inputCls}
               >
                 {['web', 'social', 'email', 'press', 'pdf', 'image'].map((c) => (
@@ -544,6 +546,7 @@ export default function ContentPage() {
               placeholder="Paste content text here…"
               required
               rows={4}
+              aria-label="Content body text"
               className={`${inputCls} w-full`}
             />
             <button
@@ -588,6 +591,7 @@ export default function ContentPage() {
         </div>
       ) : (
         <div className="rounded-xl glass-panel overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-subtle bg-canvas-secondary/50">
@@ -629,6 +633,7 @@ export default function ContentPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

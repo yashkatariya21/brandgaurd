@@ -108,9 +108,10 @@ export default function Layout() {
 
         {/* Right cluster: theme toggle + role switcher (demo) + user */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          <button
+      <button
             onClick={toggleTheme}
             title="Toggle theme"
+            aria-label={`Switch to ${isAuthority ? 'Lavender' : 'Navy'} theme`}
             className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-lg border transition-colors"
             style={{
               borderColor: isAuthority ? 'rgba(255,255,255,0.15)' : 'rgba(126,105,171,0.2)',
