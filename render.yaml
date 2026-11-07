@@ -1,0 +1,65 @@
+# render.yaml — Infrastructure-as-code for Render.com
+# Defines the BrandGuard backend web service + managed Postgres database.
+#
+# HOW TO USE:
+#   1. Push this file to your GitHub repo (already done).
+#   2. Go to https://dashboard.render.com → New → Blueprint
+#   3. Connect your repo — Render reads this file automatically.
+#   4. Fill in the environment variable values marked "sync: false"
+#      directly in the Render dashboard (they are secrets).
+
+services:
+  - type: web
+    name: brandguard-api
+    runtime: docker
+    # Render builds from the repo root so the Dockerfile can reference
+    # both backend/ and db/ sub-directories.
+    dockerfilePath: ./backend/Dockerfile.render
+    # Free tier — change to "standard" for always-on (no cold start).
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # Render auto-injects DATABASE_URL from the linked database below.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: brandguard-db
+          property: connectionString
+
+      # The migration script needs owner-level access. Use the same
+      # connection string for simplicity on Render's managed Postgres.
+      - key: MIGRATION_DATABASE_URL
+        fromDatabase:
+          name: brandguard-db
+          property: connectionString
+
+      # APP_DB_PASSWORD is used by the migration script to create the
+      # app-level role. Set it to any random string in the dashboard.
+      - key: APP_DB_PASSWORD
+        sync: false          # set manually in Render dashboard
+
+      - key: JWT_SECRET
+        sync: false          # generate: python -c "import secrets; print(secrets.token_hex(32))"
+
+      - key: JWT_TTL_MINUTES
+        value: "60"
+
+      # IMPORTANT: replace with your actual Vercel frontend URL after deploy.
+      # e.g. https://brandguard.vercel.app
+      # Multiple origins: comma-separated, e.g. https://a.vercel.app,https://custom.com
+      - key: CORS_ORIGINS
+        sync: false          # set manually in Render dashboard
+
+      - key: SEED_PASSWORD
+        sync: false          # any string ≥10 chars for demo accounts
+
+      # Optional — leave blank to run in deterministic demo mode.
+      - key: OPENAI_API_KEY
+        sync: false
+
+      - key: OPENAI_MODEL
+        value: "gpt-4o-mini"
+
+databases:
+  - name: brandguard-db
+    databaseName: brandguard
+    plan: free               # free tier; expires after 90 days — upgrade for production
