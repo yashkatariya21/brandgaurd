@@ -1,6 +1,12 @@
 /**
- * demoAccounts.ts — seeded demo account mapping for the demo role switcher.
- * Passwords are read from env vars at runtime, never hardcoded here.
+ * demoAccounts.ts — seeded demo account mapping.
+ *
+ * IS_DEMO_MODE defaults to true so the demo section is always visible
+ * in the submitted build. It can be overridden to false via the
+ * VITE_DEMO_MODE=false env var at build time.
+ *
+ * DEMO_PASSWORD is read from VITE_DEMO_PASSWORD if set; falls back to
+ * the well-known seed default so the demo works without configuring env vars.
  */
 
 export interface DemoAccount {
@@ -10,21 +16,30 @@ export interface DemoAccount {
 }
 
 export const DEMO_ACCOUNTS: DemoAccount[] = [
-  { label: 'Admin', email: 'admin@nimbusdesk.example', role: 'admin' },
-  { label: 'Brand Manager', email: 'brand@nimbusdesk.example', role: 'brand_manager' },
-  { label: 'Approver', email: 'approver@nimbusdesk.example', role: 'approver' },
-  { label: 'Manager', email: 'manager@nimbusdesk.example', role: 'manager' },
-  { label: 'Content Creator', email: 'creator@nimbusdesk.example', role: 'creator' },
-  { label: 'External Agency', email: 'agency@nimbusdesk.example', role: 'external_creator' },
+  { label: 'Admin',            email: 'admin@nimbusdesk.example',    role: 'admin' },
+  { label: 'Brand Manager',    email: 'brand@nimbusdesk.example',    role: 'brand_manager' },
+  { label: 'Approver',         email: 'approver@nimbusdesk.example', role: 'approver' },
+  { label: 'Manager',          email: 'manager@nimbusdesk.example',  role: 'manager' },
+  { label: 'Content Creator',  email: 'creator@nimbusdesk.example',  role: 'creator' },
+  { label: 'External Agency',  email: 'agency@nimbusdesk.example',   role: 'external_creator' },
 ]
 
-/** Org slug used for all demo accounts. Override via VITE_ORG_SLUG env var. */
+/** Org slug for all demo accounts. */
 export const ORG_SLUG: string =
   (import.meta.env as Record<string, string | undefined>).VITE_ORG_SLUG ?? 'nimbusdesk'
 
-/** Demo password — only set when VITE_DEMO_MODE === 'true'. Never hardcoded. */
+/**
+ * Demo password.
+ * Falls back to the known seed default so the UI works without configuring
+ * VITE_DEMO_PASSWORD explicitly. When a real backend is running, this must
+ * match the SEED_PASSWORD used when seeding the database.
+ */
 export const DEMO_PASSWORD: string =
-  (import.meta.env as Record<string, string | undefined>).VITE_DEMO_PASSWORD ?? ''
+  (import.meta.env as Record<string, string | undefined>).VITE_DEMO_PASSWORD ?? 'BrandGuard2026!'
 
+/**
+ * Demo mode flag — TRUE by default so the demo section is always shown.
+ * Set VITE_DEMO_MODE=false at build time to hide it in a production deploy.
+ */
 export const IS_DEMO_MODE: boolean =
-  (import.meta.env as Record<string, string | undefined>).VITE_DEMO_MODE === 'true'
+  (import.meta.env as Record<string, string | undefined>).VITE_DEMO_MODE !== 'false'

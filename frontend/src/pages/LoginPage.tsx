@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Crosshair, ShieldAlert, Atom, ArrowRight, Users, Eye, EyeOff } from 'lucide-react'
+import { Crosshair, ShieldAlert, Atom, ArrowRight, Eye, EyeOff, Zap } from 'lucide-react'
 import { useAuth } from '../auth'
 import { useTheme } from '../theme'
 import BrandGuardLogo from '../components/BrandGuardLogo'
@@ -11,7 +11,7 @@ export default function LoginPage() {
   const { isAuthority } = useTheme()
   const navigate = useNavigate()
 
-  // If already authenticated (demo auto-login), skip straight to home
+  // Already signed in (demo auto-login) → go straight to home
   React.useEffect(() => {
     if (user) navigate('/', { replace: true })
   }, [user, navigate])
@@ -22,22 +22,20 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const doLogin = async (e: string, p: string, slug: string) => {
+  const doLogin = async (e: string, p: string) => {
     setError('')
     setLoading(true)
     try {
-      await login(e, p, slug)
+      await login(e, p, ORG_SLUG)
       navigate('/')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign-in failed.'
-      // "Failed to fetch" means no backend — in demo mode the auth fallback
-      // already signed the user in, so just navigate without showing an error.
-      if (
-        IS_DEMO_MODE &&
-        (msg.toLowerCase().includes('fetch') ||
-          msg.toLowerCase().includes('network') ||
-          msg.toLowerCase().includes('load failed'))
-      ) {
+      // Network errors in demo mode mean no backend — fallback already signed
+      // in via auth.tsx, so just navigate away.
+      const isNetErr = msg.toLowerCase().includes('fetch') ||
+        msg.toLowerCase().includes('network') ||
+        msg.toLowerCase().includes('load failed')
+      if (IS_DEMO_MODE && isNetErr) {
         navigate('/')
         return
       }
@@ -49,287 +47,222 @@ export default function LoginPage() {
 
   const handleSubmit = (ev: React.FormEvent) => {
     ev.preventDefault()
-    if (!email.trim() || !password) {
-      setError('Please enter your email and password.')
-      return
-    }
-    doLogin(email.trim(), password, ORG_SLUG)
+    if (!email.trim() || !password) { setError('Please enter email and password.'); return }
+    doLogin(email.trim(), password)
   }
 
-  const handleDemoRole = (acctEmail: string) => {
-    // In demo mode without a backend, login() will fall back to a local user,
-    // so we attempt login even if DEMO_PASSWORD is empty.
-    doLogin(acctEmail, DEMO_PASSWORD || 'demo', ORG_SLUG)
+  // Fill the form with a demo account and submit
+  const loginAsDemo = (acctEmail: string) => {
+    doLogin(acctEmail, DEMO_PASSWORD)
   }
 
-  const handleStartDemo = () => {
-    const bm = DEMO_ACCOUNTS.find((a) => a.role === 'brand_manager')
-    if (bm) handleDemoRole(bm.email)
-  }
-
-  const sideGradient = isAuthority
-    ? 'linear-gradient(160deg, #1f3a5f 0%, #0f2040 100%)'
-    : 'linear-gradient(160deg, #7e69ab 0%, #5b4a8c 100%)'
-
+  const accent = isAuthority ? '#2a7f8e' : '#7e69ab'
   const accentLight = isAuthority ? '#5eead4' : '#f5d0fe'
-
-  const features = [
-    {
-      Icon: Crosshair,
-      title: 'Blast-Radius Intelligence',
-      desc: 'See every asset affected when a key fact changes — confirmed and possible, sorted by urgency.',
-    },
-    {
-      Icon: ShieldAlert,
-      title: 'Adversarial Red Team',
-      desc: '3 AI personas review your content. Prosecutor vs Defender shows both sides. You decide.',
-    },
-    {
-      Icon: Atom,
-      title: 'Guideline Chaos Testing',
-      desc: 'Find ambiguity in tone rules before they cause problems. Human labels are ground truth.',
-    },
-  ]
+  const sideGradient = isAuthority
+    ? 'linear-gradient(160deg, #1f3a5f 0%, #0a2030 100%)'
+    : 'linear-gradient(160deg, #7e69ab 0%, #4a3280 100%)'
 
   const inputBase =
-    'w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/15 text-white placeholder-white/30 focus:outline-none focus:border-white/50 focus:bg-white/8 transition-all'
+    'w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/15 text-white placeholder-white/30 focus:outline-none focus:border-white/50 transition-all'
+
+  const roleColors: Record<string, string> = {
+    admin: '#6366f1', brand_manager: '#2a7f8e', approver: '#10b981',
+    manager: '#f59e0b', creator: '#ec4899', external_creator: '#8b5cf6',
+  }
 
   return (
-    <div className="min-h-screen flex bg-[#0f172a]">
-      {/* ── Left branded panel ───────────────────────────────────────── */}
+    <div className="min-h-screen flex bg-[#0a0f1e]">
+
+      {/* ── Left panel ─────────────────────────────────────────────── */}
       <div
-        className="hidden lg:flex lg:w-[55%] relative flex-col justify-between p-14 overflow-hidden"
+        className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-12 overflow-hidden"
         style={{ background: sideGradient }}
       >
-        {/* Subtle grid background */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,1) 39px, rgba(255,255,255,1) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,1) 39px, rgba(255,255,255,1) 40px)',
-          }}
-        />
+        {/* Grid overlay */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{
+          backgroundImage:
+            'repeating-linear-gradient(0deg,transparent,transparent 39px,#fff 39px,#fff 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,#fff 39px,#fff 40px)',
+        }} />
+        {/* Glow */}
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full opacity-25 blur-3xl pointer-events-none" style={{ background: accent }} />
+        <div className="absolute top-0 right-0 w-56 h-56 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: accentLight }} />
 
-        {/* Glow orbs */}
-        <div
-          className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full opacity-20 blur-3xl pointer-events-none"
-          style={{ background: isAuthority ? '#2a7f8e' : '#7e69ab' }}
-        />
-        <div
-          className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-10 blur-3xl pointer-events-none"
-          style={{ background: isAuthority ? '#5eead4' : '#f5d0fe' }}
-        />
-
-        {/* Header */}
         <BrandGuardLogo size={36} color="white" className="relative z-10" />
 
-        {/* Hero */}
         <div className="max-w-md relative z-10">
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-6 border"
-            style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)' }}
-          >
-            <span
-              className="w-1.5 h-1.5 rounded-full inline-block animate-pulse"
-              style={{ backgroundColor: isAuthority ? '#5eead4' : '#f5d0fe' }}
-            />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-6 border"
+            style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)' }}>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accentLight }} />
             Brand Truth & Risk Governance
           </div>
-
-          <h1 className="text-white font-newsreader text-5xl font-bold leading-[1.15] mb-5">
+          <h1 className="text-white font-newsreader text-5xl font-bold leading-tight mb-5">
             Keep every<br />
             <span style={{ color: accentLight }}>brand claim</span><br />
             accurate.
           </h1>
-
-          <p className="text-base leading-relaxed mb-10" style={{ color: 'rgba(255,255,255,0.65)' }}>
+          <p className="leading-relaxed mb-10 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
             BrandGuard checks marketing content against your approved fact repository —
             catching stale statistics, wrong prices, and embargo violations before they go live.
           </p>
-
-          <div className="space-y-4">
-            {features.map((f) => (
-              <div key={f.title} className="flex items-start gap-3">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border"
-                  style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }}
-                >
-                  <f.Icon size={16} className="text-white" strokeWidth={1.75} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{f.title}</p>
-                  <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                    {f.desc}
-                  </p>
-                </div>
+          {[
+            { Icon: Crosshair, t: 'Blast-Radius Intelligence', d: 'See every asset affected when a key fact changes.' },
+            { Icon: ShieldAlert, t: 'Adversarial Red Team',    d: '3 AI personas · Prosecutor vs Defender · You decide.' },
+            { Icon: Atom,        t: 'Guideline Chaos Testing', d: 'Find ambiguity in tone rules before they cause problems.' },
+          ].map(({ Icon, t, d }) => (
+            <div key={t} className="flex items-start gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border"
+                style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }}>
+                <Icon size={16} className="text-white" strokeWidth={1.75} />
               </div>
-            ))}
-          </div>
+              <div>
+                <p className="text-sm font-semibold text-white">{t}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{d}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
-        <p className="text-xs relative z-10" style={{ color: 'rgba(255,255,255,0.3)' }}>
-          © 2026 BrandGuard · Built for Inkloom AI Hackathon
+        <p className="text-xs relative z-10" style={{ color: 'rgba(255,255,255,0.25)' }}>
+          © 2026 BrandGuard · Inkloom AI Hackathon
         </p>
       </div>
 
-      {/* ── Right sign-in panel ──────────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
-        <div className="w-full max-w-[360px] py-8 space-y-4">
+      {/* ── Right panel ────────────────────────────────────────────── */}
+      <div className="flex-1 flex items-start justify-center p-6 overflow-y-auto">
+        <div className="w-full max-w-[380px] py-8 space-y-4">
 
           {/* Mobile logo */}
-          <div className="lg:hidden flex justify-center mb-6">
+          <div className="lg:hidden flex justify-center mb-4">
             <BrandGuardLogo size={28} color="white" />
           </div>
 
-          {/* ── Demo section ────────────────────────────────────────── */}
+          {/* ── DEMO SECTION ───────────────────────────────────────── */}
           {IS_DEMO_MODE && (
-            <div
-              className="rounded-2xl p-5 border"
-              style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
-                  <Users size={14} className="opacity-70" /> Try the demo
-                </h3>
-                <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                  Fictional data
+            <div className="rounded-2xl border overflow-hidden"
+              style={{ borderColor: `${accent}60`, background: `${accent}12` }}>
+
+              {/* Header */}
+              <div className="flex items-center gap-2 px-5 py-3 border-b" style={{ borderColor: `${accent}30` }}>
+                <Zap size={15} style={{ color: accentLight }} />
+                <span className="text-sm font-bold text-white">Demo — click any role to start</span>
+                <span className="ml-auto text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  Fictional data · no account needed
                 </span>
               </div>
 
-              {/* Start demo CTA */}
-              <button
-                disabled={loading}
-                onClick={handleStartDemo}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold transition-all mb-3 flex items-center justify-center gap-2 disabled:opacity-60"
-                style={{
-                  background: isAuthority
-                    ? 'linear-gradient(135deg, #2a7f8e, #226673)'
-                    : 'linear-gradient(135deg, #7e69ab, #5b4a8c)',
-                  color: '#fff',
-                  boxShadow: isAuthority
-                    ? '0 4px 16px rgba(42,127,142,0.4)'
-                    : '0 4px 16px rgba(126,105,171,0.4)',
-                }}
-              >
-                {loading ? 'Signing in…' : 'Start demo (Brand Manager)'}
-                {!loading && <ArrowRight size={15} />}
-              </button>
+              <div className="px-5 py-4 space-y-3">
+                {/* Big "Start demo" CTA */}
+                <button
+                  disabled={loading}
+                  onClick={() => loginAsDemo('brand@nimbusdesk.example')}
+                  className="w-full py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 transition-all"
+                  style={{
+                    background: `linear-gradient(135deg, ${accent}, ${isAuthority ? '#226673' : '#5b4a8c'})`,
+                    color: '#fff',
+                    boxShadow: `0 4px 20px ${accent}50`,
+                  }}
+                >
+                  {loading ? 'Opening…' : '⚡ Start demo as Brand Manager'}
+                  {!loading && <ArrowRight size={15} />}
+                </button>
 
-              {/* Role buttons 2×3 grid */}
-              <div className="grid grid-cols-2 gap-1.5">
-                {DEMO_ACCOUNTS.map((acct) => (
-                  <button
-                    key={acct.role}
-                    disabled={loading}
-                    onClick={() => handleDemoRole(acct.email)}
-                    className="text-xs px-2.5 py-2 rounded-lg border text-left transition-all disabled:opacity-50"
-                    style={{
-                      borderColor: 'rgba(255,255,255,0.1)',
-                      background: 'rgba(255,255,255,0.03)',
-                      color: 'rgba(255,255,255,0.65)',
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.08)'
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.03)'
-                    }}
-                  >
-                    {acct.label}
-                  </button>
-                ))}
+                {/* Role grid — shows role + email */}
+                <div className="grid grid-cols-1 gap-1.5">
+                  {DEMO_ACCOUNTS.map((acct) => (
+                    <button
+                      key={acct.role}
+                      disabled={loading}
+                      onClick={() => loginAsDemo(acct.email)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all disabled:opacity-50 group"
+                      style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)' }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
+                    >
+                      {/* Colour dot */}
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: roleColors[acct.role] ?? '#64748b' }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-white leading-tight">{acct.label}</p>
+                        <p className="text-[11px] font-mono truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                          {acct.email}
+                        </p>
+                      </div>
+                      <ArrowRight size={12} className="flex-shrink-0 opacity-0 group-hover:opacity-40 transition-opacity text-white" />
+                    </button>
+                  ))}
+                </div>
+
+                {/* Credentials info box */}
+                <div className="rounded-lg px-3 py-2.5 text-xs"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    Demo credentials (NimbusDesk workspace)
+                  </p>
+                  <p style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    Org: <span className="font-mono text-white/60">nimbusdesk</span>
+                  </p>
+                  <p style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    Password: <span className="font-mono text-white/60">{DEMO_PASSWORD}</span>
+                  </p>
+                  <p className="mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                    All data is fictional. Works without a live backend.
+                  </p>
+                </div>
               </div>
             </div>
           )}
 
-          {/* ── Manual sign-in card ──────────────────────────────────── */}
-          <div
-            className="rounded-2xl p-7 border"
-            style={{
-              background: 'rgba(255,255,255,0.05)',
-              borderColor: 'rgba(255,255,255,0.1)',
-              backdropFilter: 'blur(20px)',
-            }}
-          >
-            <h2 className="text-xl font-bold text-white mb-1 font-newsreader">Sign in</h2>
-            <p className="text-xs mb-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-              Enter your email and password to access BrandGuard.
+          {/* ── Manual sign-in ──────────────────────────────────────── */}
+          <div className="rounded-2xl p-6 border"
+            style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)' }}>
+            <h2 className="text-lg font-bold text-white mb-1 font-newsreader">Sign in manually</h2>
+            <p className="text-xs mb-5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              Use your email and password if you have a live backend.
             </p>
 
             {error && (
-              <div
-                className="mb-4 px-3 py-2.5 rounded-xl text-xs border"
-                style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: '#fca5a5' }}
-              >
+              <div className="mb-4 px-3 py-2.5 rounded-xl text-xs border"
+                style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: '#fca5a5' }}>
                 {error}
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
                   Email
                 </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  autoComplete="email"
-                  className={inputBase}
-                />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com" autoComplete="email" className={inputBase} />
               </div>
-
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
                   Password
                 </label>
                 <div className="relative">
-                  <input
-                    type={showPw ? 'text' : 'password'}
-                    value={password}
+                  <input type={showPw ? 'text' : 'password'} value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    autoComplete="current-password"
-                    className={`${inputBase} pr-10`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-70 transition-opacity"
-                    aria-label={showPw ? 'Hide password' : 'Show password'}
-                  >
+                    placeholder="••••••••" autoComplete="current-password"
+                    className={`${inputBase} pr-10`} />
+                  <button type="button" onClick={() => setShowPw((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-70"
+                    aria-label={showPw ? 'Hide password' : 'Show password'}>
                     {showPw ? <EyeOff size={15} className="text-white" /> : <Eye size={15} className="text-white" />}
                   </button>
                 </div>
               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60 mt-2 flex items-center justify-center gap-2"
-                style={{
-                  background: isAuthority
-                    ? 'linear-gradient(135deg, #2a7f8e, #226673)'
-                    : 'linear-gradient(135deg, #7e69ab, #5b4a8c)',
-                  boxShadow: isAuthority
-                    ? '0 4px 16px rgba(42,127,142,0.35)'
-                    : '0 4px 16px rgba(126,105,171,0.35)',
-                }}
-              >
-                {loading ? 'Signing in…' : 'Sign in'}
-                {!loading && <ArrowRight size={16} />}
+              <button type="submit" disabled={loading}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-60"
+                style={{ background: `linear-gradient(135deg, ${accent}, ${isAuthority ? '#226673' : '#5b4a8c'})` }}>
+                {loading ? 'Signing in…' : 'Sign in'} {!loading && <ArrowRight size={15} />}
               </button>
             </form>
           </div>
 
-          <p
-            className="text-center text-[11px] leading-relaxed"
-            style={{ color: 'rgba(255,255,255,0.25)' }}
-          >
-            A human makes every final decision. AI risk perspective, not legal advice.
+          <p className="text-center text-[10px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
+            AI risk perspective, not legal advice. A human makes every decision.
           </p>
         </div>
       </div>
