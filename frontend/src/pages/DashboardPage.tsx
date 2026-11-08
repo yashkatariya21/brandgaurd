@@ -12,6 +12,11 @@ import SeverityBadge from '../components/SeverityBadge'
 import ExpiryChip from '../components/ExpiryChip'
 import Footer from '../components/Footer'
 import { getExpiryInfo } from '../lib/expiry'
+import { MOCK_FACTS, MOCK_RULES, MOCK_CONTENT, MOCK_FINDINGS } from '../lib/mockData'
+
+async function withFallback<T>(apiFn: () => Promise<T>, fallback: T): Promise<{ data: T; isMock: boolean }> {
+  try { return { data: await apiFn(), isMock: false } } catch { return { data: fallback, isMock: true } }
+}
 
 // ─── Skeleton loader ────────────────────────────────────────────────────────
 
@@ -269,18 +274,22 @@ export default function DashboardPage() {
   const [content, setContent] = useState<ContentItem[]>([])
   const [findings, setFindings] = useState<Finding[]>([])
   const [loading, setLoading] = useState(true)
+  const [usingMock, setUsingMock] = useState(false)
 
   useEffect(() => {
     Promise.allSettled([
-      factsApi.list(),
-      rulesApi.list(),
-      contentApi.list(),
-      findingsApi.list(),
+      withFallback(factsApi.list,    MOCK_FACTS),
+      withFallback(rulesApi.list,    MOCK_RULES),
+      withFallback(contentApi.list,  MOCK_CONTENT),
+      withFallback(findingsApi.list, MOCK_FINDINGS),
     ]).then(([f, r, c, fi]) => {
-      const allFacts    = f.status  === 'fulfilled' ? f.value  : []
-      const allRules    = r.status  === 'fulfilled' ? r.value  : []
-      const allContent  = c.status  === 'fulfilled' ? c.value  : []
-      const allFindings = fi.status === 'fulfilled' ? fi.value : []
+      const allFacts    = f.status  === 'fulfilled' ? f.value.data  : MOCK_FACTS
+      const allRules    = r.status  === 'fulfilled' ? r.value.data  : MOCK_RULES
+      const allContent  = c.status  === 'fulfilled' ? c.value.data  : MOCK_CONTENT
+      const allFindings = fi.status === 'fulfilled' ? fi.value.data : MOCK_FINDINGS
+      const mock = (f.status === 'fulfilled' && f.value.isMock) ||
+                   (fi.status === 'fulfilled' && fi.value.isMock)
+      setUsingMock(mock)
 
       setFacts(allFacts)
       setRules(allRules)
@@ -354,6 +363,17 @@ export default function DashboardPage() {
             Submit New Content
           </button>
         </div>
+
+        {/* Mock data notice */}
+        {usingMock && (
+          <div className="px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800">
+            <span>⚡</span>
+            <span>
+              <strong>Demo data</strong> — backend not connected. Connect your Railway backend by setting{' '}
+              <code className="font-mono bg-amber-100 px-1 rounded">VITE_API_URL</code> in Vercel environment variables.
+            </span>
+          </div>
+        )}
 
         {/* ── Brand health cards ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

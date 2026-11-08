@@ -3,6 +3,7 @@ import { Atom, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react'
 import { rulesApi, chaosApi, Rule, ChaosCase, ChaosIssue, ChaosRunResult } from '../api'
 import { useTheme } from '../theme'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
+import { MOCK_RULES } from '../lib/mockData'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -264,7 +265,7 @@ export default function RuleTestsPage() {
   const [localIssues, setLocalIssues] = useState<ChaosIssue[]>([])
 
   useEffect(() => {
-    rulesApi.list().then((rs) => {
+    rulesApi.list().catch(() => MOCK_RULES).then((rs) => {
       // Tone rules first, then others — chaos testing only supports tone.
       const tone = rs.filter((r) => r.category === 'tone')
       const rest = rs.filter((r) => r.category !== 'tone')

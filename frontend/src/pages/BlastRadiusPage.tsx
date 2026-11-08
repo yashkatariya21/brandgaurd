@@ -3,6 +3,7 @@ import { Crosshair, Info, ExternalLink, Zap, Globe, Smartphone, Mail, FileText, 
 import { factsApi, Fact, BlastRadiusResult, AffectedItem } from '../api'
 import { useTheme } from '../theme'
 import StatusChip from '../components/StatusChip'
+import { MOCK_FACTS } from '../lib/mockData'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -159,7 +160,7 @@ export default function BlastRadiusPage() {
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
-    factsApi.list().then((fs) => {
+    factsApi.list().catch(() => MOCK_FACTS).then((fs) => {
       setFacts(fs)
       const cc = fs.find((f) => f.key === 'customer_count')
       if (cc) setSelectedFactId(cc.id)

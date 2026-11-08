@@ -5,6 +5,7 @@ import { useAuth } from '../auth'
 import { useTheme } from '../theme'
 import StatusBadge from '../components/StatusBadge'
 import ExpiryChip from '../components/ExpiryChip'
+import { MOCK_FACTS, MOCK_RULES } from '../lib/mockData'
 
 type Tab = 'facts' | 'rules'
 
@@ -481,7 +482,10 @@ export default function RepositoryPage() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([factsApi.list(), rulesApi.list()])
+    Promise.all([
+      factsApi.list().catch(() => MOCK_FACTS),
+      rulesApi.list().catch(() => MOCK_RULES),
+    ])
       .then(([f, r]) => {
         setFacts(f)
         setRules(r)

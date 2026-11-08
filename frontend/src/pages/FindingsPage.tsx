@@ -7,6 +7,7 @@ import StatusBadge from '../components/StatusBadge'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
 import HighlightedText, { SeverityLegend } from '../components/HighlightedText'
 import { type AnnotatedRange } from '../lib/segments'
+import { MOCK_FINDINGS } from '../lib/mockData'
 
 const REASON_CODES = [
   { value: 'not_applicable',  label: 'Not applicable' },
@@ -363,7 +364,7 @@ export default function FindingsPage() {
 
   const load = () => {
     setLoading(true)
-    findingsApi.list().then(setFindings).finally(() => setLoading(false))
+    findingsApi.list().catch(() => MOCK_FINDINGS).then(setFindings).finally(() => setLoading(false))
   }
   useEffect(load, [])
 

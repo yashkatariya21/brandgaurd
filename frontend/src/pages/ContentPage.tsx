@@ -9,6 +9,7 @@ import HighlightedText, { SeverityLegend } from '../components/HighlightedText'
 import { type AnnotatedRange } from '../lib/segments'
 import { IS_DEMO_MODE } from '../lib/demoAccounts'
 import { DEMO_SAMPLES } from '../lib/demoSamples'
+import { MOCK_CONTENT } from '../lib/mockData'
 
 function ContentDetailModal({ item, onClose, onAnalysed }: {
   item: ContentItem
@@ -405,7 +406,7 @@ export default function ContentPage() {
 
   const load = () => {
     setLoading(true)
-    contentApi.list().then(setItems).finally(() => setLoading(false))
+    contentApi.list().catch(() => MOCK_CONTENT).then(setItems).finally(() => setLoading(false))
   }
 
   useEffect(load, [])

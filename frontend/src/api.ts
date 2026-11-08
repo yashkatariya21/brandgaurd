@@ -48,6 +48,13 @@ async function request<T>(
       : body !== undefined
       ? JSON.stringify(body)
       : undefined,
+  }).catch((err: unknown) => {
+    // Network / CORS error — wrap with a clearer message
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg.toLowerCase().includes('fetch') || err instanceof TypeError) {
+      throw new Error('Cannot reach the backend. Check that VITE_API_URL is set correctly in Vercel environment variables.')
+    }
+    throw err
   })
 
   if (res.status === 401) {
