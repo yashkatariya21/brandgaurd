@@ -16,6 +16,7 @@ PURE_MODULES = {
     "test_chaos",
     "test_round3_rulebook",
     "test_dependency_graph",
+    "test_grounding",
 }
 
 

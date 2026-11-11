@@ -73,12 +73,21 @@ PERSONAS = [
             "Focus on what matters to you as a buyer."
         ),
     },
+    {
+        "name": "Competitor Watch",
+        "role": "competitor",
+        "lens": "Comparison claims and competitor exposure",
+        "instruction": (
+            "Identify named competitors and unsupported comparisons or claims a competitor could challenge. "
+            "Cite the relevant approved comparison rule and exact passage where available."
+        ),
+    },
 ]
 
 
 def run_red_team(content_text: str, facts_summary: str, rules_summary: str,
                  use_llm: Optional[bool] = None) -> list[dict]:
-    """Run all three personas over the content. Returns a list of persona reports."""
+    """Run all four personas over the content. Returns a list of persona reports."""
     use_llm = _has_llm() if use_llm is None else use_llm
     results = []
     for persona in PERSONAS:
@@ -240,7 +249,7 @@ def _stub_persona_findings(persona: dict, content: str) -> list[dict]:
     if persona["name"] == "Brand Police":
         # Match "Nimbus Desk" (with space) or casing variants like "NimbusDESK",
         # but NOT the correct single-word "NimbusDesk".
-        bad_name_pat = re.compile(r"Nimbus\s+Desk|NimbusDESK", re.IGNORECASE)
+        bad_name_pat = re.compile(r"(?i:Nimbus\s+Desk)|NimbusDESK")
         match = bad_name_pat.search(content)
         if match:
             findings.append({
@@ -267,21 +276,21 @@ def _stub_persona_findings(persona: dict, content: str) -> list[dict]:
     elif persona["name"] == "Legal Eagle":
         if re.search(r"guaranteed?|100\s*%|never\s+fail|always\s+work", content, re.IGNORECASE):
             findings.append({
-                "issue": "Absolute guarantee language detected. This creates enforceable legal commitments.",
+                "issue": "Absolute guarantee language detected; have a qualified person review any potential commitments.",
                 "severity": "high",
                 "span_hint": re.search(r"guaranteed?|100\s*%|never\s+fail|always\s+work", content, re.IGNORECASE).group(),
                 "suggested_fix": "Remove or qualify with 'typically' or 'in our benchmark'.",
             })
         if re.search(r"ISO\s*27001\s+certified", content, re.IGNORECASE):
             findings.append({
-                "issue": "ISO 27001 certified claim found. Company is NOT certified — this is a false claim.",
+                "issue": "ISO 27001 certified claim found; check it against the current approved certification fact.",
                 "severity": "critical",
                 "span_hint": "ISO 27001 certified",
                 "suggested_fix": "ISO 27001 certification in progress",
             })
         if re.search(r"Project\s+Heron", content, re.IGNORECASE):
             findings.append({
-                "issue": "Embargoed project codename 'Project Heron' appears in content.",
+                "issue": "Project Heron appears in content; verify its current embargo status.",
                 "severity": "critical",
                 "span_hint": "Project Heron",
                 "suggested_fix": "Remove all references to Project Heron before the embargo lift date.",
@@ -305,6 +314,15 @@ def _stub_persona_findings(persona: dict, content: str) -> list[dict]:
                 "suggested_fix": "Add source and date for any rating or award claim.",
             })
         # No filler "all clear" finding — a persona with no concerns returns an empty list.
+
+    elif persona["name"] == "Competitor Watch":
+        match = re.search(r"\b(?:better|faster|cheaper|superior)\s+than\b|\b(?:competitors?|rivals?)\b", content, re.IGNORECASE)
+        if match:
+            findings.append({
+                "issue": "Comparison or competitor reference needs review against approved comparison wording.",
+                "severity": "medium", "span_hint": match.group(), "suggested_fix": None,
+                "rule_key": "R-13",
+            })
 
     return findings
 

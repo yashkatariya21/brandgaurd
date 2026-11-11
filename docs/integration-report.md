@@ -97,3 +97,9 @@ The three Round 3 commitments are **partial**, not complete: graph schema is pre
 Graph rebuild and read endpoints now derive a graph from current approved facts, registered content versions and extracted claim spans, and refresh it when content is analysed or a fact is approved. The UI has a graph, filters, a text list and evidence details. Exact numeric/attribute and confirmed links may be confirmed; character-similarity-only edges are possible. Channel edges mean assigned channel, not proof of publication. Local similarity is experimental and uncalibrated. Hosted embeddings, paraphrase-set calibration, urgency ranking, and what-if previews are not implemented.
 
 `cd backend && ../.venv/bin/python -m pytest -q` on Python 3.11: **82 passed, 38 skipped, 1 warning**; the new DB-backed idempotency/RLS test is among the skips. Frontend lint and build passed on Node 22.22.3. No database, CI, browser or deployed verification was performed. The graph APIs, migration and automatic refresh hooks must be tested against PostgreSQL with pgvector before release.
+
+### Red Team progress (2026-11-11)
+
+Added Competitor Watch to the existing single-run Red Team and corrected a product-name heuristic that could flag the approved spelling. Added pure citation-validation and stability-clustering helpers with unit tests. **These helpers are not yet connected to the API or persistence**: the existing Red Team still exposes single-run findings without enforced citations or stability filtering. The UI explicitly warns about that limitation; this is not completion of Evidence-grounded Red Team. Existing heuristic outputs are not legal advice.
+
+`cd backend && ../.venv/bin/python -m pytest -q`: **88 passed, 38 skipped, 1 warning**. `cd frontend && npm run lint && npm run build`: both passed on Node 22.22.3. No DB-backed, browser, live-model or CI verification was performed.

@@ -197,7 +197,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
               {locatedFindings.length > 0 && (
                 <div>
                   <h4 className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">
-                    Deterministic Findings ({locatedFindings.length})
+                    Located findings ({locatedFindings.length})
                   </h4>
                   <div className="space-y-2">
                     {locatedFindings.map((f) => (
@@ -311,13 +311,18 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                 </p>
               )}
 
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+                Experimental: citation validation and repeated-run stability are not yet enforced. Treat all results as possible and check the evidence yourself. Personas are prompts on the same model, not independent experts.
+              </p>
+
               {/* Group by persona */}
               {(() => {
-                const personaNames = ['Legal Eagle', 'Brand Police', 'Customer Voice']
+                const personaNames = ['Legal Eagle', 'Brand Police', 'Customer Voice', 'Competitor Watch']
                 const personaIcons: Record<string, string> = {
                   'Legal Eagle': '⚖️',
                   'Brand Police': '🛡️',
                   'Customer Voice': '💬',
+                  'Competitor Watch': '👁️',
                 }
                 const grouped = personaNames.map((name) => ({
                   name,
