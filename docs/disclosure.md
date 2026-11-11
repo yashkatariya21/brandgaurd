@@ -77,3 +77,5 @@ The Docker Compose health checks, CI workflow updates, `.env.example` changes, a
 ## Round 3 session — 2026-11-11
 
 Round 2 code is pre-existing, submitted in Round 2. Round 3 changes in this session were AI-generated with Arena.ai Agent Mode and require human review. They use the existing project dependencies and fictional NimbusDesk seed data; no new dataset, live AI service, or external deployment was used. The frontend lockfile was regenerated against the existing package manifest. Local Python and Node test/build results and their limitations are recorded in `docs/integration-report.md`.
+
+The Round 3 dependency-graph projection, local character-trigram matcher and graph UI were AI-generated with Arena.ai Agent Mode, using existing project libraries and fictional seed data. The local matcher is experimental and has not been calibrated or independently evaluated.

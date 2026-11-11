@@ -1,3 +1,4 @@
+import DependencyGraph from '../components/DependencyGraph'
 import React, { useEffect, useRef, useState } from 'react'
 import { Crosshair, Info, ExternalLink, Zap, Globe, Smartphone, Mail, FileText, ImageIcon, Newspaper } from 'lucide-react'
 import { factsApi, Fact, BlastRadiusResult, AffectedItem } from '../api'
@@ -200,12 +201,14 @@ export default function BlastRadiusPage() {
     <div className="space-y-6 max-w-[1440px] mx-auto p-4 md:p-6 pb-12">
       <div>
         <h1 className={`text-main ${isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'}`}>
-          Blast Radius
+          Dependency-graph Blast Radius
         </h1>
         <p className="text-sm text-muted mt-1">
           When a fact value changes, see every content asset that references the old value.
         </p>
       </div>
+
+      <DependencyGraph />
 
       {/* Control panel */}
       <div className="glass-panel rounded-xl p-5 md:p-6">

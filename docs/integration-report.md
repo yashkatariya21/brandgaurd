@@ -91,3 +91,9 @@ Frontend, backend, documentation, CI, and integration changes were coordinated a
 ### Remaining critical work
 
 The three Round 3 commitments are **partial**, not complete: graph schema is present but not populated or exposed; semantic matching and embeddings are not implemented; rule conflict candidates are exposed but full-family testing, resolution and regression are not complete; Red Team grounding, stability, competitor persona and cited debates are not implemented. Migration and rejection persistence need DB-backed testing. Session storage and the demo-flow changes need browser verification. Deployment and spending remain gated.
+
+### Dependency graph progress (next session)
+
+Graph rebuild and read endpoints now derive a graph from current approved facts, registered content versions and extracted claim spans, and refresh it when content is analysed or a fact is approved. The UI has a graph, filters, a text list and evidence details. Exact numeric/attribute and confirmed links may be confirmed; character-similarity-only edges are possible. Channel edges mean assigned channel, not proof of publication. Local similarity is experimental and uncalibrated. Hosted embeddings, paraphrase-set calibration, urgency ranking, and what-if previews are not implemented.
+
+`cd backend && ../.venv/bin/python -m pytest -q` on Python 3.11: **82 passed, 38 skipped, 1 warning**; the new DB-backed idempotency/RLS test is among the skips. Frontend lint and build passed on Node 22.22.3. No database, CI, browser or deployed verification was performed. The graph APIs, migration and automatic refresh hooks must be tested against PostgreSQL with pgvector before release.

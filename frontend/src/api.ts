@@ -438,3 +438,11 @@ export const chaosApi = {
       status,
     }),
 }
+
+export interface GraphNode { id: string; node_type: 'fact' | 'claim' | 'content' | 'channel'; ref_id: string; label: string; meta: Record<string, unknown> }
+export interface GraphEdge { id: string; src_id: string; dst_id: string; edge_type: string; match_method: string; score: number | null; evidence: Record<string, unknown> }
+export interface GraphResult { nodes: GraphNode[]; edges: GraphEdge[]; scope_note: string; limitations: string }
+export const graphApi = {
+  get: () => get<GraphResult>('/v1/graph'),
+  rebuild: () => post<{nodes: number; edges: number}>('/v1/graph/rebuild'),
+}
