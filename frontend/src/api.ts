@@ -437,7 +437,26 @@ export interface RuleConflict {
   channels: string[]; scenario: string; type: 'possible'; explanation: string
 }
 
+export interface CheckerChaosResult {
+  run_id: string
+  rule_key: string
+  mode: 'checker'
+  checker_misses: number
+  note: string
+  cases: { id: string; text: string; intended_label: string; observed: string; checker_miss: boolean; false_positive: boolean; rationale: string }[]
+}
+export interface RulebookCoverage {
+  channels: string[]
+  families: string[]
+  claim_types: string[]
+  matrix: { channel: string; families: Record<string, number>; claim_types: Record<string, number> }[]
+  gaps: { kind: string; channel?: string; subject: string; evidence: string; title?: string; content_id?: string }[]
+  note: string
+}
+
 export const chaosApi = {
+  coverage: () => get<RulebookCoverage>('/v1/rulebook/coverage'),
+  checkerChaos: (ruleId: string) => post<CheckerChaosResult>(`/v1/rules/${ruleId}/checker-chaos`),
   contradictions: () => get<{ contradictions: RuleConflict[] }>('/v1/rulebook/contradictions'),
   run: (ruleId: string) =>
     post<ChaosRunResult>(`/v1/rules/${ruleId}/chaos-test`),

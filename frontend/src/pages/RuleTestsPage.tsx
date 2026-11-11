@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Atom, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react'
-import { rulesApi, chaosApi, Rule, ChaosCase, ChaosIssue, ChaosRunResult, RuleConflict } from '../api'
+import { rulesApi, chaosApi, Rule, ChaosCase, ChaosIssue, ChaosRunResult, RuleConflict, RulebookCoverage, CheckerChaosResult } from '../api'
 import { useTheme } from '../theme'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
 import { MOCK_RULES } from '../lib/mockData'
@@ -256,6 +256,10 @@ function IssueCard({
 
 export default function RuleTestsPage() {
   const { isAuthority } = useTheme()
+  const [checkerResult, setCheckerResult] = useState<CheckerChaosResult | null>(null)
+  const [checkerBusy, setCheckerBusy] = useState(false)
+  const [coverage, setCoverage] = useState<RulebookCoverage | null>(null)
+  const [coverageError, setCoverageError] = useState('')
   const [conflicts, setConflicts] = useState<RuleConflict[]>([])
   const [conflictError, setConflictError] = useState('')
   const [usingMock, setUsingMock] = useState(false)
@@ -268,6 +272,7 @@ export default function RuleTestsPage() {
   const [localIssues, setLocalIssues] = useState<ChaosIssue[]>([])
 
   useEffect(() => {
+    chaosApi.coverage().then(setCoverage).catch(() => setCoverageError('Could not load rulebook coverage.'))
     chaosApi.contradictions().then((r) => setConflicts(r.contradictions))
       .catch(() => setConflictError('Could not load rulebook conflicts.'))
     rulesApi.list().catch(() => { setUsingMock(true); return MOCK_RULES }).then((rs) => {
@@ -296,6 +301,14 @@ export default function RuleTestsPage() {
     } finally {
       setRunning(false)
     }
+  }
+
+  const runChecker = async () => {
+    if (!selectedRuleId) return
+    setCheckerBusy(true); setError(''); setCheckerResult(null)
+    try { setCheckerResult(await chaosApi.checkerChaos(selectedRuleId)) }
+    catch (e) { setError(e instanceof Error ? e.message : 'Checker test failed') }
+    finally { setCheckerBusy(false) }
   }
 
   const handleLabel = async (caseId: string, label: string) => {
@@ -335,6 +348,20 @@ export default function RuleTestsPage() {
           <strong>Possible · {c.rule_a} / {c.rule_b}</strong> · {c.channels.join(', ')}
           <p>“{c.quote_a}” / “{c.quote_b}”</p><p>Example: {c.scenario}</p><p className="text-muted">{c.explanation}</p>
         </li>)}</ul>
+      </section>
+      <section className="glass-panel rounded-xl p-6 space-y-3" aria-label="Rulebook coverage">
+        <h2 className="text-lg font-semibold text-main">Rulebook health: coverage and gaps</h2>
+        <p className="text-sm text-muted">{coverage?.note ?? 'Compare governing rules with channels and claim types found in registered content.'}</p>
+        {coverageError && <p role="alert" className="text-red-700">{coverageError}</p>}
+        {coverage && coverage.matrix.length === 0 && <p className="text-sm text-muted">No registered content channels yet. Register content to inspect coverage.</p>}
+        {coverage && coverage.matrix.length > 0 && <div className="overflow-x-auto"><table className="text-xs text-main border-collapse w-full">
+          <caption className="text-left text-muted mb-2">Counts of rules by content channel and family. Zero indicates a candidate gap.</caption>
+          <thead><tr><th scope="col" className="p-2 text-left">Channel</th>{coverage.families.map(f => <th scope="col" className="p-2 text-left" key={f}>{f}</th>)}{coverage.claim_types.map(f => <th scope="col" className="p-2 text-left" key={f}>claim: {f}</th>)}</tr></thead>
+          <tbody>{coverage.matrix.map(row => <tr key={row.channel}><th scope="row" className="p-2 text-left">{row.channel}</th>{coverage.families.map(f => <td className="p-2 border border-subtle" key={f}>{row.families[f]}</td>)}{coverage.claim_types.map(f => <td className="p-2 border border-subtle" key={f}>{row.claim_types[f]}</td>)}</tr>)}</tbody>
+        </table></div>}
+        {coverage && <details><summary className="cursor-pointer text-sm font-medium text-main">Possible gaps and untested rules ({coverage.gaps.length})</summary>
+          <ul className="space-y-2 mt-3">{coverage.gaps.map((gap, i) => <li key={i} className="text-sm text-main border border-subtle rounded p-2"><strong>{gap.kind.replace(/_/g, ' ')} · {gap.subject}</strong>{gap.channel ? ` · ${gap.channel}` : ''}{gap.title ? ` · ${gap.title}` : ''}<p className="text-muted">{gap.evidence}</p></li>)}</ul>
+        </details>}
       </section>
       {/* Control panel */}
       <div className="glass-panel rounded-xl p-6">
@@ -386,6 +413,10 @@ export default function RuleTestsPage() {
           </div>
         </div>
 
+        {selectedRule && ['R-04', 'R-12'].includes(selectedRule.key) && <div className="mt-4 border border-subtle rounded p-3 space-y-2">
+          <p className="text-sm text-main">Deterministic checker test: try constructed product-name or active embargo variants against the existing checker. This is not an AI interpretation.</p>
+          <button disabled={checkerBusy} onClick={() => void runChecker()} className="px-3 py-2 rounded bg-accent text-white text-sm disabled:opacity-50">{checkerBusy ? 'Testing checker…' : 'Run checker chaos'}</button>
+        </div>}
         {selectedRule && (
           <div className="mt-4 p-3 bg-accent-subtle rounded-lg text-xs text-accent border border-accent/20">
             <span className="font-mono font-semibold">{selectedRule.key}</span> –{' '}
@@ -396,6 +427,13 @@ export default function RuleTestsPage() {
 
       {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
 
+      {checkerResult && <section className="glass-panel rounded-xl p-5 space-y-3">
+        <h2 className="font-semibold text-main">Checker test · {checkerResult.rule_key}</h2>
+        <p className="text-sm text-main">Confirmed checker misses: {checkerResult.checker_misses}. {checkerResult.note}</p>
+        <div className="overflow-x-auto"><table className="w-full text-sm text-main"><thead><tr><th className="text-left">Case</th><th>Expected</th><th>Checker</th><th>Observation</th></tr></thead><tbody>
+          {checkerResult.cases.map(c => <tr key={c.id} className="border-t border-subtle"><td className="p-2">{c.text}<p className="text-xs text-muted">{c.rationale}</p></td><td className="p-2 text-center">{c.intended_label}</td><td className="p-2 text-center">{c.observed}</td><td className="p-2">{c.checker_miss ? 'Confirmed checker miss' : c.false_positive ? 'Checker false positive' : c.intended_label === 'borderline' ? 'Human interpretation needed' : 'As expected'}</td></tr>)}
+        </tbody></table></div>
+      </section>}
       {result && (
         <div className="glass-panel rounded-xl">
           {/* Summary + clarity ring */}
@@ -412,11 +450,11 @@ export default function RuleTestsPage() {
             </div>
             <div className="rounded-xl p-3 bg-green-50">
               <p className="text-2xl font-bold text-green-700 font-mono-numbers">{clearCases.length}</p>
-              <p className="text-sm text-muted">Clear cases</p>
+              <p className="text-sm text-muted">Cases not flagged</p>
             </div>
             <div>
               <p className="text-2xl font-bold text-main font-mono-numbers">{result.n_interpreters}</p>
-              <p className="text-sm text-muted">AI readers / case</p>
+              <p className="text-sm text-muted">Interpretations / case</p>
             </div>
             <div className="md:row-span-1 flex justify-center">
               <ClarityRing
@@ -437,8 +475,7 @@ export default function RuleTestsPage() {
                     'Interpretations use lightweight heuristics. Set OPENAI_API_KEY for real AI readers.'}
                 </p>
                 <p className="mt-0.5 text-amber-700">
-                  Agreement measures how clear the rule is – not whether the verdict is correct. Human
-                  labels are ground truth.
+                  Agreement measures consistency, not correctness. Human labels are reviewer judgments.
                 </p>
               </div>
             </div>
@@ -465,7 +502,7 @@ export default function RuleTestsPage() {
                   <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> Ambiguous row
                 </span>
                 <span>|</span>
-                <span>Label cases to establish ground truth</span>
+                <span>Label cases with a human judgment</span>
               </div>
             </div>
             <div className="overflow-x-auto rounded-lg border border-subtle">
