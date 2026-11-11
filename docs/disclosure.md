@@ -85,3 +85,7 @@ The Red Team grounding and stability helper functions, associated tests, and Com
 The Red Team API grounding, stability, cache and presentation changes and migration 003 were AI-generated with Arena.ai Agent Mode. Tests used deterministic heuristic output and a fake database connection; no live provider call was made. Per-run monetary enforcement and validated debate citations remain unfinished.
 
 Rulebook coverage, checker-chaos cases, tests and UI were AI-generated with Arena.ai Agent Mode, using existing libraries and fictional seed data. Coverage is heuristic; the separate deterministic checker test exercises only the two explicitly supported unchanged seed rules, not every family.
+
+The homepage redesign, shared brand mark and favicon, and related sign-in and footer copy changes were AI-generated with Arena.ai Agent Mode using the existing React, Tailwind and Lucide dependencies. The workflow illustration is illustrative, not live workspace data.
+
+The redesigned login page and authentication error-handling changes were AI-generated with Arena.ai Agent Mode using existing project dependencies. No authentication bypass or external service was added.

@@ -58,10 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string, orgSlug: string): Promise<void> => {
     const res = await authApi.login(email, password, orgSlug)
+    if (!res.token || !res.role) throw new Error('The backend returned an invalid sign-in response.')
     setToken(res.token)
     try {
       const me = await authApi.me()
-      setUser(buildUser(me, res.role))
+      if (!me.user?.id || !me.org?.id) throw new Error('The backend returned an invalid session response.')
+      setUser(buildUser(me, me.role))
     } catch (err) {
       clearToken()
       throw err

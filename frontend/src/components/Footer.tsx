@@ -1,5 +1,5 @@
 import React from 'react'
-import { Scale } from 'lucide-react'
+import BrandGuardLogo from './BrandGuardLogo'
 
 /** Footer — restyled to the BrandGuard light theme. */
 export default function Footer() {
@@ -8,12 +8,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div>
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 bg-accent"
-            >
-              <Scale size={18} className="text-white" />
-            </div>
-            <p className="font-editorial text-lg font-semibold text-main">BrandGuard</p>
+            <BrandGuardLogo size={36} />
             <p className="text-sm text-muted mt-1">
               Intelligent operating system for brand truth.
             </p>
@@ -21,9 +16,9 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-main mb-3 text-sm">Product</h4>
             <ul className="space-y-2 text-sm text-muted">
-              <li>Blast-Radius Intelligence</li>
-              <li>Adversarial Red Team</li>
-              <li>Guideline Chaos Testing</li>
+              <li>Dependency-graph Blast Radius</li>
+              <li>Evidence-grounded Red Team</li>
+              <li>Full Guideline Chaos Testing</li>
             </ul>
           </div>
           <div>

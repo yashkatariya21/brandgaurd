@@ -3,7 +3,7 @@
  * JWT is stored in sessionStorage under the key "bg_token".
  */
 
-const BASE = (import.meta.env as Record<string, string | undefined>).VITE_API_URL ?? ''
+const BASE = ((import.meta.env as Record<string, string | undefined>).VITE_API_URL ?? '').trim().replace(/\/+$/, '')
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -52,25 +52,34 @@ async function request<T>(
     // Network / CORS error — wrap with a clearer message
     const msg = err instanceof Error ? err.message : String(err)
     if (msg.toLowerCase().includes('fetch') || err instanceof TypeError) {
-      throw new Error('Cannot reach the backend. Check that VITE_API_URL is set correctly in Vercel environment variables.')
+      throw new Error('Cannot reach the backend. Check your connection and API configuration, then try again.')
     }
     throw err
   })
 
-  if (res.status === 401) {
-    // On 401 from any call other than /v1/auth/login, clear the token and
-    // redirect to login so the user is not stuck in a broken state.
-    if (!path.startsWith('/v1/auth/')) {
-      clearToken()
-      window.location.href = '/login'
-    }
-    throw new Error('Unauthorised')
+  if (res.status === 401 && !path.startsWith('/v1/auth/') && path !== '/v1/me') {
+    clearToken()
+    window.location.href = '/login'
   }
 
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    throw new Error(data?.message ?? `HTTP ${res.status}`)
+  if (res.status === 405 && path === '/v1/auth/login') {
+    throw new Error('The sign-in endpoint rejected the request (HTTP 405). Check that the API URL points to the backend, not the frontend.')
   }
+
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/json')) {
+    if (res.status === 405 || res.ok) {
+      throw new Error('The API endpoint did not respond as expected. Check the backend URL and configuration.')
+    }
+    throw new Error(`The backend returned HTTP ${res.status}. Please try again or check the API configuration.`)
+  }
+  const data = await res.json().catch(() => null)
+  if (!res.ok) {
+    const message = typeof data?.message === 'string' ? data.message :
+      res.status === 401 ? 'Invalid email, password or workspace.' : `HTTP ${res.status}`
+    throw new Error(message)
+  }
+  if (data === null) throw new Error('The backend returned an invalid response.')
   return data as T
 }
 
