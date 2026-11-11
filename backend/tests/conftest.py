@@ -14,6 +14,11 @@ PURE_MODULES = {
     "test_checker",
     "test_redteam",
     "test_chaos",
+    "test_round3_rulebook",
+    "test_dependency_graph",
+    "test_grounding",
+    "test_redteam_grounded_api",
+    "test_checker_chaos",
 }
 
 

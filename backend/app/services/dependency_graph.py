@@ -1,0 +1,92 @@
+"""Tenant-scoped dependency graph derived from registered content.
+
+Similarity is a candidate signal only, never confirmation. Graph rebuilds do not
+modify content, facts, or claim links.
+"""
+from __future__ import annotations
+
+import math
+import re
+from collections import Counter
+
+from .claim_extractor import extract_claims
+
+ATTRIBUTES = {
+    'customer_count': 'customer_count', 'starter_price': 'price_per_agent_month',
+    'pro_price': 'price_per_agent_month', 'uptime_sla': 'uptime_percent',
+    'first_response': 'first_response', 'integrations': 'integrations',
+    'languages': 'languages', 'free_trial': 'free_trial',
+}
+
+
+def _normalise(text: str) -> str:
+    text = text.lower().replace('sixty-five thousand', '65000').replace('sixty five thousand', '65000')
+    text = text.replace('fifty thousand', '50000').replace('fifty-thousand', '50000')
+    text = re.sub(r'\b(\d{1,3}),(\d{3})\b', r'\1\2', text)
+    text = re.sub(r'\b(\d+)k\b', lambda m: str(int(m.group(1)) * 1000), text)
+    text = re.sub(r'\b(?:support teams?|teams?|clients?)\b', 'customer', text)
+    text = re.sub(r'\bcustomers\b', 'customer', text)
+    return ' '.join(re.findall(r'[a-z0-9]+', text))
+
+
+def local_similarity(left: str, right: str) -> float:
+    """Character-trigram cosine with pair-local IDF; not a probability."""
+    def ngrams(text):
+        text = ' ' + _normalise(text) + ' '
+        return Counter(text[i:i+3] for i in range(len(text)-2))
+    a, b = ngrams(left), ngrams(right)
+    if not a or not b:
+        return 0.0
+    keys = set(a) | set(b)
+    weights = {k: math.log(3 / (1 + int(k in a) + int(k in b))) + 1 for k in keys}
+    dot = sum(a[k] * b[k] * weights[k] ** 2 for k in keys)
+    na = math.sqrt(sum((a[k] * weights[k]) ** 2 for k in keys))
+    nb = math.sqrt(sum((b[k] * weights[k]) ** 2 for k in keys))
+    return dot / (na * nb) if na and nb else 0.0
+
+
+def match_claim(fact: dict, claim: dict, explicit_link: bool = False) -> dict | None:
+    if explicit_link:
+        return {'match_type': 'confirmed', 'method': 'link', 'score': 1.0}
+    number = fact.get('value_number')
+    claim_number = claim.get('value_number')
+    if number is not None and claim_number is not None and float(number) == float(claim_number):
+        attr = ATTRIBUTES.get(fact.get('key'))
+        if attr and claim.get('attribute') == attr:
+            return {'match_type': 'confirmed', 'method': 'attribute', 'score': 1.0}
+        # Same number, different or unknown attribute is not confirmation.
+        return {'match_type': 'possible', 'method': 'exact', 'score': 1.0}
+    score = local_similarity(f"{fact.get('label', '')} {fact.get('value_text', '')}", claim.get('raw_text', ''))
+    if score >= 0.55:
+        return {'match_type': 'possible', 'method': 'local-similarity', 'score': round(score, 4)}
+    return None
+
+
+def graph_projection(facts: list[dict], items: list[dict], links: list[dict]) -> tuple[list[dict], list[dict]]:
+    nodes, edges = [], []
+    def node(kind, ref, label, meta):
+        nodes.append({'type': kind, 'ref': str(ref), 'label': label, 'meta': meta})
+        return (kind, str(ref))
+    def edge(src, dst, kind, method='link', score=None, evidence=None):
+        edges.append({'src': src, 'dst': dst, 'type': kind, 'method': method,
+                      'score': score, 'evidence': evidence or {}})
+    fact_nodes = [(f, node('fact', f['id'], f['label'], {'key': f['key'], 'value': f['value_text'], 'version': f['version_no']})) for f in facts]
+    channels = {}
+    link_set = {(str(x['content_version_id']), x['span_start'], x['span_end'], str(x['fact_id'])) for x in links}
+    for item in items:
+        content = node('content', item['id'], item['title'], {'channel': item['channel'], 'status': item['status'], 'registered_state': item['registered_state']})
+        channel = item['channel']
+        if channel not in channels:
+            channels[channel] = node('channel', channel, channel, {})
+        edge(content, channels[channel], 'published_on', evidence={'registered_state': item['registered_state'], 'note': 'Channel assignment; not proof of publication.'})
+        for c in extract_claims(item.get('body_text') or ''):
+            ref = f"{item['version_id']}:{c['span_start']}:{c['span_end']}"
+            claim = node('claim', ref, c['raw_text'], {'span_start': c['span_start'], 'span_end': c['span_end'], 'attribute': c['attribute'], 'content_id': str(item['id'])})
+            edge(content, claim, 'asserts', evidence={'quote': c['raw_text']})
+            edge(claim, content, 'extracted_from', evidence={'quote': c['raw_text']})
+            for f, fact in fact_nodes:
+                linked = (str(item['version_id']), c['span_start'], c['span_end'], str(f['id'])) in link_set
+                match = match_claim(f, c, linked)
+                if match:
+                    edge(fact, claim, 'supports', match['method'], match['score'], {'quote': c['raw_text'], 'match_type': match['match_type']})
+    return nodes, edges

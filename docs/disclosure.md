@@ -73,3 +73,19 @@ The CI workflow contains fixed, non-production credentials solely for its dispos
 ## Integration work disclosure
 
 The Docker Compose health checks, CI workflow updates, `.env.example` changes, and secret-guard script were prepared with Claude AI assistance during the confirmed build window and reviewed against the current repository sources. The CI workflow uses published GitHub-maintained Actions listed above; no third-party service was given private repository data by this work.
+
+## Round 3 session — 2026-11-11
+
+Round 2 code is pre-existing, submitted in Round 2. Round 3 changes in this session were AI-generated with Arena.ai Agent Mode and require human review. They use the existing project dependencies and fictional NimbusDesk seed data; no new dataset, live AI service, or external deployment was used. The frontend lockfile was regenerated against the existing package manifest. Local Python and Node test/build results and their limitations are recorded in `docs/integration-report.md`.
+
+The Round 3 dependency-graph projection, local character-trigram matcher and graph UI were AI-generated with Arena.ai Agent Mode, using existing project libraries and fictional seed data. The local matcher is experimental and has not been calibrated or independently evaluated.
+
+The Red Team grounding and stability helper functions, associated tests, and Competitor Watch changes were AI-generated with Arena.ai Agent Mode using existing dependencies. The helpers are not yet connected to the API; no live AI output or reliability metric was generated in this session.
+
+The Red Team API grounding, stability, cache and presentation changes and migration 003 were AI-generated with Arena.ai Agent Mode. Tests used deterministic heuristic output and a fake database connection; no live provider call was made. Per-run monetary enforcement and validated debate citations remain unfinished.
+
+Rulebook coverage, checker-chaos cases, tests and UI were AI-generated with Arena.ai Agent Mode, using existing libraries and fictional seed data. Coverage is heuristic; the separate deterministic checker test exercises only the two explicitly supported unchanged seed rules, not every family.
+
+The homepage redesign, shared brand mark and favicon, and related sign-in and footer copy changes were AI-generated with Arena.ai Agent Mode using the existing React, Tailwind and Lucide dependencies. The workflow illustration is illustrative, not live workspace data.
+
+The redesigned login page and authentication error-handling changes were AI-generated with Arena.ai Agent Mode using existing project dependencies. No authentication bypass or external service was added.

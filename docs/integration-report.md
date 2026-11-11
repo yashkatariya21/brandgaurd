@@ -78,3 +78,40 @@ Frontend, backend, documentation, CI, and integration changes were coordinated a
 | Evaluation | **Done, limited** | Measured only on the fictional 20-case dataset; not evidence of real-world performance. |
 | Production dependency audit | **Done** | `npm audit --omit=dev` reported zero vulnerabilities; 15 moderate dev-tool advisories remain in full audit. |
 | Independent QA and release readiness | **Not ready** | `docs/QA-report.md` remains “not started”; database-backed verification is unavailable. |
+
+## Round 3 work session — 2026-11-11
+
+- Docker executable, local PostgreSQL, and Python 3.12 were not available in this workspace. `docker compose up --build` failed (`docker: command not found`); migration `002_round3_foundations.sql`, graph RLS and database-backed tests have **not** been executed here.
+- Created a local Python 3.11 virtual environment and installed `backend/requirements.txt`. `cd backend && ../.venv/bin/python -m pytest -q`: **79 passed, 37 skipped, 1 warning**. Skips reflect missing database configuration, so this is not full-suite verification.
+- With dummy DB environment strings, the DB-independent modules `tests/test_llm_safety.py tests/test_request_validation.py` ran: **13 passed, 1 warning**. This does not verify database access or a live AI provider.
+- After lockfile synchronization, `cd frontend && npm ci`, `npm run lint`, and `npm run build` passed on Node 22.22.3. npm reported 6 moderate vulnerabilities; no audit remediation was attempted.
+- Latest accessible main-branch GitHub Actions run 42478171548 reports backend job success and frontend job failure at `npm ci`; detailed logs could not be retrieved. There is no CI run for this work branch. Do not treat the older backend result as validation of migration 002 or this branch.
+- No hosted deployment, live-model call, browser end-to-end test, independent QA, or release verification was performed.
+
+### Remaining critical work
+
+The three Round 3 commitments are **partial**, not complete: graph schema is present but not populated or exposed; semantic matching and embeddings are not implemented; rule conflict candidates are exposed but full-family testing, resolution and regression are not complete; Red Team grounding, stability, competitor persona and cited debates are not implemented. Migration and rejection persistence need DB-backed testing. Session storage and the demo-flow changes need browser verification. Deployment and spending remain gated.
+
+### Dependency graph progress (next session)
+
+Graph rebuild and read endpoints now derive a graph from current approved facts, registered content versions and extracted claim spans, and refresh it when content is analysed or a fact is approved. The UI has a graph, filters, a text list and evidence details. Exact numeric/attribute and confirmed links may be confirmed; character-similarity-only edges are possible. Channel edges mean assigned channel, not proof of publication. Local similarity is experimental and uncalibrated. Hosted embeddings, paraphrase-set calibration, urgency ranking, and what-if previews are not implemented.
+
+`cd backend && ../.venv/bin/python -m pytest -q` on Python 3.11: **82 passed, 38 skipped, 1 warning**; the new DB-backed idempotency/RLS test is among the skips. Frontend lint and build passed on Node 22.22.3. No database, CI, browser or deployed verification was performed. The graph APIs, migration and automatic refresh hooks must be tested against PostgreSQL with pgvector before release.
+
+### Red Team progress (2026-11-11)
+
+Added Competitor Watch to the existing single-run Red Team and corrected a product-name heuristic that could flag the approved spelling. Added pure citation-validation and stability-clustering helpers with unit tests. **These helpers are not yet connected to the API or persistence**: the existing Red Team still exposes single-run findings without enforced citations or stability filtering. The UI explicitly warns about that limitation; this is not completion of Evidence-grounded Red Team. Existing heuristic outputs are not legal advice.
+
+`cd backend && ../.venv/bin/python -m pytest -q`: **88 passed, 38 skipped, 1 warning**. `cd frontend && npm run lint && npm run build`: both passed on Node 22.22.3. No DB-backed, browser, live-model or CI verification was performed.
+
+### Evidence-grounded Red Team integration (2026-11-11)
+
+Added migration 003 and connected citation validation, repeated runs (default three, max five), stable/unstable clustering, ungrounded drop storage, tenant-scoped caching and run metrics to the Red Team API. Legacy persona findings without validated evidence are hidden by default. The UI displays validated quotes, possible labels, stability and a collapsed unstable list. Demo repetitions are deterministic and explicitly not measured reliability. Live Red Team requires both `OPENAI_API_KEY` and `REDTEAM_LIVE_ENABLED=true`; it has input and call-count bounds but **no enforced monetary cap**. Do not enable it until an approved spend limit and enforcement are established.
+
+Tests: backend `pytest -q` **91 passed, 38 skipped, 1 warning** before the additional database-only cache test; the API orchestration tests use a fake connection and do not verify PostgreSQL. Frontend lint and build passed. Migration 003, SQL persistence, DB-backed cache/isolation and all live-provider calls remain unverified. Debates still lack validated citations, and evidence links/highlights and independent QA are incomplete. This is not release-ready.
+
+### Rulebook health and checker chaos (2026-11-11)
+
+Added a tenant-scoped rulebook coverage endpoint and text-table UI. It uses simple keyword and channel-scope heuristics to propose gaps; it is not proof of coverage. Added separate deterministic checker chaos for the **unchanged seeded** R-04 product-name and R-12 embargo rules. It shares predicates with the production checker, persists constructed cases and observed outcomes, and labels clear checker misses separately from judgement-based agreement. In the locally run fixture, the current checker misses the explicitly banned short form `Nimbus` and the double-space spelling `Nimbus  Desk`; these remain known limitations, not fixed. Hyphen and zero-width variants remain borderline, not confirmed violations.
+
+Other rule families, contradiction resolutions, regression, accessibility checker chaos and full CI/DB testing remain unfinished. `cd backend && ../.venv/bin/python -m pytest -q`: 95 passed, 39 skipped, 1 warning before adding an extra DB-only persistence test. Frontend lint and build passed on Node 22.22.3. The new endpoint and its persistence have not been exercised against a database or in a browser.

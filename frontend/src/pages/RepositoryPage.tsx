@@ -131,7 +131,11 @@ function VersionTimeline({ versions, factId, onAction, userRole }: {
                           </button>
                           <button
                             disabled={busy}
-                            onClick={() => doAction(() => factsApi.rejectVersion(factId, v.version_no))}
+                            onClick={() => {
+                              const reason = window.prompt('Why are you rejecting this version?')
+                              if (reason === null) return
+                              doAction(() => factsApi.rejectVersion(factId, v.version_no, reason))
+                            }}
                             className="text-xs px-2.5 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
                           >
                             Reject
@@ -473,6 +477,7 @@ export default function RepositoryPage() {
   const [tab, setTab] = useState<Tab>('facts')
   const [facts, setFacts] = useState<Fact[]>([])
   const [rules, setRules] = useState<Rule[]>([])
+  const [usingMock, setUsingMock] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selectedFact, setSelectedFact] = useState<Fact | null>(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -483,8 +488,8 @@ export default function RepositoryPage() {
   const load = () => {
     setLoading(true)
     Promise.all([
-      factsApi.list().catch(() => MOCK_FACTS),
-      rulesApi.list().catch(() => MOCK_RULES),
+      factsApi.list().catch(() => { setUsingMock(true); return MOCK_FACTS }),
+      rulesApi.list().catch(() => { setUsingMock(true); return MOCK_RULES }),
     ])
       .then(([f, r]) => {
         setFacts(f)
@@ -530,6 +535,7 @@ export default function RepositoryPage() {
 
   return (
     <div className="space-y-6 max-w-[1440px] mx-auto p-6 pb-12">
+      {usingMock && <p role="alert" className="p-3 rounded bg-amber-100 text-amber-900">Backend unavailable. Showing fictional sample data, not workspace results.</p>}
       <div className="flex items-start justify-between mb-2">
         <div>
           <h1

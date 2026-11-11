@@ -12,9 +12,9 @@ from app.services.redteam import run_red_team, run_prosecutor_defender, _stub_de
 class TestDemoMode:
     """These run without OPENAI_API_KEY – verifies stub output is well-formed."""
 
-    def test_run_red_team_returns_three_personas(self):
+    def test_run_red_team_returns_four_personas(self):
         results = run_red_team("NimbusDesk is guaranteed 100% uptime.", "", "")
-        assert len(results) == 3
+        assert len(results) == 4
 
     def test_persona_names(self):
         results = run_red_team("NimbusDesk is guaranteed 100% uptime.", "", "")
@@ -22,6 +22,7 @@ class TestDemoMode:
         assert "Brand Police" in names
         assert "Legal Eagle" in names
         assert "Customer Voice" in names
+        assert "Competitor Watch" in names
 
     def test_each_result_has_findings_list(self):
         results = run_red_team("NimbusDesk is guaranteed 100% uptime.", "", "")

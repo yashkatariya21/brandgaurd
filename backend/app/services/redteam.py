@@ -29,6 +29,8 @@ class PersonaFinding(BaseModel):
     suggested_fix: Optional[str] = None
     fact_key: Optional[str] = None
     rule_key: Optional[str] = None
+    category: str = "general"
+    citations: list[dict] = []
 
     @field_validator("severity")
     @classmethod
@@ -73,16 +75,25 @@ PERSONAS = [
             "Focus on what matters to you as a buyer."
         ),
     },
+    {
+        "name": "Competitor Watch",
+        "role": "competitor",
+        "lens": "Comparison claims and competitor exposure",
+        "instruction": (
+            "Identify named competitors and unsupported comparisons or claims a competitor could challenge. "
+            "Cite the relevant approved comparison rule and exact passage where available."
+        ),
+    },
 ]
 
 
 def run_red_team(content_text: str, facts_summary: str, rules_summary: str,
-                 use_llm: Optional[bool] = None) -> list[dict]:
-    """Run all three personas over the content. Returns a list of persona reports."""
+                 use_llm: Optional[bool] = None, content_version_id: str = "") -> list[dict]:
+    """Run all four personas over the content. Returns a list of persona reports."""
     use_llm = _has_llm() if use_llm is None else use_llm
     results = []
     for persona in PERSONAS:
-        report = _run_persona(persona, content_text, facts_summary, rules_summary, use_llm)
+        report = _run_persona(persona, content_text, facts_summary, rules_summary, use_llm, content_version_id)
         results.append({
             "persona": persona["name"],
             "role": persona["role"],
@@ -113,7 +124,7 @@ def _has_llm() -> bool:
 def _llm_call(system: str, user: str, max_tokens: int = 600) -> str:
     try:
         from openai import OpenAI
-        client = OpenAI()
+        client = OpenAI(timeout=8.0, max_retries=0)
         resp = client.chat.completions.create(
             model=configured_model(),
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -131,10 +142,27 @@ def _llm_call(system: str, user: str, max_tokens: int = 600) -> str:
 
 
 def _run_persona(persona: dict, content: str, facts: str, rules: str,
-                 use_llm: Optional[bool] = None) -> list[dict]:
+                 use_llm: Optional[bool] = None, content_version_id: str = "") -> list[dict]:
     use_llm = _has_llm() if use_llm is None else use_llm
     if not use_llm:
-        return _stub_persona_findings(persona, content)
+        findings = _stub_persona_findings(persona, content)
+        for finding in findings:
+            # The deterministic generator itself emits its evidence; the validator
+            # must still verify it. Empty or non-exact spans are not repaired.
+            span = finding.get("span_hint", "")
+            finding["category"] = finding.get("rule_key") or persona["role"]
+            finding["citations"] = ([{"kind": "passage", "ref_id": content_version_id,
+                                      "version": None, "quote": span}]
+                                    if span and content_version_id else [])
+            if finding.get("rule_key"):
+                try:
+                    for rule in json.loads(rules):
+                        if rule.get("key") == finding["rule_key"]:
+                            finding["citations"].append({"kind": "rule", "ref_id": rule["id"],
+                                                        "version": rule["version"], "quote": rule["text"]})
+                except (ValueError, TypeError):
+                    pass
+        return findings
 
     system = (
         persona["instruction"]
@@ -147,10 +175,13 @@ def _run_persona(persona: dict, content: str, facts: str, rules: str,
         "('low'|'medium'|'high'|'critical'), span_hint (a short quote or empty string), "
         "suggested_fix (string or null), fact_key (an exact approved fact key relied upon, otherwise null), "
         "and rule_key (an exact approved rule key relied upon, otherwise null). "
-        "Only set a citation key when that repository record specifically supports the finding. "
-        "Return only the JSON array.\n"
+        "Include category and citations as a nonempty array. Every citation must contain kind "
+        "(fact, rule, or passage), ref_id, version (integer for fact/rule, null for passage), and quote. "
+        "Use IDs and versions from the approved records or content_version_id for a passage. "
+        "Quote each cited source exactly. Include at least one passage quote for each finding. "
+        "Never invent evidence; if unavailable return no finding. Return only the JSON array.\n"
         + json.dumps(
-            {"approved_facts": facts, "brand_rules": rules, "content_to_review": content},
+            {"approved_facts": facts, "brand_rules": rules, "content_version_id": content_version_id, "content_to_review": content},
             ensure_ascii=False,
         )
     )
@@ -240,7 +271,7 @@ def _stub_persona_findings(persona: dict, content: str) -> list[dict]:
     if persona["name"] == "Brand Police":
         # Match "Nimbus Desk" (with space) or casing variants like "NimbusDESK",
         # but NOT the correct single-word "NimbusDesk".
-        bad_name_pat = re.compile(r"Nimbus\s+Desk|NimbusDESK", re.IGNORECASE)
+        bad_name_pat = re.compile(r"(?i:Nimbus\s+Desk)|NimbusDESK")
         match = bad_name_pat.search(content)
         if match:
             findings.append({
@@ -267,21 +298,21 @@ def _stub_persona_findings(persona: dict, content: str) -> list[dict]:
     elif persona["name"] == "Legal Eagle":
         if re.search(r"guaranteed?|100\s*%|never\s+fail|always\s+work", content, re.IGNORECASE):
             findings.append({
-                "issue": "Absolute guarantee language detected. This creates enforceable legal commitments.",
+                "issue": "Absolute guarantee language detected; have a qualified person review any potential commitments.",
                 "severity": "high",
                 "span_hint": re.search(r"guaranteed?|100\s*%|never\s+fail|always\s+work", content, re.IGNORECASE).group(),
                 "suggested_fix": "Remove or qualify with 'typically' or 'in our benchmark'.",
             })
         if re.search(r"ISO\s*27001\s+certified", content, re.IGNORECASE):
             findings.append({
-                "issue": "ISO 27001 certified claim found. Company is NOT certified — this is a false claim.",
+                "issue": "ISO 27001 certified claim found; check it against the current approved certification fact.",
                 "severity": "critical",
                 "span_hint": "ISO 27001 certified",
                 "suggested_fix": "ISO 27001 certification in progress",
             })
         if re.search(r"Project\s+Heron", content, re.IGNORECASE):
             findings.append({
-                "issue": "Embargoed project codename 'Project Heron' appears in content.",
+                "issue": "Project Heron appears in content; verify its current embargo status.",
                 "severity": "critical",
                 "span_hint": "Project Heron",
                 "suggested_fix": "Remove all references to Project Heron before the embargo lift date.",
@@ -305,6 +336,15 @@ def _stub_persona_findings(persona: dict, content: str) -> list[dict]:
                 "suggested_fix": "Add source and date for any rating or award claim.",
             })
         # No filler "all clear" finding — a persona with no concerns returns an empty list.
+
+    elif persona["name"] == "Competitor Watch":
+        match = re.search(r"\b(?:better|faster|cheaper|superior)\s+than\b|\b(?:competitors?|rivals?)\b", content, re.IGNORECASE)
+        if match:
+            findings.append({
+                "issue": "Comparison or competitor reference needs review against approved comparison wording.",
+                "severity": "medium", "span_hint": match.group(), "suggested_fix": None,
+                "rule_key": "R-13",
+            })
 
     return findings
 

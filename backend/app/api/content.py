@@ -95,11 +95,12 @@ def get_content(item_id: str, principal: Principal = Depends(require("submit_con
                       f.status, f.created_at, f.span_start, f.span_end
                FROM findings f
                JOIN content_versions cv ON cv.id = f.content_version_id
-               WHERE cv.content_item_id=%s
+               WHERE cv.content_item_id=%s AND f.org_id=%s
+                 AND (f.source_kind <> 'persona' OR (f.grounded AND f.stable))
                ORDER BY
                  CASE f.severity WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
                  f.created_at""",
-            (item_id,),
+            (item_id, principal.org_id),
         ).fetchall()
 
     result = _serialize(dict(item))
@@ -188,6 +189,8 @@ def analyse_content(item_id: str, principal: Principal = Depends(require("submit
             "UPDATE content_items SET status='findings_ready' WHERE id=%s AND org_id=%s AND current_version_id=%s",
             (item_id, principal.org_id, version_id),
         )
+        from .graph import rebuild_graph
+        rebuild_graph(conn, principal.org_id)
 
     return {
         "run_id": result["run_id"],
