@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Atom, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react'
-import { rulesApi, chaosApi, Rule, ChaosCase, ChaosIssue, ChaosRunResult } from '../api'
+import { rulesApi, chaosApi, Rule, ChaosCase, ChaosIssue, ChaosRunResult, RuleConflict } from '../api'
 import { useTheme } from '../theme'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
 import { MOCK_RULES } from '../lib/mockData'
@@ -11,7 +11,7 @@ function AgreementBadge({ agreement, isAmbiguous }: { agreement: number; isAmbig
   if (!isAmbiguous) {
     return (
       <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-        <CheckCircle2 size={12} /> Rule is clear here
+        <CheckCircle2 size={12} /> Interpretations agree here
       </span>
     )
   }
@@ -49,7 +49,7 @@ function ClarityRing({ clarityPct, nInterpreters, mode }: {
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <svg width={120} height={120} viewBox="0 0 100 100" aria-label={`Guideline clarity: ${clarityPct}%`}>
+      <svg width={120} height={120} viewBox="0 0 100 100" aria-label={`Cases not flagged ambiguous: ${clarityPct}%`}>
         <circle cx={50} cy={50} r={r} fill="none" stroke="#e2e8f0" strokeWidth={8} />
         <circle
           cx={50} cy={50} r={r}
@@ -65,11 +65,11 @@ function ClarityRing({ clarityPct, nInterpreters, mode }: {
           {clarityPct}%
         </text>
         <text x={50} y={62} textAnchor="middle" fontSize={8} fill="#94a3b8">
-          clarity
+          not flagged
         </text>
       </svg>
       <p className="text-xs text-muted text-center">
-        Guideline clarity from {nInterpreters} readings
+        Cases not flagged ambiguous across {nInterpreters} readings
       </p>
       {mode === 'demo' && (
         <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 text-center">
@@ -256,6 +256,9 @@ function IssueCard({
 
 export default function RuleTestsPage() {
   const { isAuthority } = useTheme()
+  const [conflicts, setConflicts] = useState<RuleConflict[]>([])
+  const [conflictError, setConflictError] = useState('')
+  const [usingMock, setUsingMock] = useState(false)
   const [rules, setRules] = useState<Rule[]>([])
   const [selectedRuleId, setSelectedRuleId] = useState('')
   const [running, setRunning] = useState(false)
@@ -265,7 +268,9 @@ export default function RuleTestsPage() {
   const [localIssues, setLocalIssues] = useState<ChaosIssue[]>([])
 
   useEffect(() => {
-    rulesApi.list().catch(() => MOCK_RULES).then((rs) => {
+    chaosApi.contradictions().then((r) => setConflicts(r.contradictions))
+      .catch(() => setConflictError('Could not load rulebook conflicts.'))
+    rulesApi.list().catch(() => { setUsingMock(true); return MOCK_RULES }).then((rs) => {
       // Tone rules first, then others — chaos testing only supports tone.
       const tone = rs.filter((r) => r.category === 'tone')
       const rest = rs.filter((r) => r.category !== 'tone')
@@ -313,14 +318,24 @@ export default function RuleTestsPage() {
         <h1
           className={`text-main ${isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'}`}
         >
-          Chaos Lab
+          Full Guideline Chaos Testing
         </h1>
         <p className="text-sm text-muted mt-1">
-          Test tone rules for ambiguity by running {result?.n_interpreters ?? 5} independent AI
-          readers over generated cases. High agreement = clear rule.
+          Test tone rules with {result?.n_interpreters ?? 5} interpretations. Agreement measures consistency, not correctness; a human decides. Other rule-family tests are not yet supported.
         </p>
       </div>
 
+      {usingMock && <p role="alert" className="p-3 rounded bg-amber-100 text-amber-900">Backend unavailable. Rule list is fictional sample data.</p>}
+      <section className="glass-panel rounded-xl p-6" aria-label="Possible rule contradictions">
+        <h2 className="text-lg font-semibold text-main">Possible rule contradictions</h2>
+        <p className="text-sm text-muted">Potential tensions in overlapping channels, not verdicts. Review the quoted rules and scenario.</p>
+        {conflictError && <p role="alert" className="text-red-700">{conflictError}</p>}
+        {!conflictError && conflicts.length === 0 && <p className="text-sm text-muted">No candidates found, or still loading.</p>}
+        <ul className="space-y-3 mt-3">{conflicts.map((c) => <li key={`${c.rule_a}-${c.rule_b}`} className="border border-subtle rounded p-3 text-sm text-main">
+          <strong>Possible · {c.rule_a} / {c.rule_b}</strong> · {c.channels.join(', ')}
+          <p>“{c.quote_a}” / “{c.quote_b}”</p><p>Example: {c.scenario}</p><p className="text-muted">{c.explanation}</p>
+        </li>)}</ul>
+      </section>
       {/* Control panel */}
       <div className="glass-panel rounded-xl p-6">
         <h2 className="text-sm font-semibold text-main mb-4 flex items-center gap-2">

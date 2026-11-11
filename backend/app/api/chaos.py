@@ -19,6 +19,7 @@ from ..core.errors import ApiError
 from ..core.rbac import Principal, require
 from ..services.chaos import generate_chaos_cases, interpret_case, detect_ambiguities, _has_llm
 from ..services.llm_config import ProviderCallError, configured_model
+from ..services.rulebook import contradictions
 
 router = APIRouter(prefix="/v1")
 
@@ -38,6 +39,19 @@ def _serialize(row: dict) -> dict:
         else:
             out[k] = v
     return out
+
+
+@router.get("/rulebook/contradictions")
+def rulebook_contradictions(principal: Principal = Depends(require("run_chaos"))):
+    """Return potential, not adjudicated, conflicts in current approved rules."""
+    with tenant_conn(principal.org_id, principal.user_id) as conn:
+        rows = conn.execute(
+            """SELECT r.key, r.applies_to, rv.description FROM rules r
+               JOIN rule_versions rv ON rv.id = r.current_version_id
+               WHERE r.org_id=%s AND rv.org_id=%s AND rv.status='approved'
+               ORDER BY r.key""", (principal.org_id, principal.org_id),
+        ).fetchall()
+    return {"contradictions": contradictions([dict(r) for r in rows])}
 
 
 # ─── POST /v1/rules/{rule_id}/chaos-test ──────────────────────────────────────
@@ -363,7 +377,7 @@ def resolve_issue(issue_id: uuid.UUID, body: ResolveBody,
 def _llm_clarification(rule: dict, ambiguous_cases: list) -> str:
     try:
         from openai import OpenAI
-        client = OpenAI()
+        client = OpenAI(timeout=15.0, max_retries=1)
         resp = client.chat.completions.create(
             model=configured_model(),
             messages=[
