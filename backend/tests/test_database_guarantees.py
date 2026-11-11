@@ -172,3 +172,23 @@ def test_checker_chaos_run_persists_for_current_tenant(two_orgs):
         assert conn.execute('SELECT count(*) AS n FROM chaos_cases WHERE chaos_run_id=%s', (result['run_id'],)).fetchone()['n'] == len(result['cases'])
     with tenant_conn(org_b, user_b) as conn:
         assert conn.execute('SELECT count(*) AS n FROM chaos_cases WHERE chaos_run_id=%s', (result['run_id'],)).fetchone()['n'] == 0
+
+
+def test_redteam_drop_rejects_cross_tenant_run_reference(two_orgs):
+    from psycopg.types.json import Jsonb
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_b, user_b) as conn:
+        run = conn.execute("INSERT INTO analysis_runs (org_id,kind) VALUES (%s,'redteam') RETURNING id", (org_b,)).fetchone()['id']
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        with tenant_conn(org_a, user_a) as conn:
+            conn.execute("INSERT INTO redteam_drops (org_id,analysis_run_id,persona,reason,raw_finding) VALUES (%s,%s,'P','ungrounded',%s)", (org_a,run,Jsonb({})))
+
+
+def test_graph_edges_cannot_be_written_to_another_tenant(two_orgs):
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_b, user_b) as conn:
+        first = conn.execute("INSERT INTO graph_nodes (org_id,node_type,ref_id,label) VALUES (%s,'fact','b1','B') RETURNING id", (org_b,)).fetchone()['id']
+        second = conn.execute("INSERT INTO graph_nodes (org_id,node_type,ref_id,label) VALUES (%s,'claim','b2','B') RETURNING id", (org_b,)).fetchone()['id']
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        with tenant_conn(org_a, user_a) as conn:
+            conn.execute("INSERT INTO graph_edges (org_id,src_id,dst_id,edge_type,match_method) VALUES (%s,%s,%s,'supports','link')", (org_b, first, second))
