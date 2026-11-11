@@ -99,3 +99,76 @@ def test_dismiss_requires_reason(two_orgs):
     with pytest.raises(psycopg.errors.CheckViolation):
         with tenant_conn(org_a, user_a) as conn:
             conn.execute("INSERT INTO decisions (org_id, finding_id, decided_by, action) VALUES (%s,%s,%s,'dismiss')", (org_a, f, user_a))
+
+
+def test_graph_tenant_isolation_and_cross_tenant_edges(two_orgs):
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        node_a = conn.execute("INSERT INTO graph_nodes (org_id,node_type,ref_id,label) VALUES (%s,'fact','a','A') RETURNING id", (org_a,)).fetchone()['id']
+    with tenant_conn(org_b, user_b) as conn:
+        node_b = conn.execute("INSERT INTO graph_nodes (org_id,node_type,ref_id,label) VALUES (%s,'fact','b','B') RETURNING id", (org_b,)).fetchone()['id']
+    with tenant_conn(org_a, user_a) as conn:
+        assert [r['id'] for r in conn.execute('SELECT id FROM graph_nodes').fetchall()] == [node_a]
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        with tenant_conn(org_a, user_a) as conn:
+            conn.execute("INSERT INTO graph_edges (org_id,src_id,dst_id,edge_type,match_method) VALUES (%s,%s,%s,'supports','link')", (org_a, node_a, node_b))
+
+
+def test_graph_rebuild_is_idempotent_and_isolated(two_orgs):
+    from app.api.graph import rebuild_graph
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        fact = conn.execute("SELECT id FROM facts WHERE org_id=%s", (org_a,)).fetchone()['id']
+        version = conn.execute("""INSERT INTO fact_versions
+            (org_id,fact_id,version_no,value_text,value_number,valid_from,status,proposed_by)
+            VALUES (%s,%s,1,'65,000 customers',65000,'2026-01-01','approved',%s) RETURNING id""", (org_a, fact, user_a)).fetchone()['id']
+        conn.execute("UPDATE facts SET key='customer_count', current_version_id=%s WHERE id=%s", (version, fact))
+        item = conn.execute("INSERT INTO content_items (org_id,title,channel) VALUES (%s,'Homepage','web') RETURNING id", (org_a,)).fetchone()['id']
+        cv = conn.execute("INSERT INTO content_versions (org_id,content_item_id,version_no,body_text,content_hash) VALUES (%s,%s,1,'65,000 customers','h') RETURNING id", (org_a, item)).fetchone()['id']
+        conn.execute('UPDATE content_items SET current_version_id=%s WHERE id=%s', (cv, item))
+        first = rebuild_graph(conn, org_a)
+        ids = {r['id'] for r in conn.execute('SELECT id FROM graph_nodes').fetchall()}
+        second = rebuild_graph(conn, org_a)
+        assert first == second
+        assert ids == {r['id'] for r in conn.execute('SELECT id FROM graph_nodes').fetchall()}
+        assert conn.execute('SELECT count(*) AS n FROM graph_edges').fetchone()['n'] == first['edges']
+    with tenant_conn(org_b, user_b) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM graph_nodes').fetchone()['n'] == 0
+        assert conn.execute('SELECT count(*) AS n FROM graph_edges').fetchone()['n'] == 0
+
+
+def test_grounded_redteam_cache_and_drop_isolation(two_orgs, monkeypatch):
+    from app.api import redteam
+    from app.core.rbac import Principal
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        item = conn.execute("INSERT INTO content_items (org_id,title,channel) VALUES (%s,'Review','web') RETURNING id", (org_a,)).fetchone()['id']
+        version = conn.execute("INSERT INTO content_versions (org_id,content_item_id,version_no,body_text,content_hash) VALUES (%s,%s,1,'We are better than competitors.','h') RETURNING id", (org_a,item)).fetchone()['id']
+        conn.execute('UPDATE content_items SET current_version_id=%s WHERE id=%s', (version,item))
+    monkeypatch.setattr(redteam, '_has_llm', lambda: False)
+    principal = Principal(str(user_a), str(org_a), 'admin')
+    first = redteam.run_redteam(str(item), n=3, principal=principal)
+    assert first['findings'] and all(f['finding_type'] == 'possible' and f['citations'] for f in first['findings'])
+    assert not first['cached']
+    second = redteam.run_redteam(str(item), n=3, principal=principal)
+    assert second['cached'] and second['run_id'] == first['run_id']
+    with tenant_conn(org_b, user_b) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM redteam_drops WHERE analysis_run_id=%s', (first['run_id'],)).fetchone()['n'] == 0
+        assert conn.execute('SELECT count(*) AS n FROM findings WHERE analysis_run_id=%s', (first['run_id'],)).fetchone()['n'] == 0
+
+
+def test_checker_chaos_run_persists_for_current_tenant(two_orgs):
+    from app.api.chaos import checker_chaos
+    from app.core.rbac import Principal
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        rule = conn.execute("INSERT INTO rules (org_id,key,label,category,severity) VALUES (%s,'R-04','Product name','terminology','high') RETURNING id", (org_a,)).fetchone()['id']
+        version = conn.execute("""INSERT INTO rule_versions (org_id,rule_id,version_no,description,status,proposed_by)
+            VALUES (%s,%s,1,'The product name is NimbusDesk. Never write Nimbus Desk, NimbusDESK or Nimbus.','approved',%s) RETURNING id""", (org_a,rule,user_a)).fetchone()['id']
+        conn.execute('UPDATE rules SET current_version_id=%s WHERE id=%s', (version,rule))
+    result = checker_chaos(rule, principal=Principal(str(user_a), str(org_a), 'admin'))
+    assert result['checker_misses'] >= 1
+    with tenant_conn(org_a, user_a) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM chaos_cases WHERE chaos_run_id=%s', (result['run_id'],)).fetchone()['n'] == len(result['cases'])
+    with tenant_conn(org_b, user_b) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM chaos_cases WHERE chaos_run_id=%s', (result['run_id'],)).fetchone()['n'] == 0

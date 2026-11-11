@@ -288,7 +288,9 @@ export default function DashboardPage() {
       const allContent  = c.status  === 'fulfilled' ? c.value.data  : MOCK_CONTENT
       const allFindings = fi.status === 'fulfilled' ? fi.value.data : MOCK_FINDINGS
       const mock = (f.status === 'fulfilled' && f.value.isMock) ||
-                   (fi.status === 'fulfilled' && fi.value.isMock)
+                   (fi.status === 'fulfilled' && fi.value.isMock) ||
+                   (r.status === 'fulfilled' && r.value.isMock) ||
+                   (c.status === 'fulfilled' && c.value.isMock)
       setUsingMock(mock)
 
       setFacts(allFacts)
@@ -369,7 +371,7 @@ export default function DashboardPage() {
           <div className="px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800">
             <span>⚡</span>
             <span>
-              <strong>Demo data</strong> — backend not connected. Connect your Railway backend by setting{' '}
+              <strong>Demo data</strong> — backend not connected. Connect your backend by setting{' '}
               <code className="font-mono bg-amber-100 px-1 rounded">VITE_API_URL</code> in Vercel environment variables.
             </span>
           </div>

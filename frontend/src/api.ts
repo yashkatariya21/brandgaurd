@@ -1,6 +1,6 @@
 /**
  * BrandGuard API client – typed fetch functions for all endpoints.
- * JWT is stored in localStorage under the key "bg_token".
+ * JWT is stored in sessionStorage under the key "bg_token".
  */
 
 const BASE = (import.meta.env as Record<string, string | undefined>).VITE_API_URL ?? ''
@@ -8,18 +8,18 @@ const BASE = (import.meta.env as Record<string, string | undefined>).VITE_API_UR
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
 export function getToken(): string | null {
-  return localStorage.getItem('bg_token')
+  return sessionStorage.getItem('bg_token')
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem('bg_token', token)
+  sessionStorage.setItem('bg_token', token)
 }
 
 export function clearToken(): void {
-  localStorage.removeItem('bg_token')
-  localStorage.removeItem('bg_user')
-  localStorage.removeItem('bg_role')
-  localStorage.removeItem('bg_org_id')
+  sessionStorage.removeItem('bg_token')
+  sessionStorage.removeItem('bg_user')
+  sessionStorage.removeItem('bg_role')
+  sessionStorage.removeItem('bg_org_id')
 }
 
 function authHeaders(): Record<string, string> {
@@ -336,6 +336,15 @@ export const blastRadiusApi = {
 
 // ─── Red Team ─────────────────────────────────────────────────────────────────
 
+export interface EvidenceCitation {
+  kind: 'fact' | 'rule' | 'passage'
+  ref_id: string
+  version: number | null
+  quote: string
+  span_start?: number
+  span_end?: number
+}
+
 export interface RedTeamFinding {
   id: string
   persona: string
@@ -349,13 +358,20 @@ export interface RedTeamFinding {
   human_review_required: boolean
   finding_type: string
   source_kind: string
+  citations: EvidenceCitation[]
+  appearances: number
+  total_runs: number
+  stable: boolean
 }
 
 export interface RedTeamResult {
   run_id: string
   mode: 'llm' | 'demo'
   findings: RedTeamFinding[]
-  demo_note?: string
+  unstable_findings: RedTeamFinding[]
+  cached: boolean
+  metrics: { grounding_pass_rate: number | null; ungrounded_drops: number; stability_rate: number | null; unstable_hidden: number; duration_seconds: number; model: string }
+  demo_note?: string | null
 }
 
 export const redTeamApi = {
@@ -416,7 +432,32 @@ export interface ChaosRunResult {
   demo_note?: string
 }
 
+export interface RuleConflict {
+  rule_a: string; rule_b: string; quote_a: string; quote_b: string
+  channels: string[]; scenario: string; type: 'possible'; explanation: string
+}
+
+export interface CheckerChaosResult {
+  run_id: string
+  rule_key: string
+  mode: 'checker'
+  checker_misses: number
+  note: string
+  cases: { id: string; text: string; intended_label: string; observed: string; checker_miss: boolean; false_positive: boolean; rationale: string }[]
+}
+export interface RulebookCoverage {
+  channels: string[]
+  families: string[]
+  claim_types: string[]
+  matrix: { channel: string; families: Record<string, number>; claim_types: Record<string, number> }[]
+  gaps: { kind: string; channel?: string; subject: string; evidence: string; title?: string; content_id?: string }[]
+  note: string
+}
+
 export const chaosApi = {
+  coverage: () => get<RulebookCoverage>('/v1/rulebook/coverage'),
+  checkerChaos: (ruleId: string) => post<CheckerChaosResult>(`/v1/rules/${ruleId}/checker-chaos`),
+  contradictions: () => get<{ contradictions: RuleConflict[] }>('/v1/rulebook/contradictions'),
   run: (ruleId: string) =>
     post<ChaosRunResult>(`/v1/rules/${ruleId}/chaos-test`),
   getRun: (runId: string) =>
@@ -431,4 +472,12 @@ export const chaosApi = {
     post<{ issue_id: string; status: string }>(`/v1/chaos-issues/${issueId}/resolve`, {
       status,
     }),
+}
+
+export interface GraphNode { id: string; node_type: 'fact' | 'claim' | 'content' | 'channel'; ref_id: string; label: string; meta: Record<string, unknown> }
+export interface GraphEdge { id: string; src_id: string; dst_id: string; edge_type: string; match_method: string; score: number | null; evidence: Record<string, unknown> }
+export interface GraphResult { nodes: GraphNode[]; edges: GraphEdge[]; scope_note: string; limitations: string }
+export const graphApi = {
+  get: () => get<GraphResult>('/v1/graph'),
+  rebuild: () => post<{nodes: number; edges: number}>('/v1/graph/rebuild'),
 }

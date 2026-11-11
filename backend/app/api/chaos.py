@@ -19,6 +19,8 @@ from ..core.errors import ApiError
 from ..core.rbac import Principal, require
 from ..services.chaos import generate_chaos_cases, interpret_case, detect_ambiguities, _has_llm
 from ..services.llm_config import ProviderCallError, configured_model
+from ..services.rulebook import contradictions, coverage_report
+from ..services.checker_chaos import product_name_cases, embargo_cases
 
 router = APIRouter(prefix="/v1")
 
@@ -38,6 +40,79 @@ def _serialize(row: dict) -> dict:
         else:
             out[k] = v
     return out
+
+
+@router.get("/rulebook/contradictions")
+def rulebook_contradictions(principal: Principal = Depends(require("run_chaos"))):
+    """Return potential, not adjudicated, conflicts in current approved rules."""
+    with tenant_conn(principal.org_id, principal.user_id) as conn:
+        rows = conn.execute(
+            """SELECT r.key, r.applies_to, rv.description FROM rules r
+               JOIN rule_versions rv ON rv.id = r.current_version_id
+               WHERE r.org_id=%s AND rv.org_id=%s AND rv.status='approved'
+               ORDER BY r.key""", (principal.org_id, principal.org_id),
+        ).fetchall()
+    return {"contradictions": contradictions([dict(r) for r in rows])}
+
+
+@router.get("/rulebook/coverage")
+def rulebook_coverage(principal: Principal = Depends(require("run_chaos"))):
+    with tenant_conn(principal.org_id, principal.user_id) as conn:
+        rules = conn.execute("""SELECT r.key, r.category, r.applies_to, rv.description, rv.expected_behaviour,
+            (SELECT count(*) FROM chaos_cases cc WHERE cc.org_id=r.org_id AND cc.rule_version_id=rv.id) AS test_count
+            FROM rules r JOIN rule_versions rv ON rv.id=r.current_version_id
+            WHERE r.org_id=%s AND rv.org_id=%s AND rv.status='approved' ORDER BY r.key""",
+            (principal.org_id, principal.org_id)).fetchall()
+        content = conn.execute("""SELECT c.id,c.title,c.channel,v.body_text FROM content_items c
+            JOIN content_versions v ON v.id=c.current_version_id
+            WHERE c.org_id=%s AND v.org_id=%s ORDER BY c.id""",
+            (principal.org_id, principal.org_id)).fetchall()
+    return coverage_report([dict(r) for r in rules], [dict(c) for c in content])
+
+
+@router.post("/rules/{rule_id}/checker-chaos", status_code=201)
+def checker_chaos(rule_id: uuid.UUID, principal: Principal = Depends(require("run_chaos"))):
+    """Run known-construction cases against checks actually implemented by the checker."""
+    from datetime import date
+    with tenant_conn(principal.org_id, principal.user_id) as conn:
+        rule = conn.execute("""SELECT r.key, rv.id AS version_id, rv.description
+            FROM rules r JOIN rule_versions rv ON rv.id=r.current_version_id
+            WHERE r.id=%s AND r.org_id=%s AND rv.org_id=%s AND rv.status='approved'""",
+            (rule_id, principal.org_id, principal.org_id)).fetchone()
+        if not rule:
+            raise ApiError(404, 'not_found', 'Rule not found or has no approved version')
+        if rule['key'] == 'R-04' and rule['description'] == 'The product name is NimbusDesk. Never write Nimbus Desk, NimbusDESK or Nimbus.':
+            cases = product_name_cases()
+        elif rule['key'] == 'R-12' and rule['description'] == 'Do not mention embargoed names or codenames before the release date.':
+            terms = conn.execute('SELECT term, embargo_until FROM embargo_terms WHERE org_id=%s', (principal.org_id,)).fetchall()
+            cases = embargo_cases([dict(t) for t in terms], date.today())
+            if not cases:
+                raise ApiError(422, 'no_active_embargo', 'No active embargo terms are available for this test.')
+        else:
+            raise ApiError(422, 'unsupported_checker', 'Checker chaos is currently implemented only for the seeded product-name and embargo checks; this rule version is not supported.')
+        run_id = uuid.uuid4()
+        conn.execute("""INSERT INTO chaos_runs (id,org_id,rule_version_ids,status,started_at,finished_at,
+            created_by,n_interpreters,model_id,prompt_version)
+            VALUES (%s,%s,%s::uuid[],'done',now(),now(),%s,1,'deterministic-checker','checker-chaos-v1')""",
+            (run_id, principal.org_id, [str(rule['version_id'])], principal.user_id))
+        for c in cases:
+            case_id = uuid.uuid4()
+            conn.execute("""INSERT INTO chaos_cases (id,org_id,chaos_run_id,rule_version_id,text,axis,intended_label)
+                VALUES (%s,%s,%s,%s,%s,'checker',%s)""",
+                (case_id, principal.org_id, run_id, rule['version_id'], c['text'], c['intended_label']))
+            conn.execute("""INSERT INTO chaos_results (org_id,chaos_case_id,verdicts,agreement,majority_verdict)
+                VALUES (%s,%s,%s,1,%s)""", (principal.org_id, case_id, Jsonb([c['observed']]), c['observed']))
+            c['id'] = str(case_id)
+        misses = [c for c in cases if c['checker_miss']]
+        if misses:
+            conn.execute("""INSERT INTO chaos_issues (org_id,chaos_run_id,kind,rule_version_ids,description,status)
+                VALUES (%s,%s,'gap',%s::uuid[],%s,'open')""",
+                (principal.org_id, run_id, [str(rule['version_id'])],
+                 f"Confirmed checker miss on {len(misses)} constructed case(s). Review the saved test cases."))
+        write_audit(conn, principal.user_id, 'chaos.run', 'chaos_run', run_id,
+                    after={'mode':'checker','cases':len(cases),'checker_misses':len(misses)})
+    return {'run_id': str(run_id), 'rule_key': rule['key'], 'mode': 'checker', 'cases': cases,
+            'checker_misses': len(misses), 'note': 'Checker misses are confirmed observations on explicitly covered constructed inputs, not a claim of rulebook correctness.'}
 
 
 # ─── POST /v1/rules/{rule_id}/chaos-test ──────────────────────────────────────
@@ -363,7 +438,7 @@ def resolve_issue(issue_id: uuid.UUID, body: ResolveBody,
 def _llm_clarification(rule: dict, ambiguous_cases: list) -> str:
     try:
         from openai import OpenAI
-        client = OpenAI()
+        client = OpenAI(timeout=15.0, max_retries=1)
         resp = client.chat.completions.create(
             model=configured_model(),
             messages=[

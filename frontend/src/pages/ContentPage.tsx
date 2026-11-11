@@ -197,7 +197,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
               {locatedFindings.length > 0 && (
                 <div>
                   <h4 className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">
-                    Deterministic Findings ({locatedFindings.length})
+                    Located findings ({locatedFindings.length})
                   </h4>
                   <div className="space-y-2">
                     {locatedFindings.map((f) => (
@@ -311,13 +311,25 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                 </p>
               )}
 
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+                Findings remain possible; a person decides. Personas are prompts on the same model, not independent experts. Citation validation checks the source exists, not that the conclusion is correct.
+              </p>
+
+              <div className="text-xs text-main bg-canvas-secondary rounded p-3 mb-3 space-y-1">
+                <p>Grounding pass rate: {redTeamResult.metrics.grounding_pass_rate == null ? 'not applicable' : `${Math.round(redTeamResult.metrics.grounding_pass_rate * 100)}%`} · Ungrounded drops: {redTeamResult.metrics.ungrounded_drops}</p>
+                <p>Stable clusters: {redTeamResult.metrics.stability_rate == null ? 'not applicable' : `${Math.round(redTeamResult.metrics.stability_rate * 100)}%`} · Unstable hidden: {redTeamResult.metrics.unstable_hidden}</p>
+                <p>Run time: {redTeamResult.metrics.duration_seconds}s · {redTeamResult.metrics.model}{redTeamResult.cached ? ' · cached' : ''}</p>
+              </div>
+              {redTeamResult.findings.length === 0 && <p className="text-sm text-muted mb-3">No stable evidence-backed findings. Show {redTeamResult.unstable_findings.length} unstable below.</p>}
+
               {/* Group by persona */}
               {(() => {
-                const personaNames = ['Legal Eagle', 'Brand Police', 'Customer Voice']
+                const personaNames = ['Legal Eagle', 'Brand Police', 'Customer Voice', 'Competitor Watch']
                 const personaIcons: Record<string, string> = {
                   'Legal Eagle': '⚖️',
                   'Brand Police': '🛡️',
                   'Customer Voice': '💬',
+                  'Competitor Watch': '👁️',
                 }
                 const grouped = personaNames.map((name) => ({
                   name,
@@ -336,7 +348,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                             <span className="text-base">{icon}</span>
                             <span className="text-sm font-semibold text-main">{name}</span>
                             {pf.length === 0 ? (
-                              <span className="ml-auto text-xs text-green-600 font-medium">No concerns raised</span>
+                              <span className="ml-auto text-xs text-green-600 font-medium">No stable findings</span>
                             ) : (
                               <>
                                 <span className="text-xs text-muted ml-auto">{pf.length} finding{pf.length !== 1 ? 's' : ''}</span>
@@ -361,6 +373,8 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                                           <span className="text-xs text-muted italic">{f.why_it_matters}</span>
                                         )}
                                       </div>
+                                      <p className="text-xs text-muted mt-1">Stable {f.appearances}/{f.total_runs} · repeat agreement does not make a finding confirmed</p>
+                                      <ul className="mt-2 space-y-1">{f.citations.map((c, i) => <li key={i} className="text-xs text-main border border-subtle rounded px-2 py-1">{c.kind}{c.version != null ? ` v${c.version}` : ''}: “{c.quote}”</li>)}</ul>
                                       {f.suggested_text && (
                                         <p className="text-xs text-green-700 mt-1.5">Suggested: {f.suggested_text}</p>
                                       )}
@@ -377,6 +391,9 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                 )
               })()}
 
+              <details className="mt-3 text-sm"><summary className="cursor-pointer text-main">Unstable (hidden by default): {redTeamResult.unstable_findings.length}</summary>
+                <ul className="space-y-2 mt-2">{redTeamResult.unstable_findings.map(f => <li key={f.id} className="border border-subtle rounded p-2 text-main"><strong>Possible · {f.persona} · {f.appearances}/{f.total_runs}</strong><p>{f.issue}</p>{f.citations.map((c, i) => <p className="text-xs" key={i}>{c.kind}: “{c.quote}”</p>)}</li>)}</ul>
+              </details>
               <p className="text-xs text-muted mt-3">
                 Red team findings are saved in the Findings page. Go to Findings → Decide to review each one.
               </p>
@@ -393,6 +410,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
 export default function ContentPage() {
   const { isAuthority } = useTheme()
   const [items, setItems] = useState<ContentItem[]>([])
+  const [usingMock, setUsingMock] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<ContentItem | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -406,7 +424,7 @@ export default function ContentPage() {
 
   const load = () => {
     setLoading(true)
-    contentApi.list().catch(() => MOCK_CONTENT).then(setItems).finally(() => setLoading(false))
+    contentApi.list().catch(() => { setUsingMock(true); return MOCK_CONTENT }).then(setItems).finally(() => setLoading(false))
   }
 
   useEffect(load, [])
@@ -466,6 +484,7 @@ export default function ContentPage() {
 
   return (
     <div className="space-y-6 max-w-[1440px] mx-auto p-6 pb-12">
+      {usingMock && <p role="alert" className="p-3 rounded bg-amber-100 text-amber-900">Backend unavailable. Showing fictional sample data, not workspace results.</p>}
       <div className="flex items-center justify-between">
         <div>
           <h1
