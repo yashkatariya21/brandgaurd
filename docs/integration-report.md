@@ -78,3 +78,16 @@ Frontend, backend, documentation, CI, and integration changes were coordinated a
 | Evaluation | **Done, limited** | Measured only on the fictional 20-case dataset; not evidence of real-world performance. |
 | Production dependency audit | **Done** | `npm audit --omit=dev` reported zero vulnerabilities; 15 moderate dev-tool advisories remain in full audit. |
 | Independent QA and release readiness | **Not ready** | `docs/QA-report.md` remains “not started”; database-backed verification is unavailable. |
+
+## Round 3 work session — 2026-11-11
+
+- Docker executable, local PostgreSQL, and Python 3.12 were not available in this workspace. `docker compose up --build` failed (`docker: command not found`); migration `002_round3_foundations.sql`, graph RLS and database-backed tests have **not** been executed here.
+- Created a local Python 3.11 virtual environment and installed `backend/requirements.txt`. `cd backend && ../.venv/bin/python -m pytest -q`: **79 passed, 37 skipped, 1 warning**. Skips reflect missing database configuration, so this is not full-suite verification.
+- With dummy DB environment strings, the DB-independent modules `tests/test_llm_safety.py tests/test_request_validation.py` ran: **13 passed, 1 warning**. This does not verify database access or a live AI provider.
+- After lockfile synchronization, `cd frontend && npm ci`, `npm run lint`, and `npm run build` passed on Node 22.22.3. npm reported 6 moderate vulnerabilities; no audit remediation was attempted.
+- Latest accessible main-branch GitHub Actions run 42478171548 reports backend job success and frontend job failure at `npm ci`; detailed logs could not be retrieved. There is no CI run for this work branch. Do not treat the older backend result as validation of migration 002 or this branch.
+- No hosted deployment, live-model call, browser end-to-end test, independent QA, or release verification was performed.
+
+### Remaining critical work
+
+The three Round 3 commitments are **partial**, not complete: graph schema is present but not populated or exposed; semantic matching and embeddings are not implemented; rule conflict candidates are exposed but full-family testing, resolution and regression are not complete; Red Team grounding, stability, competitor persona and cited debates are not implemented. Migration and rejection persistence need DB-backed testing. Session storage and the demo-flow changes need browser verification. Deployment and spending remain gated.
