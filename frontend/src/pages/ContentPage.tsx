@@ -393,6 +393,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
 export default function ContentPage() {
   const { isAuthority } = useTheme()
   const [items, setItems] = useState<ContentItem[]>([])
+  const [usingMock, setUsingMock] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<ContentItem | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -406,7 +407,7 @@ export default function ContentPage() {
 
   const load = () => {
     setLoading(true)
-    contentApi.list().catch(() => MOCK_CONTENT).then(setItems).finally(() => setLoading(false))
+    contentApi.list().catch(() => { setUsingMock(true); return MOCK_CONTENT }).then(setItems).finally(() => setLoading(false))
   }
 
   useEffect(load, [])
@@ -466,6 +467,7 @@ export default function ContentPage() {
 
   return (
     <div className="space-y-6 max-w-[1440px] mx-auto p-6 pb-12">
+      {usingMock && <p role="alert" className="p-3 rounded bg-amber-100 text-amber-900">Backend unavailable. Showing fictional sample data, not workspace results.</p>}
       <div className="flex items-center justify-between">
         <div>
           <h1

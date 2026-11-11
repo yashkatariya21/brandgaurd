@@ -113,7 +113,7 @@ def _has_llm() -> bool:
 def _llm_call(system: str, user: str, max_tokens: int = 600) -> str:
     try:
         from openai import OpenAI
-        client = OpenAI()
+        client = OpenAI(timeout=15.0, max_retries=1)
         resp = client.chat.completions.create(
             model=configured_model(),
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],

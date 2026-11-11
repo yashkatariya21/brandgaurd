@@ -86,7 +86,7 @@ def test_failed_chaos_provider_call_is_not_counted_as_borderline(monkeypatch):
         raise RuntimeError("offline")
 
     class BrokenClient:
-        def __init__(self):
+        def __init__(self, **_kwargs):
             self.chat = SimpleNamespace(
                 completions=SimpleNamespace(create=fail)
             )
@@ -101,7 +101,7 @@ def test_failed_redteam_provider_call_is_explicit(monkeypatch):
         raise RuntimeError("offline")
 
     class BrokenClient:
-        def __init__(self):
+        def __init__(self, **_kwargs):
             self.chat = SimpleNamespace(
                 completions=SimpleNamespace(create=fail)
             )

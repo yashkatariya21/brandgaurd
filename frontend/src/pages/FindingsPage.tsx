@@ -354,6 +354,7 @@ function DecideModal({ finding, onClose, onDecided }: {
 export default function FindingsPage() {
   const { isAuthority } = useTheme()
   const [findings, setFindings] = useState<Finding[]>([])
+  const [usingMock, setUsingMock] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Finding | null>(null)
   const [debating, setDebating] = useState<Finding | null>(null)
@@ -364,7 +365,7 @@ export default function FindingsPage() {
 
   const load = () => {
     setLoading(true)
-    findingsApi.list().catch(() => MOCK_FINDINGS).then(setFindings).finally(() => setLoading(false))
+    findingsApi.list().catch(() => { setUsingMock(true); return MOCK_FINDINGS }).then(setFindings).finally(() => setLoading(false))
   }
   useEffect(load, [])
 
@@ -410,6 +411,7 @@ export default function FindingsPage() {
 
   return (
     <div className="space-y-6 max-w-[1440px] mx-auto p-4 md:p-6 pb-12">
+      {usingMock && <p role="alert" className="p-3 rounded bg-amber-100 text-amber-900">Backend unavailable. Showing fictional sample data, not workspace results.</p>}
       <div className="mb-2">
         <h1 className={`text-main ${isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'}`}>
           Findings & Decisions
@@ -542,21 +544,12 @@ export default function FindingsPage() {
                           <StatusBadge status={f.status} />
                           {f.status === 'open' && (
                             <>
-                              {['high', 'critical'].includes(f.severity) ? (
-                                <button
-                                  onClick={() => setDebating(f)}
-                                  className="text-xs px-2 py-1 border border-subtle text-muted rounded hover:bg-accent-subtle"
-                                >
-                                  Show debate
-                                </button>
-                              ) : (
-                                <span
-                                  title="Debate runs on high or critical findings"
-                                  className="text-xs px-2 py-1 border border-subtle text-muted/40 rounded cursor-not-allowed"
-                                >
-                                  Show debate
-                                </span>
-                              )}
+                              <button
+                                onClick={() => setDebating(f)}
+                                className="text-xs px-2 py-1 border border-subtle text-muted rounded hover:bg-accent-subtle"
+                              >
+                                Show debate
+                              </button>
                               <button
                                 onClick={() => setSelected(f)}
                                 className="text-xs px-2 py-1 bg-accent text-white rounded hover:opacity-90"

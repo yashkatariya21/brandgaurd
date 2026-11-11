@@ -1,6 +1,6 @@
 /**
  * BrandGuard API client – typed fetch functions for all endpoints.
- * JWT is stored in localStorage under the key "bg_token".
+ * JWT is stored in sessionStorage under the key "bg_token".
  */
 
 const BASE = (import.meta.env as Record<string, string | undefined>).VITE_API_URL ?? ''
@@ -8,18 +8,18 @@ const BASE = (import.meta.env as Record<string, string | undefined>).VITE_API_UR
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
 export function getToken(): string | null {
-  return localStorage.getItem('bg_token')
+  return sessionStorage.getItem('bg_token')
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem('bg_token', token)
+  sessionStorage.setItem('bg_token', token)
 }
 
 export function clearToken(): void {
-  localStorage.removeItem('bg_token')
-  localStorage.removeItem('bg_user')
-  localStorage.removeItem('bg_role')
-  localStorage.removeItem('bg_org_id')
+  sessionStorage.removeItem('bg_token')
+  sessionStorage.removeItem('bg_user')
+  sessionStorage.removeItem('bg_role')
+  sessionStorage.removeItem('bg_org_id')
 }
 
 function authHeaders(): Record<string, string> {
@@ -416,7 +416,13 @@ export interface ChaosRunResult {
   demo_note?: string
 }
 
+export interface RuleConflict {
+  rule_a: string; rule_b: string; quote_a: string; quote_b: string
+  channels: string[]; scenario: string; type: 'possible'; explanation: string
+}
+
 export const chaosApi = {
+  contradictions: () => get<{ contradictions: RuleConflict[] }>('/v1/rulebook/contradictions'),
   run: (ruleId: string) =>
     post<ChaosRunResult>(`/v1/rules/${ruleId}/chaos-test`),
   getRun: (runId: string) =>

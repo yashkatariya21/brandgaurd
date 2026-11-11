@@ -38,7 +38,7 @@ def _serialize(row: dict) -> dict:
 def list_findings(principal: Principal = Depends(require("decide_findings"))):
     with tenant_conn(principal.org_id, principal.user_id) as conn:
         rows = conn.execute(
-            """SELECT f.id, f.issue, f.severity, f.finding_type, f.source_kind,
+            """SELECT f.id, f.issue, f.severity, f.finding_type, f.source_kind, f.persona,
                       f.status, f.created_at, f.span_start, f.span_end,
                       f.rule_id, f.fact_id, f.human_review_required,
                       cv.content_item_id,

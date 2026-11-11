@@ -212,13 +212,7 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
         ).fetchone()
         if not finding:
             raise ApiError(404, "not_found", "Finding not found")
-        if finding["severity"] not in ("high", "critical"):
-            raise ApiError(
-                422, "debate_unavailable",
-                "Prosecutor vs Defender is available only for high- or critical-severity findings",
-            )
-
-        # Return cached debate only after enforcing the same severity gate.
+        # Return the cached debate for any severity.
         existing = conn.execute(
             "SELECT * FROM debates WHERE finding_id = %s AND org_id = %s",
             (finding_id, principal.org_id),
