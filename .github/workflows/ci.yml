@@ -41,7 +41,9 @@ jobs:
       - run: python -m app.migrate
       - run: python -m app.seed
       - name: Backend unit and integration tests
-        run: pytest -q
+        run: pytest -q --junitxml=test-results.xml
+      - name: Verify no tests were skipped and publish test counts
+        run: python -m scripts.ci_test_summary test-results.xml
       - name: Run evaluation script (pure functions, no LLM)
         run: python -m scripts.evaluate
 

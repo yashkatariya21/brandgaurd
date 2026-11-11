@@ -19,6 +19,7 @@ PURE_MODULES = {
     "test_grounding",
     "test_redteam_grounded_api",
     "test_checker_chaos",
+    "test_ci_test_summary",
 }
 
 
