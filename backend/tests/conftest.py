@@ -15,6 +15,7 @@ PURE_MODULES = {
     "test_redteam",
     "test_chaos",
     "test_round3_rulebook",
+    "test_dependency_graph",
 }
 
 

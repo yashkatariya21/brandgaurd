@@ -243,6 +243,8 @@ def approve_fact_version(fact_id: str, version_no: int,
             )
         conn.execute("UPDATE facts SET current_version_id=%s WHERE id=%s", (ver["id"], fact_id))
         write_audit(conn, principal.user_id, "fact_version.approved", "fact_version", ver["id"])
+        from .graph import rebuild_graph
+        rebuild_graph(conn, principal.org_id)
     return {"status": "approved"}
 
 

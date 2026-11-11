@@ -112,3 +112,26 @@ def test_graph_tenant_isolation_and_cross_tenant_edges(two_orgs):
     with pytest.raises(psycopg.errors.ForeignKeyViolation):
         with tenant_conn(org_a, user_a) as conn:
             conn.execute("INSERT INTO graph_edges (org_id,src_id,dst_id,edge_type,match_method) VALUES (%s,%s,%s,'supports','link')", (org_a, node_a, node_b))
+
+
+def test_graph_rebuild_is_idempotent_and_isolated(two_orgs):
+    from app.api.graph import rebuild_graph
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        fact = conn.execute("SELECT id FROM facts WHERE org_id=%s", (org_a,)).fetchone()['id']
+        version = conn.execute("""INSERT INTO fact_versions
+            (org_id,fact_id,version_no,value_text,value_number,valid_from,status,proposed_by)
+            VALUES (%s,%s,1,'65,000 customers',65000,'2026-01-01','approved',%s) RETURNING id""", (org_a, fact, user_a)).fetchone()['id']
+        conn.execute("UPDATE facts SET key='customer_count', current_version_id=%s WHERE id=%s", (version, fact))
+        item = conn.execute("INSERT INTO content_items (org_id,title,channel) VALUES (%s,'Homepage','web') RETURNING id", (org_a,)).fetchone()['id']
+        cv = conn.execute("INSERT INTO content_versions (org_id,content_item_id,version_no,body_text,content_hash) VALUES (%s,%s,1,'65,000 customers','h') RETURNING id", (org_a, item)).fetchone()['id']
+        conn.execute('UPDATE content_items SET current_version_id=%s WHERE id=%s', (cv, item))
+        first = rebuild_graph(conn, org_a)
+        ids = {r['id'] for r in conn.execute('SELECT id FROM graph_nodes').fetchall()}
+        second = rebuild_graph(conn, org_a)
+        assert first == second
+        assert ids == {r['id'] for r in conn.execute('SELECT id FROM graph_nodes').fetchall()}
+        assert conn.execute('SELECT count(*) AS n FROM graph_edges').fetchone()['n'] == first['edges']
+    with tenant_conn(org_b, user_b) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM graph_nodes').fetchone()['n'] == 0
+        assert conn.execute('SELECT count(*) AS n FROM graph_edges').fetchone()['n'] == 0

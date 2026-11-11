@@ -188,6 +188,8 @@ def analyse_content(item_id: str, principal: Principal = Depends(require("submit
             "UPDATE content_items SET status='findings_ready' WHERE id=%s AND org_id=%s AND current_version_id=%s",
             (item_id, principal.org_id, version_id),
         )
+        from .graph import rebuild_graph
+        rebuild_graph(conn, principal.org_id)
 
     return {
         "run_id": result["run_id"],
