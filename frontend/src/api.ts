@@ -336,6 +336,15 @@ export const blastRadiusApi = {
 
 // ─── Red Team ─────────────────────────────────────────────────────────────────
 
+export interface EvidenceCitation {
+  kind: 'fact' | 'rule' | 'passage'
+  ref_id: string
+  version: number | null
+  quote: string
+  span_start?: number
+  span_end?: number
+}
+
 export interface RedTeamFinding {
   id: string
   persona: string
@@ -349,13 +358,20 @@ export interface RedTeamFinding {
   human_review_required: boolean
   finding_type: string
   source_kind: string
+  citations: EvidenceCitation[]
+  appearances: number
+  total_runs: number
+  stable: boolean
 }
 
 export interface RedTeamResult {
   run_id: string
   mode: 'llm' | 'demo'
   findings: RedTeamFinding[]
-  demo_note?: string
+  unstable_findings: RedTeamFinding[]
+  cached: boolean
+  metrics: { grounding_pass_rate: number | null; ungrounded_drops: number; stability_rate: number | null; unstable_hidden: number; duration_seconds: number; model: string }
+  demo_note?: string | null
 }
 
 export const redTeamApi = {

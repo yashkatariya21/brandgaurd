@@ -81,3 +81,5 @@ Round 2 code is pre-existing, submitted in Round 2. Round 3 changes in this sess
 The Round 3 dependency-graph projection, local character-trigram matcher and graph UI were AI-generated with Arena.ai Agent Mode, using existing project libraries and fictional seed data. The local matcher is experimental and has not been calibrated or independently evaluated.
 
 The Red Team grounding and stability helper functions, associated tests, and Competitor Watch changes were AI-generated with Arena.ai Agent Mode using existing dependencies. The helpers are not yet connected to the API; no live AI output or reliability metric was generated in this session.
+
+The Red Team API grounding, stability, cache and presentation changes and migration 003 were AI-generated with Arena.ai Agent Mode. Tests used deterministic heuristic output and a fake database connection; no live provider call was made. Per-run monetary enforcement and validated debate citations remain unfinished.
