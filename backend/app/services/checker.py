@@ -13,6 +13,7 @@ from psycopg.types.json import Jsonb
 
 from ..core.db import tenant_conn
 from .claim_extractor import extract_claims
+from .checker_chaos import is_banned_product_claim, is_active_embargo_mentioned
 
 # Tolerance for numeric value matching (±5%)
 NUMERIC_TOLERANCE = 0.05
@@ -106,20 +107,19 @@ def run_checks(content_version_id: str, org_id: str, user_id: str) -> Dict[str, 
         for et in embargo_terms:
             term = et["term"]
             embargo_date = _to_date(et["embargo_until"])
-            if term.lower() in body_text.lower():
-                if embargo_date and today < embargo_date:
-                    fid = uuid.uuid4()
-                    findings.append({
-                        "id": str(fid),
-                        "issue": f"Embargoed term '{term}' found in content before embargo date {embargo_date}",
-                        "severity": "critical",
-                        "finding_type": "confirmed",
-                        "source_kind": "deterministic",
-                        "confidence": "high",
-                        "rule_id": str(r12["id"]) if r12 else None,
-                        "fact_id": str(et["fact_id"]) if et["fact_id"] else None,
-                        "human_review_required": True,
-                    })
+            if is_active_embargo_mentioned(body_text, term, embargo_date, today):
+                fid = uuid.uuid4()
+                findings.append({
+                    "id": str(fid),
+                    "issue": f"Embargoed term '{term}' found in content before embargo date {embargo_date}",
+                    "severity": "critical",
+                    "finding_type": "confirmed",
+                    "source_kind": "deterministic",
+                    "confidence": "high",
+                    "rule_id": str(r12["id"]) if r12 else None,
+                    "fact_id": str(et["fact_id"]) if et["fact_id"] else None,
+                    "human_review_required": True,
+                })
 
         # ── Per-claim checks ──
         for claim in claims:
@@ -128,13 +128,9 @@ def run_checks(content_version_id: str, org_id: str, user_id: str) -> Dict[str, 
             entity = claim["entity"] or ""
             claim_val = claim["value_number"]
 
-        # Check banned product name forms
-            if entity == "product_name" or any(
-                banned in raw for banned in ["nimbus desk", "nimbusdesk"]
-                if "nimbus desk" in raw.lower() or "nimbus desk" in raw.lower()
-            ):
-                if "nimbus desk" in raw.lower() or "nimbusdesk" in raw.lower():
-                    _check_banned_form(raw, findings, r04)
+            # Shared predicate used by checker chaos tests.
+            if is_banned_product_claim(claim):
+                _check_banned_form(raw, findings, r04)
 
             # Try to link claim to a fact
             matched_fact = None

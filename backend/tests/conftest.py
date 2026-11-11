@@ -18,6 +18,7 @@ PURE_MODULES = {
     "test_dependency_graph",
     "test_grounding",
     "test_redteam_grounded_api",
+    "test_checker_chaos",
 }
 
 

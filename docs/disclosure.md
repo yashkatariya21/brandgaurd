@@ -83,3 +83,5 @@ The Round 3 dependency-graph projection, local character-trigram matcher and gra
 The Red Team grounding and stability helper functions, associated tests, and Competitor Watch changes were AI-generated with Arena.ai Agent Mode using existing dependencies. The helpers are not yet connected to the API; no live AI output or reliability metric was generated in this session.
 
 The Red Team API grounding, stability, cache and presentation changes and migration 003 were AI-generated with Arena.ai Agent Mode. Tests used deterministic heuristic output and a fake database connection; no live provider call was made. Per-run monetary enforcement and validated debate citations remain unfinished.
+
+Rulebook coverage, checker-chaos cases, tests and UI were AI-generated with Arena.ai Agent Mode, using existing libraries and fictional seed data. Coverage is heuristic; the separate deterministic checker test exercises only the two explicitly supported unchanged seed rules, not every family.

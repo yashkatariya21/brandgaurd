@@ -155,3 +155,20 @@ def test_grounded_redteam_cache_and_drop_isolation(two_orgs, monkeypatch):
     with tenant_conn(org_b, user_b) as conn:
         assert conn.execute('SELECT count(*) AS n FROM redteam_drops WHERE analysis_run_id=%s', (first['run_id'],)).fetchone()['n'] == 0
         assert conn.execute('SELECT count(*) AS n FROM findings WHERE analysis_run_id=%s', (first['run_id'],)).fetchone()['n'] == 0
+
+
+def test_checker_chaos_run_persists_for_current_tenant(two_orgs):
+    from app.api.chaos import checker_chaos
+    from app.core.rbac import Principal
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        rule = conn.execute("INSERT INTO rules (org_id,key,label,category,severity) VALUES (%s,'R-04','Product name','terminology','high') RETURNING id", (org_a,)).fetchone()['id']
+        version = conn.execute("""INSERT INTO rule_versions (org_id,rule_id,version_no,description,status,proposed_by)
+            VALUES (%s,%s,1,'The product name is NimbusDesk. Never write Nimbus Desk, NimbusDESK or Nimbus.','approved',%s) RETURNING id""", (org_a,rule,user_a)).fetchone()['id']
+        conn.execute('UPDATE rules SET current_version_id=%s WHERE id=%s', (version,rule))
+    result = checker_chaos(rule, principal=Principal(str(user_a), str(org_a), 'admin'))
+    assert result['checker_misses'] >= 1
+    with tenant_conn(org_a, user_a) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM chaos_cases WHERE chaos_run_id=%s', (result['run_id'],)).fetchone()['n'] == len(result['cases'])
+    with tenant_conn(org_b, user_b) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM chaos_cases WHERE chaos_run_id=%s', (result['run_id'],)).fetchone()['n'] == 0
