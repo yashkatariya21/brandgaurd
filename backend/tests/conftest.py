@@ -17,6 +17,7 @@ PURE_MODULES = {
     "test_round3_rulebook",
     "test_dependency_graph",
     "test_grounding",
+    "test_redteam_grounded_api",
 }
 
 

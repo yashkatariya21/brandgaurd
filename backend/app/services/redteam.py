@@ -29,6 +29,8 @@ class PersonaFinding(BaseModel):
     suggested_fix: Optional[str] = None
     fact_key: Optional[str] = None
     rule_key: Optional[str] = None
+    category: str = "general"
+    citations: list[dict] = []
 
     @field_validator("severity")
     @classmethod
@@ -86,12 +88,12 @@ PERSONAS = [
 
 
 def run_red_team(content_text: str, facts_summary: str, rules_summary: str,
-                 use_llm: Optional[bool] = None) -> list[dict]:
+                 use_llm: Optional[bool] = None, content_version_id: str = "") -> list[dict]:
     """Run all four personas over the content. Returns a list of persona reports."""
     use_llm = _has_llm() if use_llm is None else use_llm
     results = []
     for persona in PERSONAS:
-        report = _run_persona(persona, content_text, facts_summary, rules_summary, use_llm)
+        report = _run_persona(persona, content_text, facts_summary, rules_summary, use_llm, content_version_id)
         results.append({
             "persona": persona["name"],
             "role": persona["role"],
@@ -122,7 +124,7 @@ def _has_llm() -> bool:
 def _llm_call(system: str, user: str, max_tokens: int = 600) -> str:
     try:
         from openai import OpenAI
-        client = OpenAI(timeout=15.0, max_retries=1)
+        client = OpenAI(timeout=8.0, max_retries=0)
         resp = client.chat.completions.create(
             model=configured_model(),
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -140,10 +142,27 @@ def _llm_call(system: str, user: str, max_tokens: int = 600) -> str:
 
 
 def _run_persona(persona: dict, content: str, facts: str, rules: str,
-                 use_llm: Optional[bool] = None) -> list[dict]:
+                 use_llm: Optional[bool] = None, content_version_id: str = "") -> list[dict]:
     use_llm = _has_llm() if use_llm is None else use_llm
     if not use_llm:
-        return _stub_persona_findings(persona, content)
+        findings = _stub_persona_findings(persona, content)
+        for finding in findings:
+            # The deterministic generator itself emits its evidence; the validator
+            # must still verify it. Empty or non-exact spans are not repaired.
+            span = finding.get("span_hint", "")
+            finding["category"] = finding.get("rule_key") or persona["role"]
+            finding["citations"] = ([{"kind": "passage", "ref_id": content_version_id,
+                                      "version": None, "quote": span}]
+                                    if span and content_version_id else [])
+            if finding.get("rule_key"):
+                try:
+                    for rule in json.loads(rules):
+                        if rule.get("key") == finding["rule_key"]:
+                            finding["citations"].append({"kind": "rule", "ref_id": rule["id"],
+                                                        "version": rule["version"], "quote": rule["text"]})
+                except (ValueError, TypeError):
+                    pass
+        return findings
 
     system = (
         persona["instruction"]
@@ -156,10 +175,13 @@ def _run_persona(persona: dict, content: str, facts: str, rules: str,
         "('low'|'medium'|'high'|'critical'), span_hint (a short quote or empty string), "
         "suggested_fix (string or null), fact_key (an exact approved fact key relied upon, otherwise null), "
         "and rule_key (an exact approved rule key relied upon, otherwise null). "
-        "Only set a citation key when that repository record specifically supports the finding. "
-        "Return only the JSON array.\n"
+        "Include category and citations as a nonempty array. Every citation must contain kind "
+        "(fact, rule, or passage), ref_id, version (integer for fact/rule, null for passage), and quote. "
+        "Use IDs and versions from the approved records or content_version_id for a passage. "
+        "Quote each cited source exactly. Include at least one passage quote for each finding. "
+        "Never invent evidence; if unavailable return no finding. Return only the JSON array.\n"
         + json.dumps(
-            {"approved_facts": facts, "brand_rules": rules, "content_to_review": content},
+            {"approved_facts": facts, "brand_rules": rules, "content_version_id": content_version_id, "content_to_review": content},
             ensure_ascii=False,
         )
     )

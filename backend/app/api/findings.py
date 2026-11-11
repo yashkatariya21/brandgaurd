@@ -35,18 +35,19 @@ def _serialize(row: dict) -> dict:
 
 
 @router.get("/findings")
-def list_findings(principal: Principal = Depends(require("decide_findings"))):
+def list_findings(include_unstable: bool = False, principal: Principal = Depends(require("decide_findings"))):
     with tenant_conn(principal.org_id, principal.user_id) as conn:
         rows = conn.execute(
             """SELECT f.id, f.issue, f.severity, f.finding_type, f.source_kind, f.persona,
-                      f.status, f.created_at, f.span_start, f.span_end,
+                      f.status, f.created_at, f.span_start, f.span_end, f.citations,
+                      f.grounded, f.stable, f.stability_appearances, f.stability_total,
                       f.rule_id, f.fact_id, f.human_review_required,
                       cv.content_item_id,
                       ci.title as content_title
                FROM findings f
                JOIN content_versions cv ON cv.id = f.content_version_id
                JOIN content_items ci ON ci.id = cv.content_item_id
-               WHERE f.org_id=%s
+               WHERE f.org_id=%s AND (f.source_kind <> 'persona' OR (f.grounded AND (f.stable OR %s)))
                ORDER BY
                  CASE f.severity
                    WHEN 'critical' THEN 1
@@ -55,7 +56,7 @@ def list_findings(principal: Principal = Depends(require("decide_findings"))):
                    ELSE 4
                  END,
                  f.created_at DESC""",
-            (principal.org_id,),
+            (principal.org_id, include_unstable),
         ).fetchall()
     return [_serialize(dict(r)) for r in rows]
 
@@ -71,7 +72,7 @@ def get_finding(finding_id: uuid.UUID, principal: Principal = Depends(require("d
                WHERE f.id=%s AND f.org_id=%s""",
             (finding_id, principal.org_id),
         ).fetchone()
-        if not f:
+        if not f or (f["source_kind"] == "persona" and not f["grounded"]):
             raise ApiError(404, "not_found", "Finding not found")
         decisions = conn.execute(
             "SELECT * FROM decisions WHERE finding_id=%s ORDER BY decided_at DESC",

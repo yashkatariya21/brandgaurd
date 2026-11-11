@@ -4,10 +4,15 @@ T3 – Prosecutor vs Defender debate for a single finding.
 from __future__ import annotations
 
 import logging
+import hashlib
+import json
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from psycopg.types.json import Jsonb
 
@@ -15,9 +20,9 @@ from ..core.audit import write_audit
 from ..core.db import tenant_conn
 from ..core.errors import ApiError
 from ..core.rbac import Principal, require
-from ..services.redteam import run_red_team, run_prosecutor_defender, _has_llm, PERSONAS
+from ..services.redteam import _run_persona, run_prosecutor_defender, _has_llm, PERSONAS
+from ..services.grounding import ground_runs
 from ..services.llm_config import ProviderCallError, configured_model
-from ..services.retrieval import get_facts_context, get_rules_context, find_cited_fact, find_cited_rule
 
 router = APIRouter(prefix="/v1")
 logger = logging.getLogger(__name__)
@@ -40,156 +45,112 @@ def _serialise(row: dict) -> dict:
 # ─── POST /v1/content/{item_id}/redteam ──────────────────────────────────────
 
 @router.post("/content/{item_id}/redteam")
-def run_redteam(item_id: str, principal: Principal = Depends(require("submit_content"))):
-    """Run all 3 personas over the current version of a content item."""
+def run_redteam(item_id: str, n: int = Query(default=3, ge=1, le=5),
+                principal: Principal = Depends(require("submit_content"))):
+    """Validate evidence and cluster repeated persona outputs; no AI verdict."""
+    started = time.monotonic()
     with tenant_conn(principal.org_id, principal.user_id) as conn:
-        item = conn.execute(
-            """SELECT ci.id, ci.current_version_id, cv.body_text
-               FROM content_items ci
-               JOIN content_versions cv ON cv.id = ci.current_version_id
-               WHERE ci.id = %s AND ci.org_id = %s""",
-            (item_id, principal.org_id),
-        ).fetchone()
+        item = conn.execute("""SELECT ci.id, ci.current_version_id, cv.body_text
+            FROM content_items ci JOIN content_versions cv ON cv.id=ci.current_version_id
+            WHERE ci.id=%s AND ci.org_id=%s AND cv.org_id=%s""",
+            (item_id, principal.org_id, principal.org_id)).fetchone()
         if not item:
             raise ApiError(404, "not_found", "Content item not found or has no version")
+        text, version_id = item['body_text'] or '', str(item['current_version_id'])
+        facts = conn.execute("""SELECT f.id, f.key, v.version_no, v.value_text AS text
+            FROM facts f JOIN fact_versions v ON v.id=f.current_version_id
+            WHERE f.org_id=%s AND v.org_id=%s AND v.status='approved' ORDER BY f.id""",
+            (principal.org_id, principal.org_id)).fetchall()
+        rules = conn.execute("""SELECT r.id, r.key, v.version_no, v.description AS text
+            FROM rules r JOIN rule_versions v ON v.id=r.current_version_id
+            WHERE r.org_id=%s AND v.org_id=%s AND v.status='approved' ORDER BY r.id""",
+            (principal.org_id, principal.org_id)).fetchall()
+        def records(rows):
+            return [{'id': str(x['id']), 'key': x['key'], 'version': x['version_no'], 'text': x['text']} for x in rows]
+        fact_records, rule_records = records(facts), records(rules)
+        catalogue = {(kind, r['id'], r['version']): r['text']
+                     for kind, items in [('fact', fact_records), ('rule', rule_records)] for r in items}
+        # Live calls are opt-in. Fixed input and call caps bound a run; they are not a dollar estimate.
+        requested_llm = _has_llm() and os.environ.get('REDTEAM_LIVE_ENABLED', '').lower() == 'true'
+        if requested_llm and len(text) > 12000:
+            raise ApiError(422, 'input_too_large', 'Live Red Team accepts at most 12,000 characters per run.')
+        model = configured_model() if requested_llm else 'stub'
+        fingerprint = {'version_id': version_id, 'text': text, 'facts': fact_records, 'rules': rule_records,
+                       'personas': [p['name'] for p in PERSONAS], 'n': n, 'model': model, 'prompt': 'redteam-v2'}
+        cache_key = hashlib.sha256(json.dumps(fingerprint, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        conn.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))', (str(principal.org_id) + ':redteam:' + cache_key,))
+        cached = conn.execute("""SELECT config FROM analysis_runs WHERE org_id=%s AND kind='redteam'
+            AND status='done' AND config->>'cache_key'=%s ORDER BY created_at DESC LIMIT 1""",
+            (principal.org_id, cache_key)).fetchone()
+        if cached:
+            return {**cached['config']['response'], 'cached': True}
 
-        content_text = item["body_text"] or ""
-        content_version_id = str(item["current_version_id"])
-
-        facts_summary = get_facts_context(conn, principal.org_id)
-        rules_summary = get_rules_context(conn, principal.org_id)
-
-        requested_llm = _has_llm()
-        mode = "llm" if requested_llm else "demo"
-
-        # Create analysis run
-        run_id = uuid.uuid4()
-        conn.execute(
-            """INSERT INTO analysis_runs
-               (id, org_id, content_version_id, kind, status, started_at, created_by,
-                model_id, prompt_version)
-               VALUES (%s,%s,%s,'redteam','running',now(),%s,%s,%s)""",
-            (run_id, principal.org_id, content_version_id, principal.user_id,
-             configured_model() if requested_llm else "stub", "redteam-v1"),
-        )
-
-        # Run the red team
+        mode = 'llm' if requested_llm else 'demo'
+        fact_json, rule_json = json.dumps(fact_records, ensure_ascii=False), json.dumps(rule_records, ensure_ascii=False)
+        if requested_llm and len(fact_json) + len(rule_json) > 24000:
+            raise ApiError(422, 'context_too_large', 'Live Red Team accepts at most 24,000 characters of approved facts and rules.')
+        def one(persona, live):
+            return _run_persona(persona, text, fact_json, rule_json, live, version_id)
+        def execute(live):
+            runs = [[] for _ in range(n)]
+            if live:
+                # At most 4*N concurrent calls, with one schema retry per call.
+                with ThreadPoolExecutor(max_workers=min(20, n * len(PERSONAS))) as pool:
+                    futures = [(i, p, pool.submit(one, p, True)) for i in range(n) for p in PERSONAS]
+                    for i, persona, future in futures:
+                        runs[i].extend({**f, 'persona': persona['name']} for f in future.result())
+            else:
+                for i in range(n):
+                    for persona in PERSONAS:
+                        runs[i].extend({**f, 'persona': persona['name']} for f in one(persona, False))
+            return runs
         try:
-            persona_results = run_red_team(
-                content_text, facts_summary, rules_summary, use_llm=requested_llm
-            )
+            runs = execute(requested_llm)
         except ProviderCallError:
-            # Do not mix provider output with heuristic findings in one run.
-            logger.warning("Red-team provider failed; using deterministic demo results")
-            mode = "demo"
-            persona_results = run_red_team(
-                content_text, facts_summary, rules_summary, use_llm=False
-            )
-            conn.execute("UPDATE analysis_runs SET model_id='stub' WHERE id=%s", (run_id,))
-        except Exception:
-            conn.execute(
-                "UPDATE analysis_runs SET status='failed', finished_at=now(), error=%s WHERE id=%s",
-                ("Red-team processing failed", run_id),
-            )
-            logger.exception("Red-team processing failed")
-            raise ApiError(500, "redteam_failed", "Red-team analysis failed")
-
-        # Persist findings
-        all_findings = []
-        for persona_report in persona_results:
-            persona_name = persona_report["persona"]
-            raw_findings = persona_report["findings"]
-
-            for raw in raw_findings:
-                issue = raw.get("issue", "")
-                severity = raw.get("severity", "medium")
-                if severity not in ("low", "medium", "high", "critical"):
-                    severity = "medium"
-
-                # Only bind evidence when the model explicitly returns a repository key
-                # and the key is validated against this tenant's approved records.
-                cited = find_cited_fact(
-                    conn, principal.org_id, raw.get("fact_key")
-                ) or find_cited_rule(
-                    conn, principal.org_id, raw.get("rule_key")
-                )
-                confidence = "medium" if cited else "low"
-
-                # Determine span_start / span_end from span_hint
-                span_hint = raw.get("span_hint", "")
-                span_start: Optional[int] = None
-                span_end: Optional[int] = None
-                if span_hint and span_hint.strip():
-                    idx = content_text.find(span_hint.strip())
-                    if idx >= 0:
-                        span_start = idx
-                        span_end = idx + len(span_hint.strip())
-
-                human_review_required = severity in ("high", "critical") or confidence == "low"
-
-                # Legal persona note
-                why_it_matters = raw.get("why_it_matters")
-                if persona_name == "Legal Eagle" and not why_it_matters:
-                    why_it_matters = "AI risk perspective, not legal advice."
-
-                suggested_text = raw.get("suggested_fix")
-
-                finding_id = uuid.uuid4()
-                conn.execute(
-                    """INSERT INTO findings
-                       (id, org_id, analysis_run_id, content_version_id,
-                        span_start, span_end,
-                        finding_type, source_kind, persona,
-                        fact_id, rule_id,
-                        issue, why_it_matters, severity, confidence,
-                        human_review_required, suggested_text, status)
-                       VALUES (%s,%s,%s,%s,%s,%s,
-                               'possible','persona',%s,
-                               %s,%s,
-                               %s,%s,%s,%s,%s,%s,'open')""",
-                    (
-                        finding_id, principal.org_id, run_id, content_version_id,
-                        span_start, span_end,
-                        persona_name,
-                        cited.get("fact_id") if cited else None,
-                        cited.get("rule_id") if cited else None,
-                        issue, why_it_matters, severity, confidence,
-                        human_review_required, suggested_text,
-                    ),
-                )
-                all_findings.append({
-                    "id": str(finding_id),
-                    "persona": persona_name,
-                    "issue": issue,
-                    "severity": severity,
-                    "confidence": confidence,
-                    "why_it_matters": why_it_matters,
-                    "suggested_text": suggested_text,
-                    "span_start": span_start,
-                    "span_end": span_end,
-                    "human_review_required": human_review_required,
-                    "finding_type": "possible",
-                    "source_kind": "persona",
-                })
-
-        conn.execute(
-            "UPDATE analysis_runs SET status='done', finished_at=now() WHERE id=%s", (run_id,)
-        )
-        write_audit(
-            conn, principal.user_id, "redteam.run", "analysis_run", run_id,
-            after={"content_item_id": item_id, "findings": len(all_findings), "mode": mode},
-        )
-
-    return {
-        "run_id": str(run_id),
-        "mode": mode,
-        "findings": all_findings,
-        **({"demo_note": (
-            "Provider unavailable; the complete run used deterministic heuristics."
-            if requested_llm else
-            "No OPENAI_API_KEY set – running in demo mode. Results are heuristic, not AI-generated."
-        )} if mode == "demo" else {}),
-    }
+            logger.warning('Red Team provider failed; using complete deterministic fallback')
+            mode = 'demo'
+            runs = execute(False)
+        clusters, drops, total = ground_runs(runs, text, version_id, catalogue)
+        run_id = uuid.uuid4()
+        conn.execute("""INSERT INTO analysis_runs (id,org_id,content_version_id,kind,status,started_at,
+            created_by,model_id,prompt_version) VALUES (%s,%s,%s,'redteam','running',now(),%s,%s,'redteam-v2')""",
+            (run_id, principal.org_id, version_id, principal.user_id, configured_model() if mode == 'llm' else 'stub'))
+        for dropped in drops:
+            conn.execute("""INSERT INTO redteam_drops (org_id,analysis_run_id,persona,reason,raw_finding)
+                VALUES (%s,%s,%s,%s,%s)""", (principal.org_id, run_id, dropped['persona'], dropped['reason'], Jsonb(dropped['raw_finding'])))
+        findings = []
+        for f in clusters:
+            finding_id = uuid.uuid4()
+            confidence = 'medium' if f['stable'] else 'low'
+            citations = f['citations']
+            fact_id = next((c['ref_id'] for c in citations if c['kind'] == 'fact'), None)
+            rule_id = next((c['ref_id'] for c in citations if c['kind'] == 'rule'), None)
+            why = 'AI risk perspective, not legal advice.' if f['persona'] == 'Legal Eagle' else None
+            conn.execute("""INSERT INTO findings (id,org_id,analysis_run_id,content_version_id,span_start,span_end,
+                finding_type,source_kind,persona,fact_id,rule_id,issue,why_it_matters,severity,confidence,
+                human_review_required,suggested_text,status,grounded,citations,stability_appearances,stability_total,stable)
+                VALUES (%s,%s,%s,%s,%s,%s,'possible','persona',%s,%s,%s,%s,%s,%s,%s,true,%s,'open',true,%s,%s,%s,%s)""",
+                (finding_id, principal.org_id, run_id, version_id, f['span_start'], f['span_end'], f['persona'],
+                 fact_id, rule_id, f['issue'], why, f['severity'], confidence, f.get('suggested_fix'), Jsonb(citations),
+                 f['appearances'], n, f['stable']))
+            findings.append({'id': str(finding_id), 'persona': f['persona'], 'issue': f['issue'], 'severity': f['severity'],
+                'confidence': confidence, 'why_it_matters': why, 'suggested_text': f.get('suggested_fix'),
+                'span_start': f['span_start'], 'span_end': f['span_end'], 'human_review_required': True,
+                'finding_type': 'possible', 'source_kind': 'persona', 'citations': citations,
+                'appearances': f['appearances'], 'total_runs': n, 'stable': f['stable']})
+        stable = [f for f in findings if f['stable']]
+        unstable = [f for f in findings if not f['stable']]
+        response = {'run_id': str(run_id), 'mode': mode, 'findings': stable, 'unstable_findings': unstable,
+                    'cached': False, 'metrics': {'grounding_pass_rate': (total-len(drops))/total if total else None,
+                    'ungrounded_drops': len(drops), 'stability_rate': len(stable)/len(findings) if findings else None,
+                    'unstable_hidden': len(unstable), 'duration_seconds': round(time.monotonic()-started, 3),
+                    'model': configured_model() if mode == 'llm' else 'deterministic heuristic'},
+                    'demo_note': (('Provider unavailable; using deterministic demo heuristics. ' if requested_llm else 'Demo heuristics. ') + 'Repeated agreement is trivial, not measured reliability.' if mode == 'demo' else None)}
+        conn.execute("UPDATE analysis_runs SET status='done',finished_at=now(),config=%s WHERE id=%s AND org_id=%s",
+                     (Jsonb({'cache_key': cache_key, 'response': response}), run_id, principal.org_id))
+        write_audit(conn, principal.user_id, 'redteam.run', 'analysis_run', run_id,
+                    after={'content_item_id': item_id, 'stable': len(stable), 'ungrounded_drops': len(drops), 'mode': mode})
+        return response
 
 
 # ─── POST /v1/findings/{finding_id}/debate ────────────────────────────────────
@@ -210,7 +171,7 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
                WHERE f.id = %s AND f.org_id = %s""",
             (finding_id, principal.org_id),
         ).fetchone()
-        if not finding:
+        if not finding or (finding['source_kind'] == 'persona' and not finding['grounded']):
             raise ApiError(404, "not_found", "Finding not found")
         # Return the cached debate for any severity.
         existing = conn.execute(

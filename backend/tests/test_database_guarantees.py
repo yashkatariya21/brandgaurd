@@ -135,3 +135,23 @@ def test_graph_rebuild_is_idempotent_and_isolated(two_orgs):
     with tenant_conn(org_b, user_b) as conn:
         assert conn.execute('SELECT count(*) AS n FROM graph_nodes').fetchone()['n'] == 0
         assert conn.execute('SELECT count(*) AS n FROM graph_edges').fetchone()['n'] == 0
+
+
+def test_grounded_redteam_cache_and_drop_isolation(two_orgs, monkeypatch):
+    from app.api import redteam
+    from app.core.rbac import Principal
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        item = conn.execute("INSERT INTO content_items (org_id,title,channel) VALUES (%s,'Review','web') RETURNING id", (org_a,)).fetchone()['id']
+        version = conn.execute("INSERT INTO content_versions (org_id,content_item_id,version_no,body_text,content_hash) VALUES (%s,%s,1,'We are better than competitors.','h') RETURNING id", (org_a,item)).fetchone()['id']
+        conn.execute('UPDATE content_items SET current_version_id=%s WHERE id=%s', (version,item))
+    monkeypatch.setattr(redteam, '_has_llm', lambda: False)
+    principal = Principal(str(user_a), str(org_a), 'admin')
+    first = redteam.run_redteam(str(item), n=3, principal=principal)
+    assert first['findings'] and all(f['finding_type'] == 'possible' and f['citations'] for f in first['findings'])
+    assert not first['cached']
+    second = redteam.run_redteam(str(item), n=3, principal=principal)
+    assert second['cached'] and second['run_id'] == first['run_id']
+    with tenant_conn(org_b, user_b) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM redteam_drops WHERE analysis_run_id=%s', (first['run_id'],)).fetchone()['n'] == 0
+        assert conn.execute('SELECT count(*) AS n FROM findings WHERE analysis_run_id=%s', (first['run_id'],)).fetchone()['n'] == 0

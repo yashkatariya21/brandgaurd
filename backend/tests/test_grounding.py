@@ -44,3 +44,14 @@ def test_injection_is_data_in_demo_and_competitor_persona_has_real_span():
 def test_correct_product_name_is_not_flagged_as_bad_name():
     report = next(r for r in run_red_team('We use NimbusDesk.', '', '', use_llm=False) if r['persona'] == 'Brand Police')
     assert not any('Incorrect product name' in f['issue'] for f in report['findings'])
+
+
+def test_ground_runs_drops_fabricated_evidence_and_filters_via_stability():
+    from app.services.grounding import ground_runs
+    f = {'persona': 'P', 'category': 'c', 'issue': 'Concern',
+         'citations': [{'kind': 'passage', 'ref_id': 'v', 'quote': 'real'}]}
+    bad = {**f, 'citations': [{'kind': 'passage', 'ref_id': 'v', 'quote': 'invented'}]}
+    clusters, dropped, total = ground_runs([[f, bad], [f], []], 'real content', 'v', {})
+    assert total == 3 and len(dropped) == 1
+    assert len(clusters) == 1 and clusters[0]['stable'] and clusters[0]['appearances'] == 2
+    assert clusters[0]['finding_type'] == 'possible'

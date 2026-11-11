@@ -94,3 +94,25 @@ def cluster_findings(runs: list[list[dict]], total_runs: int) -> list[dict]:
     return [{**group['finding'], 'appearances': len(group['_runs']), 'total_runs': total_runs,
              'stable': len(group['_runs']) >= ceil(2 * total_runs / 3),
              'finding_type': 'possible'} for group in clusters]
+
+
+def ground_runs(runs: list[list[dict]], content: str, content_version_id: str,
+                catalogue: dict[tuple[str, str, int], str]) -> tuple[list[dict], list[dict], int]:
+    """Validate each supplied finding before clustering; retain all rejected inputs."""
+    accepted_runs, dropped = [], []
+    total = 0
+    for findings in runs:
+        accepted = []
+        for finding in findings:
+            total += 1
+            citations = validate_citations(finding.get('citations'), content, content_version_id, catalogue)
+            passages = [c for c in citations or [] if c['kind'] == 'passage']
+            if not citations or not passages:
+                dropped.append({'persona': finding.get('persona', 'unknown'),
+                                'reason': 'No valid supporting evidence and passage', 'raw_finding': finding})
+                continue
+            passage = passages[0]
+            accepted.append({**finding, 'citations': citations, 'span_start': passage['span_start'],
+                             'span_end': passage['span_end']})
+        accepted_runs.append(accepted)
+    return cluster_findings(accepted_runs, len(runs)), dropped, total
