@@ -30,16 +30,23 @@ export default function LoginPage() {
       navigate('/')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign-in failed.'
-      // Network errors in demo mode mean no backend — fallback already signed
-      // in via auth.tsx, so just navigate away.
-      const isNetErr = msg.toLowerCase().includes('fetch') ||
+      // 405 = VITE_API_URL not set (request hit Vercel instead of Railway)
+      // network errors = backend unreachable
+      // In both cases: demo fallback in auth.tsx already set the user, navigate.
+      const isBackendMissing =
+        msg.includes('405') ||
+        msg.includes('rejected') ||
+        msg.toLowerCase().includes('fetch') ||
         msg.toLowerCase().includes('network') ||
         msg.toLowerCase().includes('load failed')
-      if (IS_DEMO_MODE && isNetErr) {
+      if (IS_DEMO_MODE && isBackendMissing) {
         navigate('/')
         return
       }
-      setError(msg)
+      setError(isBackendMissing
+        ? 'Backend not reachable — using demo mode. Set VITE_API_URL in Vercel for live data.'
+        : msg
+      )
     } finally {
       setLoading(false)
     }

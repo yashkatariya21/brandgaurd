@@ -46,7 +46,10 @@ function isNetworkError(err: unknown): boolean {
     return msg.includes('failed to fetch') ||
            msg.includes('network') ||
            msg.includes('fetch') ||
-           msg.includes('load failed')
+           msg.includes('load failed') ||
+           msg.includes('405') ||          // VITE_API_URL not set → hits Vercel
+           msg.includes('method not allowed') ||
+           msg.includes('sign-in endpoint rejected')
   }
   return false
 }

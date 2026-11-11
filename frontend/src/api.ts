@@ -58,13 +58,21 @@ async function request<T>(
   })
 
   if (res.status === 401) {
-    // On 401 from any call other than /v1/auth/login, clear the token and
-    // redirect to login so the user is not stuck in a broken state.
     if (!path.startsWith('/v1/auth/')) {
       clearToken()
       window.location.href = '/login'
     }
     throw new Error('Unauthorised')
+  }
+
+  if (res.status === 405) {
+    // 405 = Method Not Allowed — the request hit the frontend server (Vercel)
+    // instead of the backend. VITE_API_URL is not set or is wrong.
+    throw new Error(
+      'The sign-in endpoint rejected the request (HTTP 405). ' +
+      'Set VITE_API_URL in your Vercel environment variables to point to your Railway backend URL ' +
+      '(e.g. https://your-app.up.railway.app), then redeploy.',
+    )
   }
 
   const data = await res.json().catch(() => ({}))
