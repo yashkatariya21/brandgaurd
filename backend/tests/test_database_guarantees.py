@@ -99,3 +99,16 @@ def test_dismiss_requires_reason(two_orgs):
     with pytest.raises(psycopg.errors.CheckViolation):
         with tenant_conn(org_a, user_a) as conn:
             conn.execute("INSERT INTO decisions (org_id, finding_id, decided_by, action) VALUES (%s,%s,%s,'dismiss')", (org_a, f, user_a))
+
+
+def test_graph_tenant_isolation_and_cross_tenant_edges(two_orgs):
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        node_a = conn.execute("INSERT INTO graph_nodes (org_id,node_type,ref_id,label) VALUES (%s,'fact','a','A') RETURNING id", (org_a,)).fetchone()['id']
+    with tenant_conn(org_b, user_b) as conn:
+        node_b = conn.execute("INSERT INTO graph_nodes (org_id,node_type,ref_id,label) VALUES (%s,'fact','b','B') RETURNING id", (org_b,)).fetchone()['id']
+    with tenant_conn(org_a, user_a) as conn:
+        assert [r['id'] for r in conn.execute('SELECT id FROM graph_nodes').fetchall()] == [node_a]
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        with tenant_conn(org_a, user_a) as conn:
+            conn.execute("INSERT INTO graph_edges (org_id,src_id,dst_id,edge_type,match_method) VALUES (%s,%s,%s,'supports','link')", (org_a, node_a, node_b))

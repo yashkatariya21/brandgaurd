@@ -116,7 +116,7 @@ def get_fact(fact_id: str, principal: Principal = Depends(require("view_reposito
         versions = conn.execute(
             """SELECT id, version_no, value_text, value_number, value_unit,
                       qualifier, source_ref, valid_from, expires_at,
-                      status, change_note, proposed_by, approved_by, approved_at, created_at
+                      status, change_note, rejection_reason, proposed_by, approved_by, approved_at, created_at
                FROM fact_versions WHERE fact_id = %s ORDER BY version_no ASC""",
             (fact_id,),
         ).fetchall()
@@ -259,8 +259,8 @@ def reject_fact_version(fact_id: str, version_no: int, body: RejectIn = RejectIn
             raise ApiError(404, "not_found", "Version not found")
         if ver["status"] not in ("draft", "pending_approval"):
             raise ApiError(409, "conflict", f"Cannot reject a version in status '{ver['status']}'")
-        conn.execute("UPDATE fact_versions SET status='rejected' WHERE id=%s", (ver["id"],))
-        write_audit(conn, principal.user_id, "fact_version.rejected", "fact_version", ver["id"])
+        conn.execute("UPDATE fact_versions SET status='rejected', rejection_reason=%s WHERE id=%s", (body.reason, ver["id"]))
+        write_audit(conn, principal.user_id, "fact_version.rejected", "fact_version", ver["id"], after={"reason": body.reason})
     return {"status": "rejected"}
 
 
