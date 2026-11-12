@@ -344,6 +344,12 @@ export const blastRadiusApi = {
 
 // ─── Red Team ─────────────────────────────────────────────────────────────────
 
+export interface RedTeamCitation {
+  kind: string
+  version?: number | null
+  quote: string
+}
+
 export interface RedTeamFinding {
   id: string
   persona: string
@@ -357,12 +363,27 @@ export interface RedTeamFinding {
   human_review_required: boolean
   finding_type: string
   source_kind: string
+  appearances: number
+  total_runs: number
+  citations: RedTeamCitation[]
+}
+
+export interface RedTeamMetrics {
+  grounding_pass_rate: number | null
+  ungrounded_drops: number
+  stability_rate: number | null
+  unstable_hidden: number
+  duration_seconds: number
+  model: string
 }
 
 export interface RedTeamResult {
   run_id: string
   mode: 'llm' | 'demo'
   findings: RedTeamFinding[]
+  unstable_findings: RedTeamFinding[]
+  metrics: RedTeamMetrics
+  cached: boolean
   demo_note?: string
 }
 
@@ -424,6 +445,96 @@ export interface ChaosRunResult {
   demo_note?: string
 }
 
+// ─── Dependency Graph ─────────────────────────────────────────────────────────
+
+export interface GraphNode {
+  id: string
+  node_type: 'fact' | 'claim' | 'content' | 'channel'
+  ref_id: string
+  label: string
+  meta: Record<string, unknown>
+}
+
+export interface GraphEdge {
+  id: string
+  src_id: string
+  dst_id: string
+  edge_type: string
+  match_method: string
+  score: number | null
+  evidence: {
+    match_type?: 'confirmed' | 'possible'
+    quote?: string
+  }
+}
+
+export interface GraphResult {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  scope_note?: string
+  limitations?: string
+}
+
+export const graphApi = {
+  get: () => get<GraphResult>('/v1/graph'),
+  rebuild: () => post<{ message: string }>('/v1/graph/rebuild'),
+}
+
+// ─── Rule Conflicts ───────────────────────────────────────────────────────────
+
+export interface RuleConflict {
+  rule_a: string
+  rule_b: string
+  channels: string[]
+  quote_a: string
+  quote_b: string
+  scenario: string
+  explanation: string
+}
+
+// ─── Rulebook Coverage ────────────────────────────────────────────────────────
+
+export interface CoverageGap {
+  kind: string
+  subject: string
+  channel?: string
+  title?: string
+  evidence: string
+}
+
+export interface CoverageMatrixRow {
+  channel: string
+  families: Record<string, number>
+  claim_types: Record<string, number>
+}
+
+export interface RulebookCoverage {
+  families: string[]
+  claim_types: string[]
+  matrix: CoverageMatrixRow[]
+  gaps: CoverageGap[]
+  note?: string
+}
+
+// ─── Checker Chaos ────────────────────────────────────────────────────────────
+
+export interface CheckerChaosCase {
+  id: string
+  text: string
+  intended_label: string
+  observed: string
+  rationale?: string
+  checker_miss: boolean
+  false_positive: boolean
+}
+
+export interface CheckerChaosResult {
+  rule_key: string
+  checker_misses: number
+  note: string
+  cases: CheckerChaosCase[]
+}
+
 export const chaosApi = {
   run: (ruleId: string) =>
     post<ChaosRunResult>(`/v1/rules/${ruleId}/chaos-test`),
@@ -439,4 +550,10 @@ export const chaosApi = {
     post<{ issue_id: string; status: string }>(`/v1/chaos-issues/${issueId}/resolve`, {
       status,
     }),
+  coverage: () =>
+    get<RulebookCoverage>('/v1/rules/coverage'),
+  contradictions: () =>
+    get<{ contradictions: RuleConflict[] }>('/v1/rules/contradictions'),
+  checkerChaos: (ruleId: string) =>
+    post<CheckerChaosResult>(`/v1/rules/${ruleId}/checker-chaos`),
 }
