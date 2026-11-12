@@ -89,3 +89,9 @@ Rulebook coverage, checker-chaos cases, tests and UI were AI-generated with Aren
 The homepage redesign, shared brand mark and favicon, and related sign-in and footer copy changes were AI-generated with Arena.ai Agent Mode using the existing React, Tailwind and Lucide dependencies. The workflow illustration is illustrative, not live workspace data.
 
 The redesigned login page and authentication error-handling changes were AI-generated with Arena.ai Agent Mode using existing project dependencies. No authentication bypass or external service was added.
+
+The previously AI-generated login redesign and real-backend authentication flow were restored after the merge; missing frontend API types and methods were also restored using the prior project revision. Mobile navigation received accessible labels. These changes use existing dependencies and were prepared with Arena.ai Agent Mode.
+
+The editorial UI refresh and fictional Indian persona labels were AI-generated using Arena.ai Agent Mode, informed by the public nomonkey.work and renoenergie.ca pages. Existing Lucide icons and project dependencies were used; no reference-site assets were copied. Persona names are illustrative labels for the existing seeded role accounts, not new backend identities. Demo login still requires matching seeded backend credentials.
+
+The shared workspace navigation, breadcrumb and demo role-switch experience were refreshed with Arena.ai Agent Mode using existing frontend dependencies. Role switching still uses backend authentication; no new accounts or backend changes were added.
