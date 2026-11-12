@@ -44,6 +44,8 @@ _BANNED_NAME_PATTERNS = [
     (r"\bNimbus\s+Desk\b", re.IGNORECASE, "product_name", "banned_product_name"),
     # Case-sensitive: "NimbusDesk" (the approved form) must NOT match "NimbusDESK".
     (r"\bNimbusDESK\b", 0, "product_name", "banned_product_name"),
+    # Explicitly banned short name. Word boundaries avoid matching NimbusDesk.
+    (r"\bNimbus\b(?![-\u200b]\s*Desk\b)", re.IGNORECASE, "product_name", "banned_product_name"),
 ]
 
 _EMBARGO_PATTERNS = [

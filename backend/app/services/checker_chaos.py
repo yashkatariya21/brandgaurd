@@ -8,8 +8,7 @@ from .claim_extractor import extract_claims
 
 
 def is_banned_product_claim(claim: dict) -> bool:
-    raw = claim['raw_text'].lower()
-    return claim.get('entity') == 'product_name' and ('nimbus desk' in raw or 'nimbusdesk' in raw)
+    return claim.get('entity') == 'product_name' and claim.get('attribute') == 'banned_product_name'
 
 
 def observed_product_name_violation(text: str) -> bool:
