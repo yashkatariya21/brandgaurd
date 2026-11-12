@@ -159,6 +159,12 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
             </div>
           ) : debate ? (
             <>
+              <section className="mb-5 rounded-xl border border-subtle bg-canvas-secondary p-4" aria-label="Finding evidence">
+                <h4 className="font-semibold text-main text-sm">Evidence linked to this finding</h4>
+                <p className="text-xs text-muted mt-1">{debate.evidence_note ?? 'Evidence validation is unavailable from this backend version. Review the finding before deciding.'}</p>
+                {debate.evidence?.length ? <ul className="space-y-2 mt-3">{debate.evidence.map((c, i) => <li key={`${c.ref_id}-${i}`} className="text-xs text-main"><strong>{c.kind}{c.version != null ? ` v${c.version}` : ''}</strong> · “{c.quote}”</li>)}</ul> : <p className="text-xs text-muted mt-3">No validated finding evidence is available. Review the original content and rule before deciding.</p>}
+                {(debate.invalid_evidence_count ?? 0) > 0 && <p className="text-xs text-red-700 mt-2">{debate.invalid_evidence_count} invalid or unavailable reference(s) omitted.</p>}
+              </section>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                 {/* Prosecutor */}
                 <div className="border-2 border-red-200 rounded-xl p-4 bg-red-50">

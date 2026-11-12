@@ -399,6 +399,9 @@ export interface Debate {
   mode: 'llm' | 'demo'
   cached: boolean
   footer: string
+  evidence?: EvidenceCitation[]
+  invalid_evidence_count?: number
+  evidence_note?: string
   demo_note?: string
 }
 
@@ -444,13 +447,21 @@ export interface ChaosRunResult {
 export interface RuleConflict {
   rule_a: string; rule_b: string; quote_a: string; quote_b: string
   channels: string[]; scenario: string; type: 'possible'; explanation: string
+  version_a: string; version_b: string; issue_id: string | null; status: 'open' | 'accepted' | 'rejected'
 }
 
+export interface CheckerRegressionDiff {
+  added: {text: string; expected: string; observed: string}[]
+  removed: {text: string; expected: string; observed: string}[]
+  changed: {text: string; before: {expected: string; observed: string}; after: {expected: string; observed: string}}[]
+  unchanged: number
+}
 export interface CheckerChaosResult {
   run_id: string
   rule_key: string
   mode: 'checker'
   checker_misses: number
+  regression: { previous_run_id: string | null; diff: CheckerRegressionDiff | null }
   note: string
   cases: { id: string; text: string; intended_label: string; observed: string; checker_miss: boolean; false_positive: boolean; rationale: string }[]
 }
@@ -467,6 +478,8 @@ export const chaosApi = {
   coverage: () => get<RulebookCoverage>('/v1/rulebook/coverage'),
   checkerChaos: (ruleId: string) => post<CheckerChaosResult>(`/v1/rules/${ruleId}/checker-chaos`),
   contradictions: () => get<{ contradictions: RuleConflict[] }>('/v1/rulebook/contradictions'),
+  resolveConflict: (version_a: string, version_b: string, status: 'accepted' | 'rejected') =>
+    post<{ issue_id: string; status: string }>('/v1/rulebook/contradictions/resolve', { version_a, version_b, status }),
   run: (ruleId: string) =>
     post<ChaosRunResult>(`/v1/rules/${ruleId}/chaos-test`),
   getRun: (runId: string) =>
