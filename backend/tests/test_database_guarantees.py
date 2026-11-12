@@ -167,8 +167,46 @@ def test_checker_chaos_run_persists_for_current_tenant(two_orgs):
             VALUES (%s,%s,1,'The product name is NimbusDesk. Never write Nimbus Desk, NimbusDESK or Nimbus.','approved',%s) RETURNING id""", (org_a,rule,user_a)).fetchone()['id']
         conn.execute('UPDATE rules SET current_version_id=%s WHERE id=%s', (version,rule))
     result = checker_chaos(rule, principal=Principal(str(user_a), str(org_a), 'admin'))
-    assert result['checker_misses'] >= 1
+    assert result['checker_misses'] == 0
+    assert result['regression']['previous_run_id'] is None
+    second = checker_chaos(rule, principal=Principal(str(user_a), str(org_a), 'admin'))
+    assert second['regression']['previous_run_id'] == result['run_id']
+    assert second['regression']['diff']['unchanged'] == len(result['cases'])
+    from app.api.chaos import get_chaos_run
+    saved = get_chaos_run(uuid.UUID(second['run_id']), principal=Principal(str(user_a), str(org_a), 'admin'))
+    assert saved['regression'] == second['regression']
     with tenant_conn(org_a, user_a) as conn:
         assert conn.execute('SELECT count(*) AS n FROM chaos_cases WHERE chaos_run_id=%s', (result['run_id'],)).fetchone()['n'] == len(result['cases'])
     with tenant_conn(org_b, user_b) as conn:
         assert conn.execute('SELECT count(*) AS n FROM chaos_cases WHERE chaos_run_id=%s', (result['run_id'],)).fetchone()['n'] == 0
+
+
+def test_graph_vectors_require_matching_provenance_and_tenant(two_orgs, monkeypatch):
+    """Synthetic vectors exercise SQL isolation, not embedding quality."""
+    from app.api.graph import rebuild_graph
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    monkeypatch.setenv('GRAPH_VECTOR_MATCH_ENABLED', 'true')
+    vector = '[' + ','.join(['1'] + ['0'] * 1535) + ']'
+    with tenant_conn(org_a, user_a) as conn:
+        fact = conn.execute('SELECT id FROM facts WHERE org_id=%s', (org_a,)).fetchone()['id']
+        version = conn.execute("""INSERT INTO fact_versions
+            (org_id,fact_id,version_no,value_text,value_number,valid_from,status,proposed_by,embedding,embedding_model,embedding_input)
+            VALUES (%s,%s,1,'65,000 customers',65000,'2026-01-01','approved',%s,%s::vector,'fixture-v1',%s) RETURNING id""",
+            (org_a, fact, user_a, vector, 'Fact\n65,000 customers')).fetchone()['id']
+        conn.execute('UPDATE facts SET current_version_id=%s WHERE id=%s', (version, fact))
+        item = conn.execute("INSERT INTO content_items (org_id,title,channel) VALUES (%s,'Draft','web') RETURNING id", (org_a,)).fetchone()['id']
+        cv = conn.execute("""INSERT INTO content_versions (org_id,content_item_id,version_no,body_text,content_hash)
+            VALUES (%s,%s,1,'50,000 tickets','h') RETURNING id""", (org_a,item)).fetchone()['id']
+        conn.execute('UPDATE content_items SET current_version_id=%s WHERE id=%s', (cv,item))
+        claim = conn.execute("""INSERT INTO content_claims (org_id,content_version_id,span_start,span_end,raw_text,
+            embedding,embedding_model,embedding_input) VALUES (%s,%s,0,14,'50,000 tickets',%s::vector,'fixture-v1','50,000 tickets') RETURNING id""", (org_a,cv,vector)).fetchone()['id']
+        rebuild_graph(conn, org_a)
+        assert conn.execute("SELECT count(*) AS n FROM graph_edges WHERE org_id=%s AND match_method='embedding' AND evidence->>'match_type'='possible'", (org_a,)).fetchone()['n'] == 1
+        conn.execute("UPDATE content_claims SET embedding_model='different-model' WHERE id=%s", (claim,))
+        rebuild_graph(conn, org_a)
+        assert conn.execute("SELECT count(*) AS n FROM graph_edges WHERE org_id=%s AND match_method='embedding'", (org_a,)).fetchone()['n'] == 0
+        conn.execute("UPDATE content_claims SET embedding_model='fixture-v1', embedding_input='stale input' WHERE id=%s", (claim,))
+        rebuild_graph(conn, org_a)
+        assert conn.execute("SELECT count(*) AS n FROM graph_edges WHERE org_id=%s AND match_method='embedding'", (org_a,)).fetchone()['n'] == 0
+    with tenant_conn(org_b, user_b) as conn:
+        assert conn.execute("SELECT count(*) AS n FROM graph_edges WHERE match_method='embedding'").fetchone()['n'] == 0

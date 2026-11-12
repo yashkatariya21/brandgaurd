@@ -262,6 +262,7 @@ export default function RuleTestsPage() {
   const [coverageError, setCoverageError] = useState('')
   const [conflicts, setConflicts] = useState<RuleConflict[]>([])
   const [conflictError, setConflictError] = useState('')
+  const [conflictBusy, setConflictBusy] = useState(false)
   const [usingMock, setUsingMock] = useState(false)
   const [rules, setRules] = useState<Rule[]>([])
   const [selectedRuleId, setSelectedRuleId] = useState('')
@@ -283,6 +284,15 @@ export default function RuleTestsPage() {
       if (tone.length > 0) setSelectedRuleId(tone[0].id)
     })
   }, [])
+
+  const resolveConflict = async (conflict: RuleConflict, status: 'accepted' | 'rejected') => {
+    setConflictError(''); setConflictBusy(true)
+    try {
+      await chaosApi.resolveConflict(conflict.version_a, conflict.version_b, status)
+      setConflicts((await chaosApi.contradictions()).contradictions)
+    } catch (e) { setConflictError(e instanceof Error ? e.message : 'Could not save decision.') }
+    finally { setConflictBusy(false) }
+  }
 
   const runTest = async () => {
     if (!selectedRuleId) return
@@ -347,6 +357,9 @@ export default function RuleTestsPage() {
         <ul className="space-y-3 mt-3">{conflicts.map((c) => <li key={`${c.rule_a}-${c.rule_b}`} className="border border-subtle rounded p-3 text-sm text-main">
           <strong>Possible · {c.rule_a} / {c.rule_b}</strong> · {c.channels.join(', ')}
           <p>“{c.quote_a}” / “{c.quote_b}”</p><p>Example: {c.scenario}</p><p className="text-muted">{c.explanation}</p>
+          <div className="flex items-center flex-wrap gap-2 mt-3"><span className="text-xs font-semibold">Human decision: {c.status === 'accepted' ? 'Accepted as a conflict' : c.status === 'rejected' ? 'Not a conflict' : 'Not decided'}</span>
+            <button type="button" disabled={conflictBusy} onClick={() => void resolveConflict(c, 'accepted')} className="text-xs border border-subtle rounded px-2 py-1 hover:bg-accent-subtle disabled:opacity-50">Accept as conflict</button>
+            <button type="button" disabled={conflictBusy} onClick={() => void resolveConflict(c, 'rejected')} className="text-xs border border-subtle rounded px-2 py-1 hover:bg-accent-subtle disabled:opacity-50">Not a conflict</button></div>
         </li>)}</ul>
       </section>
       <section className="glass-panel rounded-xl p-6 space-y-3" aria-label="Rulebook coverage">
@@ -430,6 +443,11 @@ export default function RuleTestsPage() {
       {checkerResult && <section className="glass-panel rounded-xl p-5 space-y-3">
         <h2 className="font-semibold text-main">Checker test · {checkerResult.rule_key}</h2>
         <p className="text-sm text-main">Confirmed checker misses: {checkerResult.checker_misses}. {checkerResult.note}</p>
+        <div className="border border-subtle rounded p-3 text-sm text-main"><strong>Regression comparison</strong>
+          {!checkerResult.regression.previous_run_id ? <p>No earlier saved checker run for this rule.</p> : checkerResult.regression.diff && <>
+            <p className="text-muted">Compared with previous saved run: {checkerResult.regression.diff.changed.length} changed, {checkerResult.regression.diff.added.length} added, {checkerResult.regression.diff.removed.length} removed, {checkerResult.regression.diff.unchanged} unchanged.</p>
+            <ul className="mt-2 space-y-1">{checkerResult.regression.diff.changed.map(c => <li key={c.text}>Changed: {c.text} · expected {c.before.expected} → {c.after.expected}; checker {c.before.observed} → {c.after.observed}</li>)}{checkerResult.regression.diff.added.map(c => <li key={c.text}>Added: {c.text} · expected {c.expected}, checker {c.observed}</li>)}{checkerResult.regression.diff.removed.map(c => <li key={c.text}>Removed: {c.text} · expected {c.expected}, checker {c.observed}</li>)}</ul>
+          </>}</div>
         <div className="overflow-x-auto"><table className="w-full text-sm text-main"><thead><tr><th className="text-left">Case</th><th>Expected</th><th>Checker</th><th>Observation</th></tr></thead><tbody>
           {checkerResult.cases.map(c => <tr key={c.id} className="border-t border-subtle"><td className="p-2">{c.text}<p className="text-xs text-muted">{c.rationale}</p></td><td className="p-2 text-center">{c.intended_label}</td><td className="p-2 text-center">{c.observed}</td><td className="p-2">{c.checker_miss ? 'Confirmed checker miss' : c.false_positive ? 'Checker false positive' : c.intended_label === 'borderline' ? 'Human interpretation needed' : 'As expected'}</td></tr>)}
         </tbody></table></div>

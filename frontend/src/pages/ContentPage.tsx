@@ -9,7 +9,6 @@ import HighlightedText, { SeverityLegend } from '../components/HighlightedText'
 import { type AnnotatedRange } from '../lib/segments'
 import { IS_DEMO_MODE } from '../lib/demoAccounts'
 import { DEMO_SAMPLES } from '../lib/demoSamples'
-import { MOCK_CONTENT } from '../lib/mockData'
 
 function ContentDetailModal({ item, onClose, onAnalysed }: {
   item: ContentItem
@@ -153,7 +152,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
         </div>
 
         <div className="overflow-y-auto scrollbar-thin p-6 space-y-5 flex-1">
-          {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+          {error && <div role="alert" className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
 
           {loading ? (
             <div className="space-y-2">
@@ -410,7 +409,9 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
 export default function ContentPage() {
   const { isAuthority } = useTheme()
   const [items, setItems] = useState<ContentItem[]>([])
-  const [usingMock, setUsingMock] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [uploadChannel, setUploadChannel] = useState('pdf')
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<ContentItem | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -424,7 +425,8 @@ export default function ContentPage() {
 
   const load = () => {
     setLoading(true)
-    contentApi.list().catch(() => { setUsingMock(true); return MOCK_CONTENT }).then(setItems).finally(() => setLoading(false))
+    setLoadError('')
+    contentApi.list().then(setItems).catch((e: unknown) => { setItems([]); setLoadError(e instanceof Error ? e.message : 'Could not load content.') }).finally(() => setLoading(false))
   }
 
   useEffect(load, [])
@@ -446,20 +448,25 @@ export default function ContentPage() {
     }
   }
 
-  const upload = async () => {
+  const upload = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     const file = fileRef.current?.files?.[0]
     if (!file || !uploadTitle.trim()) {
       setError('Please enter a title and select a file')
       return
     }
+    if (file.size > 10_000_000) { setError('File must be 10 MB or smaller.'); return }
+    if (!/\.(pdf|docx|txt)$/i.test(file.name)) { setError('Choose a PDF, DOCX, or TXT file.'); return }
     const fd = new FormData()
     fd.append('file', file)
-    fd.append('title', uploadTitle)
-    fd.append('channel', 'pdf')
+    fd.append('title', uploadTitle.trim())
+    fd.append('channel', uploadChannel)
     setSubmitting(true)
     setError('')
+    setSuccess('')
     try {
-      await contentApi.upload(fd)
+      const result = await contentApi.upload(fd)
+      setSuccess(`Document uploaded and ${result.extracted_length.toLocaleString()} characters extracted. Open it below to run analysis.`)
       setUploadTitle('')
       if (fileRef.current) fileRef.current.value = ''
       load()
@@ -484,7 +491,7 @@ export default function ContentPage() {
 
   return (
     <div className="space-y-6 max-w-[1440px] mx-auto p-6 pb-12">
-      {usingMock && <p role="alert" className="p-3 rounded bg-amber-100 text-amber-900">Backend unavailable. Showing fictional sample data, not workspace results.</p>}
+      {loadError && <div role="alert" className="p-3 rounded bg-amber-100 text-amber-900">Could not load workspace content: {loadError} <button type="button" className="underline font-semibold" onClick={load}>Retry</button></div>}
       <div className="flex items-center justify-between">
         <div>
           <h1
@@ -503,7 +510,8 @@ export default function ContentPage() {
         </button>
       </div>
 
-      {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+      {error && <div role="alert" className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+      {success && <div role="status" className="p-3 bg-green-50 text-green-800 rounded-lg text-sm">{success}</div>}
 
       {showForm && (
         <div className="glass-panel rounded-xl p-6">
@@ -580,31 +588,35 @@ export default function ContentPage() {
 
           <div className="border-t border-subtle pt-4">
             <p className="text-xs font-semibold text-muted mb-3 flex items-center gap-1.5">
-              <Upload size={13} /> Or upload DOCX / PDF
+              <Upload size={13} /> Or upload a PDF, DOCX or UTF-8 text file (up to 10 MB)
             </p>
-            <div className="flex gap-3 items-end flex-wrap">
+            <form onSubmit={upload} className="flex gap-3 items-end flex-wrap">
               <input
+                aria-label="Document title"
+                maxLength={200}
+                required
                 value={uploadTitle}
                 onChange={(e) => setUploadTitle(e.target.value)}
                 placeholder="Document title"
                 className={`flex-1 min-w-[200px] ${inputCls}`}
               />
-              <input ref={fileRef} type="file" accept=".docx,.pdf" className="text-sm text-muted" />
+              <select aria-label="Document channel" value={uploadChannel} onChange={e => setUploadChannel(e.target.value)} className={inputCls}>{['web', 'social', 'email', 'press', 'pdf', 'image'].map(c => <option key={c} value={c}>{c}</option>)}</select>
+              <input ref={fileRef} type="file" accept=".docx,.pdf,.txt" required aria-label="Choose document" className="text-sm text-muted" />
               <button
-                onClick={upload}
+                type="submit"
                 disabled={submitting}
                 className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
               >
-                Upload
+                {submitting ? 'Uploading…' : 'Upload'}
               </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
 
       {loading ? (
         <p className="text-muted text-sm">Loading…</p>
-      ) : items.length === 0 ? (
+      ) : loadError ? null : items.length === 0 ? (
         <div className="text-center py-16 text-muted">
           <p className="text-lg font-medium">No content items yet.</p>
           <p className="text-sm mt-1">Submit your first piece of content above.</p>

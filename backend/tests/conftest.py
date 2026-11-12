@@ -19,6 +19,12 @@ PURE_MODULES = {
     "test_grounding",
     "test_redteam_grounded_api",
     "test_checker_chaos",
+    "test_content_upload_api",
+    "test_conflict_decisions",
+    "test_chaos_regression",
+    "test_debate_evidence",
+    "test_graph_similarity_evaluation",
+    "test_ci_test_summary",
 }
 
 

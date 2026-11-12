@@ -17,6 +17,11 @@ class TestBannedNames:
         product = [c for c in claims if c["entity"] == "product_name"]
         assert product
 
+    def test_short_name_and_extra_spacing(self):
+        for text in ("Nimbus helps teams.", "Nimbus  Desk helps teams."):
+            claims = extract_claims(text)
+            assert any(c.get("attribute") == "banned_product_name" for c in claims)
+
     def test_nimbusdesk_correct_not_banned(self):
         claims = extract_claims("NimbusDesk agents resolve tickets faster.")
         # Correct form should not trigger banned_form entity

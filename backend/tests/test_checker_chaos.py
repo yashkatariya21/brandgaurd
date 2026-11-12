@@ -2,13 +2,14 @@ from datetime import date
 from app.services.checker_chaos import product_name_cases, embargo_cases
 
 
-def test_seeded_explicit_product_name_miss_is_detected():
+def test_seeded_explicit_product_name_cases_are_detected():
     cases = product_name_cases()
     miss = next(c for c in cases if c['text'] == 'Nimbus helps teams.')
-    assert miss['intended_label'] == 'fail' and miss['checker_miss']
+    assert miss['intended_label'] == 'fail' and not miss['checker_miss']
+    assert not next(c for c in cases if c['text'] == 'Nimbus  Desk helps teams.')['checker_miss']
     assert not next(c for c in cases if c['text'] == 'Nimbus Desk helps teams.')['checker_miss']
     assert not next(c for c in cases if c['text'] == 'NimbusDesk helps teams.')['false_positive']
-    assert not any(c['checker_miss'] for c in cases if c['intended_label'] == 'borderline')
+    assert all(c['observed'] == 'pass' for c in cases if c['intended_label'] == 'borderline')
 
 
 def test_embargo_cases_use_real_active_term_and_date():

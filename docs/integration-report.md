@@ -115,3 +115,41 @@ Tests: backend `pytest -q` **91 passed, 38 skipped, 1 warning** before the addit
 Added a tenant-scoped rulebook coverage endpoint and text-table UI. It uses simple keyword and channel-scope heuristics to propose gaps; it is not proof of coverage. Added separate deterministic checker chaos for the **unchanged seeded** R-04 product-name and R-12 embargo rules. It shares predicates with the production checker, persists constructed cases and observed outcomes, and labels clear checker misses separately from judgement-based agreement. In the locally run fixture, the current checker misses the explicitly banned short form `Nimbus` and the double-space spelling `Nimbus  Desk`; these remain known limitations, not fixed. Hyphen and zero-width variants remain borderline, not confirmed violations.
 
 Other rule families, contradiction resolutions, regression, accessibility checker chaos and full CI/DB testing remain unfinished. `cd backend && ../.venv/bin/python -m pytest -q`: 95 passed, 39 skipped, 1 warning before adding an extra DB-only persistence test. Frontend lint and build passed on Node 22.22.3. The new endpoint and its persistence have not been exercised against a database or in a browser.
+
+### Round 3 continuation — 2026-11-12
+
+The content upload UI now supports PDF, DOCX and UTF-8 TXT with file size validation, channel selection and visible success/error states; content and blast-radius pages no longer silently substitute sample lists on API failure. Multipart router tests exercise TXT and DOCX extraction, unsupported types and upload-size handling with mocked persistence, not a real database or browser. The two known seeded product-name checker misses (`Nimbus` and `Nimbus  Desk`) were addressed for the explicit deterministic extractor; hyphen and zero-width examples remain borderline. These are not evidence of full guideline-family coverage or end-to-end checker calibration.
+
+Local Python 3.11 backend suite: **100 passed, 40 skipped** (database-dependent tests skipped), one dependency warning. Frontend lint and production build passed before this continuation. No live provider, deployed upload, independent QA or browser workflow was verified. Semantic embedding generation/calibration, full rule-family chaos and persisted regression/contradiction resolutions, validated debate citations, and enforced provider monetary caps remain incomplete. Do not enable live AI until spending can be bounded and independently verified.
+
+### Contradiction decisions continuation
+
+Possible rule conflicts now expose human accept/reject controls. Decisions are audited and stored against the exact pair of current approved rule versions using existing chaos tables; a later rule version needs a fresh decision. The endpoint rechecks the candidate and tenant context and uses an advisory lock to serialize decisions for a pair. This does not make heuristic conflicts confirmed automatically, implement general contradiction detection, or supply regression diffs.
+
+Local verification: backend **101 passed, 41 skipped** (including the new PostgreSQL persistence and isolation test), one warning; the conflict orchestration test uses a fake database. Frontend lint and build passed. PostgreSQL, deployed and browser behavior remain unverified in this workspace.
+
+### Checker regression continuation
+
+The supported deterministic checker-chaos runs now compare added, removed and changed case labels with the previous saved run for the same rule. Previous-run identity is stored in the existing audit record; the comparison can be reconstructed from persisted case and result rows. This remains limited to the two supported seeded checks and is not full rule-family regression coverage. Also corrected the chaos run retrieval query to order issues by an existing column.
+
+Local Python 3.11 suite: **103 passed, 41 skipped**, one warning; database-backed run-history and tenant-isolation tests were skipped. Frontend lint/build passed. No database migration or live AI call was made.
+
+### Debate evidence continuation
+
+The debate endpoint now revalidates a finding's recorded passage and versioned fact/rule references against tenant-scoped records and displays valid evidence, omitting invalid citations with a count. Deterministic findings may show an exact valid passage span. These sources belong to the finding; debate arguments and suggested edits remain unvalidated, including legacy cached debates. This does not complete argument-level citation validation or the required live-provider monetary cap.
+
+Local Python 3.11 suite: **106 passed, 41 skipped**, one warning. New evidence tests are pure-function tests; tenant-scoped SQL, PostgreSQL, browser and live-provider behavior are not verified locally. No external provider calls were made.
+
+### Experimental graph similarity evaluation and CI guard
+
+Added a reproducible report for the existing local character-similarity threshold on 20 AI-generated same-fact/value pairs. At the existing 0.55 threshold, the 10 development cases produced 5 true positives, 3 false positives, 2 true negatives and 0 false negatives; the 10 holdout cases produced 3 true positives, 2 false positives, 3 true negatives and 2 false negatives. Both splits were created together by AI and require independent label review. These results do not calibrate a semantic embedding model or represent real-world performance. In particular, similar text with a different value can score highly. The threshold was not changed.
+
+Existing vector columns lack model/version provenance; connecting arbitrary stored vectors could compare incompatible embedding spaces, so no pgvector retrieval was enabled. Embedding generation, provenance, semantic retrieval and independent calibration remain unfinished. No provider calls were made. Restored a CI JUnit guard that rejects skipped or failed database tests; its next GitHub run is not yet verified.
+
+Local Python 3.11: **110 passed, 41 skipped**, one warning. The skipped tests require PostgreSQL and are not independent QA.
+
+### Optional pgvector matching foundation
+
+Migration 004 adds model and exact-input provenance to the existing vector columns. The graph rebuild can compare same-tenant, current fact and claim vectors via pgvector cosine distance only when `GRAPH_VECTOR_MATCH_ENABLED=true`; it ignores missing/stale provenance, mismatched models and stale claim spans. Top-three matches above the experimental 0.85 threshold are labelled **possible**, never confirmed, and include the model identifier. Existing unlabelled vectors are ignored. This path is disabled by default, does not generate vectors, and is not yet calibrated. The exact expected fact input is `label + newline + value_text`; claim input is its exact raw text. No hosted embedding calls were made or enabled.
+
+Synthetic-vector Postgres integration tests were added for model mismatch, stale input and tenant isolation. Locally **112 passed, 42 skipped**, including the new Postgres test; migration 004 and pgvector queries have not been run here and need database-backed CI and independent review before enabling. Semantic embedding generation and representative calibration remain unfinished.

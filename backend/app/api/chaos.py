@@ -21,6 +21,7 @@ from ..services.chaos import generate_chaos_cases, interpret_case, detect_ambigu
 from ..services.llm_config import ProviderCallError, configured_model
 from ..services.rulebook import contradictions, coverage_report
 from ..services.checker_chaos import product_name_cases, embargo_cases
+from ..services.chaos_regression import compare_checker_cases
 
 router = APIRouter(prefix="/v1")
 
@@ -42,17 +43,87 @@ def _serialize(row: dict) -> dict:
     return out
 
 
+def _current_conflicts(conn, org_id, lock=False):
+    rows = conn.execute(
+        """SELECT r.key, r.applies_to, rv.id AS version_id, rv.description FROM rules r
+           JOIN rule_versions rv ON rv.id = r.current_version_id
+           WHERE r.org_id=%s AND rv.org_id=%s AND rv.status='approved'
+           ORDER BY r.key""" + (" FOR SHARE OF r, rv" if lock else ""), (org_id, org_id),
+    ).fetchall()
+    rules = [dict(r) for r in rows]
+    versions = {r['key']: str(r['version_id']) for r in rules}
+    return [{**c, 'version_a': versions[c['rule_a']], 'version_b': versions[c['rule_b']]}
+            for c in contradictions(rules)]
+
+
+def _conflict_versions(candidate):
+    return sorted([candidate['version_a'], candidate['version_b']])
+
+
 @router.get("/rulebook/contradictions")
 def rulebook_contradictions(principal: Principal = Depends(require("run_chaos"))):
-    """Return potential, not adjudicated, conflicts in current approved rules."""
+    """Return possible conflicts and any human decision for the exact rule versions."""
     with tenant_conn(principal.org_id, principal.user_id) as conn:
-        rows = conn.execute(
-            """SELECT r.key, r.applies_to, rv.description FROM rules r
-               JOIN rule_versions rv ON rv.id = r.current_version_id
-               WHERE r.org_id=%s AND rv.org_id=%s AND rv.status='approved'
-               ORDER BY r.key""", (principal.org_id, principal.org_id),
-        ).fetchall()
-    return {"contradictions": contradictions([dict(r) for r in rows])}
+        candidates = _current_conflicts(conn, principal.org_id)
+        rows = conn.execute("""SELECT ci.id, ci.rule_version_ids, ci.status
+            FROM chaos_issues ci JOIN chaos_runs cr ON cr.id=ci.chaos_run_id AND cr.org_id=ci.org_id
+            WHERE ci.org_id=%s AND ci.kind='contradiction' AND cr.prompt_version='rule-conflict-v1'
+            ORDER BY cr.created_at DESC, ci.id""", (principal.org_id,)).fetchall()
+        decisions = {}
+        for row in rows:
+            key = tuple(sorted(str(v) for v in row['rule_version_ids']))
+            decisions.setdefault(key, row)
+        for c in candidates:
+            decision = decisions.get(tuple(_conflict_versions(c)))
+            c['issue_id'] = str(decision['id']) if decision else None
+            c['status'] = decision['status'] if decision else 'open'
+    return {'contradictions': candidates}
+
+
+class ConflictDecision(BaseModel):
+    version_a: uuid.UUID
+    version_b: uuid.UUID
+    status: str
+
+
+@router.post("/rulebook/contradictions/resolve")
+def resolve_conflict(body: ConflictDecision, principal: Principal = Depends(require("run_chaos"))):
+    """Record a human decision only for a currently detected, approved rule pair."""
+    if body.status not in ('accepted', 'rejected'):
+        raise ApiError(400, 'bad_request', 'status must be accepted or rejected')
+    pair = sorted([str(body.version_a), str(body.version_b)])
+    if pair[0] == pair[1]:
+        raise ApiError(400, 'bad_request', 'Two different rule versions are required')
+    with tenant_conn(principal.org_id, principal.user_id) as conn:
+        conn.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))',
+                     (str(principal.org_id) + ':rule-conflict:' + ':'.join(pair),))
+        candidate = next((c for c in _current_conflicts(conn, principal.org_id, lock=True)
+                          if _conflict_versions(c) == pair), None)
+        if candidate is None:
+            raise ApiError(404, 'not_found', 'Current conflict candidate not found; refresh the rulebook')
+        row = conn.execute("""SELECT ci.id, ci.status FROM chaos_issues ci
+            JOIN chaos_runs cr ON cr.id=ci.chaos_run_id AND cr.org_id=ci.org_id
+            WHERE ci.org_id=%s AND ci.kind='contradiction' AND cr.prompt_version='rule-conflict-v1'
+              AND ci.rule_version_ids=%s::uuid[] ORDER BY cr.created_at DESC LIMIT 1""",
+            (principal.org_id, pair)).fetchone()
+        before = row['status'] if row else 'open'
+        issue_id = row['id'] if row else uuid.uuid4()
+        if not row:
+            run_id = uuid.uuid4()
+            conn.execute("""INSERT INTO chaos_runs (id,org_id,rule_version_ids,status,started_at,finished_at,
+                created_by,n_interpreters,model_id,prompt_version)
+                VALUES (%s,%s,%s::uuid[],'done',now(),now(),%s,1,'rulebook-heuristic','rule-conflict-v1')""",
+                (run_id, principal.org_id, pair, principal.user_id))
+            conn.execute("""INSERT INTO chaos_issues (id,org_id,chaos_run_id,kind,rule_version_ids,description,status)
+                VALUES (%s,%s,%s,'contradiction',%s::uuid[],%s,%s)""",
+                (issue_id, principal.org_id, run_id, pair,
+                 candidate['explanation'] + ' Example: ' + candidate['scenario'], body.status))
+        else:
+            conn.execute('UPDATE chaos_issues SET status=%s WHERE id=%s AND org_id=%s',
+                         (body.status, issue_id, principal.org_id))
+        write_audit(conn, principal.user_id, 'rule_conflict.resolved', 'chaos_issue', issue_id,
+                    before={'status': before}, after={'status': body.status, 'rule_version_ids': pair})
+    return {'issue_id': str(issue_id), 'status': body.status}
 
 
 @router.get("/rulebook/coverage")
@@ -70,11 +141,20 @@ def rulebook_coverage(principal: Principal = Depends(require("run_chaos"))):
     return coverage_report([dict(r) for r in rules], [dict(c) for c in content])
 
 
+def _checker_run_cases(conn, org_id, run_id):
+    return [dict(row) for row in conn.execute("""SELECT cc.text, cc.intended_label, cr.majority_verdict
+        FROM chaos_cases cc JOIN chaos_results cr ON cr.chaos_case_id=cc.id AND cr.org_id=cc.org_id
+        WHERE cc.org_id=%s AND cc.chaos_run_id=%s AND cc.axis='checker' ORDER BY cc.text""",
+        (org_id, run_id)).fetchall()]
+
+
 @router.post("/rules/{rule_id}/checker-chaos", status_code=201)
 def checker_chaos(rule_id: uuid.UUID, principal: Principal = Depends(require("run_chaos"))):
     """Run known-construction cases against checks actually implemented by the checker."""
     from datetime import date
     with tenant_conn(principal.org_id, principal.user_id) as conn:
+        conn.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))',
+                     (str(principal.org_id) + ':checker-regression:' + str(rule_id),))
         rule = conn.execute("""SELECT r.key, rv.id AS version_id, rv.description
             FROM rules r JOIN rule_versions rv ON rv.id=r.current_version_id
             WHERE r.id=%s AND r.org_id=%s AND rv.org_id=%s AND rv.status='approved'""",
@@ -90,6 +170,15 @@ def checker_chaos(rule_id: uuid.UUID, principal: Principal = Depends(require("ru
                 raise ApiError(422, 'no_active_embargo', 'No active embargo terms are available for this test.')
         else:
             raise ApiError(422, 'unsupported_checker', 'Checker chaos is currently implemented only for the seeded product-name and embargo checks; this rule version is not supported.')
+        previous = conn.execute("""SELECT cr.id FROM chaos_runs cr
+            WHERE cr.org_id=%s AND cr.prompt_version='checker-chaos-v1' AND cr.status='done'
+              AND EXISTS (SELECT 1 FROM chaos_cases cc
+                JOIN rule_versions rv ON rv.id=cc.rule_version_id AND rv.org_id=cc.org_id
+                WHERE cc.org_id=cr.org_id AND cc.chaos_run_id=cr.id AND rv.rule_id=%s)
+            ORDER BY cr.created_at DESC, cr.id DESC LIMIT 1""", (principal.org_id, rule_id)).fetchone()
+        previous_id = str(previous['id']) if previous else None
+        previous_cases = _checker_run_cases(conn, principal.org_id, previous_id) if previous_id else []
+        diff = compare_checker_cases(previous_cases, cases) if previous_id else None
         run_id = uuid.uuid4()
         conn.execute("""INSERT INTO chaos_runs (id,org_id,rule_version_ids,status,started_at,finished_at,
             created_by,n_interpreters,model_id,prompt_version)
@@ -110,9 +199,9 @@ def checker_chaos(rule_id: uuid.UUID, principal: Principal = Depends(require("ru
                 (principal.org_id, run_id, [str(rule['version_id'])],
                  f"Confirmed checker miss on {len(misses)} constructed case(s). Review the saved test cases."))
         write_audit(conn, principal.user_id, 'chaos.run', 'chaos_run', run_id,
-                    after={'mode':'checker','cases':len(cases),'checker_misses':len(misses)})
+                    after={'mode':'checker','cases':len(cases),'checker_misses':len(misses), 'previous_run_id': previous_id})
     return {'run_id': str(run_id), 'rule_key': rule['key'], 'mode': 'checker', 'cases': cases,
-            'checker_misses': len(misses), 'note': 'Checker misses are confirmed observations on explicitly covered constructed inputs, not a claim of rulebook correctness.'}
+            'checker_misses': len(misses), 'regression': {'previous_run_id': previous_id, 'diff': diff}, 'note': 'Checker misses are confirmed observations on explicitly covered constructed inputs, not a claim of rulebook correctness.'}
 
 
 # ─── POST /v1/rules/{rule_id}/chaos-test ──────────────────────────────────────
@@ -337,7 +426,7 @@ def get_chaos_run(run_id: uuid.UUID, principal: Principal = Depends(require("run
         if not run:
             raise ApiError(404, "not_found", "Chaos run not found")
         audit_mode = conn.execute(
-            """SELECT after->>'mode' AS mode
+            """SELECT after->>'mode' AS mode, after->>'previous_run_id' AS previous_run_id
                FROM audit_log
                WHERE org_id=%s AND object_type='chaos_run' AND object_id=%s
                  AND action='chaos.run'
@@ -356,9 +445,16 @@ def get_chaos_run(run_id: uuid.UUID, principal: Principal = Depends(require("run
         ).fetchall()
 
         issues = conn.execute(
-            "SELECT * FROM chaos_issues WHERE chaos_run_id=%s ORDER BY created_at",
-            (run_id,),
+            "SELECT * FROM chaos_issues WHERE chaos_run_id=%s AND org_id=%s ORDER BY id",
+            (run_id, principal.org_id),
         ).fetchall()
+
+        regression = None
+        if run["prompt_version"] == "checker-chaos-v1":
+            previous_id = audit_mode["previous_run_id"] if audit_mode else None
+            previous_cases = _checker_run_cases(conn, principal.org_id, previous_id) if previous_id else []
+            current_cases = _checker_run_cases(conn, principal.org_id, run_id)
+            regression = {"previous_run_id": previous_id, "diff": compare_checker_cases(previous_cases, current_cases) if previous_id else None}
 
     run_result = _serialize(dict(run))
     run_result["mode"] = audit_mode["mode"] if audit_mode else "unknown"
@@ -366,6 +462,7 @@ def get_chaos_run(run_id: uuid.UUID, principal: Principal = Depends(require("run
         "run": run_result,
         "cases": [_serialize(dict(c)) for c in cases],
         "issues": [_serialize(dict(i)) for i in issues],
+        "regression": regression,
     }
 
 

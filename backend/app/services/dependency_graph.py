@@ -62,7 +62,8 @@ def match_claim(fact: dict, claim: dict, explicit_link: bool = False) -> dict | 
     return None
 
 
-def graph_projection(facts: list[dict], items: list[dict], links: list[dict]) -> tuple[list[dict], list[dict]]:
+def graph_projection(facts: list[dict], items: list[dict], links: list[dict],
+                     vector_matches: list[dict] | None = None) -> tuple[list[dict], list[dict]]:
     nodes, edges = [], []
     def node(kind, ref, label, meta):
         nodes.append({'type': kind, 'ref': str(ref), 'label': label, 'meta': meta})
@@ -73,6 +74,13 @@ def graph_projection(facts: list[dict], items: list[dict], links: list[dict]) ->
     fact_nodes = [(f, node('fact', f['id'], f['label'], {'key': f['key'], 'value': f['value_text'], 'version': f['version_no']})) for f in facts]
     channels = {}
     link_set = {(str(x['content_version_id']), x['span_start'], x['span_end'], str(x['fact_id'])) for x in links}
+    vectors = {}
+    for row in vector_matches or []:
+        score = float(row['score'])
+        if not math.isfinite(score) or not 0 <= score <= 1:
+            continue
+        key = (str(row['content_version_id']), row['span_start'], row['span_end'], str(row['fact_id']), row['raw_text'])
+        vectors[key] = {'score': score, 'model': row['model']}
     for item in items:
         content = node('content', item['id'], item['title'], {'channel': item['channel'], 'status': item['status'], 'registered_state': item['registered_state']})
         channel = item['channel']
@@ -87,6 +95,11 @@ def graph_projection(facts: list[dict], items: list[dict], links: list[dict]) ->
             for f, fact in fact_nodes:
                 linked = (str(item['version_id']), c['span_start'], c['span_end'], str(f['id'])) in link_set
                 match = match_claim(f, c, linked)
-                if match:
+                vector = vectors.get((str(item['version_id']), c['span_start'], c['span_end'], str(f['id']), c['raw_text']))
+                # An embedding may suggest a relationship, never confirm it.
+                if vector and (match is None or match['method'] == 'local-similarity'):
+                    edge(fact, claim, 'supports', 'embedding', round(vector['score'], 4),
+                         {'quote': c['raw_text'], 'match_type': 'possible', 'model': vector['model']})
+                elif match:
                     edge(fact, claim, 'supports', match['method'], match['score'], {'quote': c['raw_text'], 'match_type': match['match_type']})
     return nodes, edges

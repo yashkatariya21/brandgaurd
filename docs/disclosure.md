@@ -95,3 +95,17 @@ The previously AI-generated login redesign and real-backend authentication flow 
 The editorial UI refresh and fictional Indian persona labels were AI-generated using Arena.ai Agent Mode, informed by the public nomonkey.work and renoenergie.ca pages. Existing Lucide icons and project dependencies were used; no reference-site assets were copied. Persona names are illustrative labels for the existing seeded role accounts, not new backend identities. Demo login still requires matching seeded backend credentials.
 
 The shared workspace navigation, breadcrumb and demo role-switch experience were refreshed with Arena.ai Agent Mode using existing frontend dependencies. Role switching still uses backend authentication; no new accounts or backend changes were added.
+
+The content upload interface, API error-state improvements and multipart upload tests were AI-generated using Arena.ai Agent Mode with existing dependencies. Tests use a mocked persistence function and do not establish deployed upload or browser behavior.
+
+The seeded product-name extractor and checker-chaos regression updates were AI-generated with Arena.ai Agent Mode, using existing project dependencies and tests. No live model call or paid API was used.
+
+The rule-conflict decision endpoint, interface and tests were AI-generated with Arena.ai Agent Mode using existing chaos tables and project dependencies. Database integration tests have not been run locally.
+
+The checker regression comparison, API/UI wiring, and tests were AI-generated with Arena.ai Agent Mode, using existing dependencies and saved chaos/audit tables. Database-backed verification is pending.
+
+Debate finding-evidence retrieval, revalidation and UI were AI-generated with Arena.ai Agent Mode, using existing dependencies. Revalidated sources are evidence attached to the finding, not verified citations for each argument; no live provider call was made.
+
+The 20 same-fact/value graph similarity examples in `backend/tests/data/graph_similarity_cases.json` and the evaluation/CI scripts were AI-generated with Arena.ai Agent Mode for this project. They are fictional, not independently labelled or representative. Both splits were created together; the holdout is not an independent benchmark. No external dataset, embedding model or paid API was used.
+
+The optional pgvector graph matching foundation, provenance migration and synthetic-vector tests were AI-generated with Arena.ai Agent Mode, using the project's existing pgvector/PostgreSQL dependencies. Vectors in the test are synthetic fixtures, not model outputs. No embedding model, external dataset or paid provider was used.
