@@ -4,7 +4,6 @@ import { Crosshair, Info, ExternalLink, Zap, Globe, Smartphone, Mail, FileText, 
 import { factsApi, Fact, BlastRadiusResult, AffectedItem } from '../api'
 import { useTheme } from '../theme'
 import StatusChip from '../components/StatusChip'
-import { MOCK_FACTS } from '../lib/mockData'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -161,11 +160,11 @@ export default function BlastRadiusPage() {
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
-    factsApi.list().catch(() => MOCK_FACTS).then((fs) => {
+    factsApi.list().then((fs) => {
       setFacts(fs)
       const cc = fs.find((f) => f.key === 'customer_count')
       if (cc) setSelectedFactId(cc.id)
-    })
+    }).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load facts.'))
   }, [])
 
   const runScan = async () => {
@@ -204,7 +203,7 @@ export default function BlastRadiusPage() {
           Dependency-graph Blast Radius
         </h1>
         <p className="text-sm text-muted mt-1">
-          When a fact value changes, see every content asset that references the old value.
+          Explore registered content that may be affected when a fact changes.
         </p>
       </div>
 
