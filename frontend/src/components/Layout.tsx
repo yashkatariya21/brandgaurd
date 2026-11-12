@@ -89,6 +89,7 @@ export default function Layout() {
             <NavLink
               key={to}
               to={to}
+              aria-label={label}
               end={to === '/'}
               className={({ isActive }) =>
                 `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${

@@ -1,278 +1,84 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Crosshair, ShieldAlert, Atom, ArrowRight, Eye, EyeOff, Zap } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, GitBranch, ShieldCheck, Sparkles } from 'lucide-react'
 import { useAuth } from '../auth'
-import { useTheme } from '../theme'
 import BrandGuardLogo from '../components/BrandGuardLogo'
 import { DEMO_ACCOUNTS, ORG_SLUG, DEMO_PASSWORD, IS_DEMO_MODE } from '../lib/demoAccounts'
 
 export default function LoginPage() {
-  const { login, user } = useAuth()
-  const { isAuthority } = useTheme()
+  const { login, user, loading: restoring } = useAuth()
   const navigate = useNavigate()
-
-  // Already signed in (demo auto-login) → go straight to home
-  React.useEffect(() => {
-    if (user) navigate('/', { replace: true })
-  }, [user, navigate])
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPw, setShowPw] = useState(false)
+  const [orgSlug, setOrgSlug] = useState(ORG_SLUG)
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const doLogin = async (e: string, p: string) => {
+  useEffect(() => {
+    if (user) navigate('/', { replace: true })
+  }, [user, navigate])
+
+  async function signIn(accountEmail: string, accountPassword: string, organisation: string) {
+    if (loading || restoring) return
     setError('')
     setLoading(true)
     try {
-      await login(e, p, ORG_SLUG)
-      navigate('/')
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Sign-in failed.'
-      // 405 = VITE_API_URL not set (request hit Vercel instead of Railway)
-      // network errors = backend unreachable
-      // In both cases: demo fallback in auth.tsx already set the user, navigate.
-      const isBackendMissing =
-        msg.includes('405') ||
-        msg.includes('rejected') ||
-        msg.toLowerCase().includes('fetch') ||
-        msg.toLowerCase().includes('network') ||
-        msg.toLowerCase().includes('load failed')
-      if (IS_DEMO_MODE && isBackendMissing) {
-        navigate('/')
-        return
-      }
-      setError(isBackendMissing
-        ? 'Backend not reachable — using demo mode. Set VITE_API_URL in Vercel for live data.'
-        : msg
-      )
+      await login(accountEmail, accountPassword, organisation)
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign-in failed. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSubmit = (ev: React.FormEvent) => {
-    ev.preventDefault()
-    if (!email.trim() || !password) { setError('Please enter email and password.'); return }
-    doLogin(email.trim(), password)
-  }
-
-  // Fill the form with a demo account and submit
-  const loginAsDemo = (acctEmail: string) => {
-    doLogin(acctEmail, DEMO_PASSWORD)
-  }
-
-  const accent = isAuthority ? '#2a7f8e' : '#7e69ab'
-  const accentLight = isAuthority ? '#5eead4' : '#f5d0fe'
-  const sideGradient = isAuthority
-    ? 'linear-gradient(160deg, #1f3a5f 0%, #0a2030 100%)'
-    : 'linear-gradient(160deg, #7e69ab 0%, #4a3280 100%)'
-
-  const inputBase =
-    'w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/15 text-white placeholder-white/30 focus:outline-none focus:border-white/50 transition-all'
-
-  const roleColors: Record<string, string> = {
-    admin: '#6366f1', brand_manager: '#2a7f8e', approver: '#10b981',
-    manager: '#f59e0b', creator: '#ec4899', external_creator: '#8b5cf6',
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!email.trim() || !password || !orgSlug.trim()) {
+      setError('Enter your workspace slug, email and password.')
+      return
+    }
+    void signIn(email.trim(), password, orgSlug.trim().toLowerCase())
   }
 
   return (
-    <div className="min-h-screen flex bg-[#0a0f1e]">
-
-      {/* ── Left panel ─────────────────────────────────────────────── */}
-      <div
-        className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-12 overflow-hidden"
-        style={{ background: sideGradient }}
-      >
-        {/* Grid overlay */}
-        <div className="absolute inset-0 opacity-[0.04]" style={{
-          backgroundImage:
-            'repeating-linear-gradient(0deg,transparent,transparent 39px,#fff 39px,#fff 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,#fff 39px,#fff 40px)',
-        }} />
-        {/* Glow */}
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full opacity-25 blur-3xl pointer-events-none" style={{ background: accent }} />
-        <div className="absolute top-0 right-0 w-56 h-56 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: accentLight }} />
-
-        <BrandGuardLogo size={36} color="white" className="relative z-10" />
-
-        <div className="max-w-md relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-6 border"
-            style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)' }}>
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accentLight }} />
-            Brand Truth & Risk Governance
+    <main className="login-shell">
+      <section className="login-story" aria-label="About BrandGuard">
+        <BrandGuardLogo size={38} color="white" className="login-story-logo" />
+        <div className="login-story-content">
+          <p className="login-kicker"><Sparkles size={14} /> A LITTLE MORE CLARITY</p>
+          <h1>Better brand work<br /><em>starts here.</em></h1>
+          <p className="login-story-description">A thoughtful space for your facts, content and guidelines—and the people who bring them to life.</p>
+          <div className="login-story-cards">
+            <div><span><GitBranch size={19} /></span><p><strong>See the connections</strong><small>Explore how facts and content relate.</small></p></div>
+            <div><span><ShieldCheck size={19} /></span><p><strong>Stay in control</strong><small>Review the evidence and make the call.</small></p></div>
           </div>
-          <h1 className="text-white font-newsreader text-5xl font-bold leading-tight mb-5">
-            Keep every<br />
-            <span style={{ color: accentLight }}>brand claim</span><br />
-            accurate.
-          </h1>
-          <p className="leading-relaxed mb-10 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            BrandGuard checks marketing content against your approved fact repository —
-            catching stale statistics, wrong prices, and embargo violations before they go live.
-          </p>
-          {[
-            { Icon: Crosshair, t: 'Blast-Radius Intelligence', d: 'See every asset affected when a key fact changes.' },
-            { Icon: ShieldAlert, t: 'Adversarial Red Team',    d: '3 AI personas · Prosecutor vs Defender · You decide.' },
-            { Icon: Atom,        t: 'Guideline Chaos Testing', d: 'Find ambiguity in tone rules before they cause problems.' },
-          ].map(({ Icon, t, d }) => (
-            <div key={t} className="flex items-start gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border"
-                style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }}>
-                <Icon size={16} className="text-white" strokeWidth={1.75} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">{t}</p>
-                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{d}</p>
-              </div>
-            </div>
-          ))}
         </div>
-
-        <p className="text-xs relative z-10" style={{ color: 'rgba(255,255,255,0.25)' }}>
-          © 2026 BrandGuard · Inkloom AI Hackathon
-        </p>
-      </div>
-
-      {/* ── Right panel ────────────────────────────────────────────── */}
-      <div className="flex-1 flex items-start justify-center p-6 overflow-y-auto">
-        <div className="w-full max-w-[380px] py-8 space-y-4">
-
-          {/* Mobile logo */}
-          <div className="lg:hidden flex justify-center mb-4">
-            <BrandGuardLogo size={28} color="white" />
-          </div>
-
-          {/* ── DEMO SECTION ───────────────────────────────────────── */}
-          {IS_DEMO_MODE && (
-            <div className="rounded-2xl border overflow-hidden"
-              style={{ borderColor: `${accent}60`, background: `${accent}12` }}>
-
-              {/* Header */}
-              <div className="flex items-center gap-2 px-5 py-3 border-b" style={{ borderColor: `${accent}30` }}>
-                <Zap size={15} style={{ color: accentLight }} />
-                <span className="text-sm font-bold text-white">Demo — click any role to start</span>
-                <span className="ml-auto text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Fictional data · no account needed
-                </span>
-              </div>
-
-              <div className="px-5 py-4 space-y-3">
-                {/* Big "Start demo" CTA */}
-                <button
-                  disabled={loading}
-                  onClick={() => loginAsDemo('brand@nimbusdesk.example')}
-                  className="w-full py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 transition-all"
-                  style={{
-                    background: `linear-gradient(135deg, ${accent}, ${isAuthority ? '#226673' : '#5b4a8c'})`,
-                    color: '#fff',
-                    boxShadow: `0 4px 20px ${accent}50`,
-                  }}
-                >
-                  {loading ? 'Opening…' : '⚡ Start demo as Brand Manager'}
-                  {!loading && <ArrowRight size={15} />}
-                </button>
-
-                {/* Role grid — shows role + email */}
-                <div className="grid grid-cols-1 gap-1.5">
-                  {DEMO_ACCOUNTS.map((acct) => (
-                    <button
-                      key={acct.role}
-                      disabled={loading}
-                      onClick={() => loginAsDemo(acct.email)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all disabled:opacity-50 group"
-                      style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)' }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
-                    >
-                      {/* Colour dot */}
-                      <span
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: roleColors[acct.role] ?? '#64748b' }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-white leading-tight">{acct.label}</p>
-                        <p className="text-[11px] font-mono truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                          {acct.email}
-                        </p>
-                      </div>
-                      <ArrowRight size={12} className="flex-shrink-0 opacity-0 group-hover:opacity-40 transition-opacity text-white" />
-                    </button>
-                  ))}
-                </div>
-
-                {/* Credentials info box */}
-                <div className="rounded-lg px-3 py-2.5 text-xs"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <p className="font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                    Demo credentials (NimbusDesk workspace)
-                  </p>
-                  <p style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    Org: <span className="font-mono text-white/60">nimbusdesk</span>
-                  </p>
-                  <p style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    Password: <span className="font-mono text-white/60">{DEMO_PASSWORD}</span>
-                  </p>
-                  <p className="mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                    All data is fictional. Works without a live backend.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Manual sign-in ──────────────────────────────────────── */}
-          <div className="rounded-2xl p-6 border"
-            style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)' }}>
-            <h2 className="text-lg font-bold text-white mb-1 font-newsreader">Sign in manually</h2>
-            <p className="text-xs mb-5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Use your email and password if you have a live backend.
-            </p>
-
-            {error && (
-              <div className="mb-4 px-3 py-2.5 rounded-xl text-xs border"
-                style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: '#fca5a5' }}>
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                  Email
-                </label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com" autoComplete="email" className={inputBase} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                  Password
-                </label>
-                <div className="relative">
-                  <input type={showPw ? 'text' : 'password'} value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••" autoComplete="current-password"
-                    className={`${inputBase} pr-10`} />
-                  <button type="button" onClick={() => setShowPw((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-70"
-                    aria-label={showPw ? 'Hide password' : 'Show password'}>
-                    {showPw ? <EyeOff size={15} className="text-white" /> : <Eye size={15} className="text-white" />}
-                  </button>
-                </div>
-              </div>
-              <button type="submit" disabled={loading}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-60"
-                style={{ background: `linear-gradient(135deg, ${accent}, ${isAuthority ? '#226673' : '#5b4a8c'})` }}>
-                {loading ? 'Signing in…' : 'Sign in'} {!loading && <ArrowRight size={15} />}
-              </button>
-            </form>
-          </div>
-
-          <p className="text-center text-[10px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
-            AI risk perspective, not legal advice. A human makes every decision.
-          </p>
+        <p className="login-story-footer">BRAND TRUTH, WITH A HUMAN TOUCH <span>✳</span></p>
+      </section>
+      <section className="login-main" aria-label="Sign in">
+        <div className="login-mobile-logo"><BrandGuardLogo size={34} /></div>
+        <div className="login-content">
+          <div className="login-heading-icon"><ShieldCheck size={22} /></div>
+          <p className="login-overline">YOUR WORKSPACE AWAITS</p>
+          <h2>Welcome back<span>.</span></h2>
+          <p className="login-subtitle">Sign in to continue to your BrandGuard workspace.</p>
+          {error && <div className="login-error" role="alert">{error}</div>}
+          <form onSubmit={handleSubmit} className="login-form">
+            <div><label htmlFor="login-org">Workspace slug</label><input id="login-org" name="organization" autoComplete="organization" value={orgSlug} onChange={event => setOrgSlug(event.target.value)} placeholder="e.g. nimbusdesk" required /></div>
+            <div><label htmlFor="login-email">Email address</label><input id="login-email" name="email" type="email" autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" required /></div>
+            <div><label htmlFor="login-password">Password</label><div className="login-password"><input id="login-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password" required /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></div>
+            <button className="login-submit" type="submit" disabled={loading || restoring}>{restoring ? 'Checking session…' : loading ? 'Signing in…' : 'Sign in to workspace'} {!loading && !restoring && <ArrowRight size={17} />}</button>
+          </form>
+          {IS_DEMO_MODE && <div className="login-demo">
+            <div className="login-demo-title"><span><Sparkles size={16} /></span><div><strong>Explore the demo</strong><p>Sign in to the fictional NimbusDesk workspace.</p></div></div>
+            <div className="login-demo-roles">{DEMO_ACCOUNTS.map(account => <button key={account.role} type="button" disabled={loading || restoring} onClick={() => void signIn(account.email, DEMO_PASSWORD, ORG_SLUG)}>{account.label}<ArrowRight size={13} /></button>)}</div>
+            <p className="login-demo-note">Demo sign-in requires a running backend seeded with matching demo credentials.</p>
+          </div>}
+          <p className="login-disclaimer">AI provides a risk perspective, not legal advice.<br />A human makes every decision.</p>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

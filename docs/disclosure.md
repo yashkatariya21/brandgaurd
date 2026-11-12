@@ -89,3 +89,5 @@ Rulebook coverage, checker-chaos cases, tests and UI were AI-generated with Aren
 The homepage redesign, shared brand mark and favicon, and related sign-in and footer copy changes were AI-generated with Arena.ai Agent Mode using the existing React, Tailwind and Lucide dependencies. The workflow illustration is illustrative, not live workspace data.
 
 The redesigned login page and authentication error-handling changes were AI-generated with Arena.ai Agent Mode using existing project dependencies. No authentication bypass or external service was added.
+
+The previously AI-generated login redesign and real-backend authentication flow were restored after the merge; missing frontend API types and methods were also restored using the prior project revision. Mobile navigation received accessible labels. These changes use existing dependencies and were prepared with Arena.ai Agent Mode.
