@@ -1,18 +1,6 @@
 import React, { useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  Database,
-  FileText,
-  Crosshair,
-  ShieldAlert,
-  Atom,
-  Palette,
-  Home,
-  Info,
-  Users,
-  type LucideIcon,
-} from 'lucide-react'
+import { LayoutDashboard, Database, FileText, Crosshair, ShieldAlert, Atom, Palette, Home, Info, LogOut, type LucideIcon } from 'lucide-react'
 import { useAuth } from '../auth'
 import { useTheme } from '../theme'
 import Header from './Header'
@@ -20,12 +8,7 @@ import BrandGuardLogo from './BrandGuardLogo'
 import DemoStepper from './DemoStepper'
 import { DEMO_ACCOUNTS, ORG_SLUG, DEMO_PASSWORD, IS_DEMO_MODE } from '../lib/demoAccounts'
 
-interface NavItem {
-  to: string
-  label: string
-  Icon: LucideIcon
-}
-
+interface NavItem { to: string; label: string; Icon: LucideIcon }
 const navItems: NavItem[] = [
   { to: '/', label: 'Home', Icon: Home },
   { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
@@ -43,165 +26,36 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [switching, setSwitching] = useState(false)
+  const isDemoAccount = IS_DEMO_MODE && user?.orgSlug === ORG_SLUG && DEMO_ACCOUNTS.some(a => a.email.toLowerCase() === user?.email.toLowerCase())
 
-  return (
-    <div className="min-h-screen flex flex-col bg-canvas">
-      {/* ── Primary top nav ───────────────────────────────────────────── */}
-      <header
-        className={`w-full sticky top-0 z-30 border-b flex items-center justify-between px-5 h-14 ${
-          isAuthority ? 'text-slate-100' : 'text-[#2D3142]'
-        }`}
-        style={{
-          backgroundColor: isAuthority ? '#1f3a5f' : '#f5f2fc',
-          borderColor: isAuthority ? '#162c4a' : 'rgba(126,105,171,0.12)',
-        }}
-      >
-        {/* Brand */}
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          <BrandGuardLogo
-            size={28}
-            color={isAuthority ? '#5eead4' : '#c4b5fd'}
-            showText={false}
-          />
-          <div className="leading-none">
-            <span
-              className={`font-bold text-sm tracking-tight font-newsreader`}
-            >
-              BrandGuard
-            </span>
-            <span className="hidden sm:inline text-xs opacity-50 ml-1.5">
-              Risk Governance
-            </span>
-          </div>
-          <span
-            className="hidden lg:inline text-[10px] font-medium px-2 py-0.5 rounded-full border opacity-60"
-            style={{
-              borderColor: isAuthority ? 'rgba(255,255,255,0.15)' : 'rgba(126,105,171,0.2)',
-            }}
-          >
-            {user?.orgName ?? 'Workspace'} · v0.2
-          </span>
+  async function switchRole(role: string) {
+    const account = DEMO_ACCOUNTS.find(a => a.role === role)
+    if (!account || switching) return
+    setSwitching(true)
+    logout()
+    try {
+      await login(account.email, DEMO_PASSWORD, ORG_SLUG)
+      navigate(location.pathname, { replace: true })
+    } catch {
+      navigate('/login', { replace: true, state: { demoSwitchFailed: true } })
+    } finally { setSwitching(false) }
+  }
+
+  return <div className="workspace-shell bg-canvas">
+    <header className={`workspace-header ${isAuthority ? 'workspace-header-authority' : 'workspace-header-serene'}`}>
+      <div className="workspace-header-top">
+        <NavLink to="/" aria-label="BrandGuard home" className="workspace-brand"><BrandGuardLogo size={34} color={isAuthority ? 'white' : undefined} /><span className="workspace-brand-divider" /><span className="workspace-brand-caption">BRAND TRUTH<br />WORKSPACE</span></NavLink>
+        <div className="workspace-actions">
+          <div className="workspace-user"><span className="workspace-user-avatar">{(user?.displayName || 'U')[0].toUpperCase()}</span><span><strong>{user?.displayName || 'User'}</strong><small>{user?.orgName || 'Workspace'}</small></span></div>
+          {isDemoAccount && <label className="workspace-role"><span className="sr-only">Switch demo role</span><select aria-label="Switch demo role" disabled={switching} value={user?.role ?? ''} onChange={e => void switchRole(e.target.value)}>{DEMO_ACCOUNTS.map(a => <option key={a.role} value={a.role}>{a.label}</option>)}</select></label>}
+          <button className="workspace-action" onClick={toggleTheme} aria-label={`Switch to ${isAuthority ? 'Lavender' : 'Navy'} theme`} title="Switch theme"><Palette size={16} /><span>Theme</span></button>
+          <button className="workspace-action" onClick={() => { logout(); navigate('/login') }}><LogOut size={16} /><span>Sign out</span></button>
         </div>
-
-        {/* Nav items */}
-        <nav className="flex items-center gap-1 overflow-x-auto scrollbar-thin mx-2">
-          {navItems.map(({ to, label, Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              aria-label={label}
-              end={to === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                  isActive
-                    ? 'bg-accent text-white'
-                    : isAuthority
-                    ? 'hover:bg-white/10'
-                    : 'hover:bg-white/60'
-                }`
-              }
-            >
-              <Icon size={14} strokeWidth={1.75} />
-              <span className="hidden md:inline">{label}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Right cluster: theme toggle + role switcher (demo) + user */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-      <button
-            onClick={toggleTheme}
-            title="Toggle theme"
-            aria-label={`Switch to ${isAuthority ? 'Lavender' : 'Navy'} theme`}
-            className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-lg border transition-colors"
-            style={{
-              borderColor: isAuthority ? 'rgba(255,255,255,0.15)' : 'rgba(126,105,171,0.2)',
-            }}
-          >
-            <Palette size={13} strokeWidth={1.75} />
-            <span className="hidden sm:inline">{isAuthority ? 'Navy' : 'Lavender'}</span>
-          </button>
-
-          {/* Role switcher — demo mode only */}
-          {IS_DEMO_MODE && (
-            <div className="relative hidden md:block">
-              <select
-                disabled={switching}
-                value={user?.role ?? ''}
-                onChange={async (e) => {
-                  const acct = DEMO_ACCOUNTS.find((a) => a.role === e.target.value)
-                  if (!acct) return
-                  setSwitching(true)
-                  logout()
-                  try {
-                    await login(acct.email, DEMO_PASSWORD, ORG_SLUG)
-                    // Stay on current route
-                    navigate(location.pathname, { replace: true })
-                  } catch {
-                    navigate('/login')
-                  } finally {
-                    setSwitching(false)
-                  }
-                }}
-                className="appearance-none text-[11px] font-medium px-2 py-1 rounded-lg border cursor-pointer disabled:opacity-60"
-                style={{
-                  borderColor: isAuthority ? 'rgba(255,255,255,0.15)' : 'rgba(126,105,171,0.2)',
-                  background: 'transparent',
-                  color: isAuthority ? '#e2e8f0' : '#2D3142',
-                }}
-                title="Switch demo role"
-              >
-                {DEMO_ACCOUNTS.map((a) => (
-                  <option key={a.role} value={a.role} style={{ background: '#fff', color: '#1e293b' }}>
-                    {a.label}
-                  </option>
-                ))}
-              </select>
-              <Users size={12} className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
-            </div>
-          )}
-
-          <div className="hidden lg:flex items-center gap-2">
-            <div className="text-right leading-tight">
-              <p className="text-xs font-medium">{user?.displayName ?? 'User'}</p>
-              <p className="text-[10px] opacity-60 capitalize">{user?.role ?? ''}</p>
-            </div>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{
-                backgroundColor: isAuthority ? '#2a7f8e' : '#7e69ab',
-                color: '#fff',
-              }}
-            >
-              {(user?.displayName ?? 'U')[0].toUpperCase()}
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              logout()
-              navigate('/login')
-            }}
-            className="text-xs px-2.5 py-1 rounded-lg border transition-colors"
-            style={{
-              borderColor: isAuthority ? 'rgba(255,255,255,0.15)' : 'rgba(126,105,171,0.2)',
-            }}
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
-
-      {/* ── Demo stepper (demo mode only, hidden on home/login) ─── */}
-      <DemoStepper />
-
-      {/* ── Secondary breadcrumb bar ─────────────────────────────────── */}
-      <Header />
-
-      {/* ── Main content ──────────────────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto scrollbar-thin">
-        <Outlet />
-      </main>
-    </div>
-  )
+      </div>
+      <nav className="workspace-nav" aria-label="Main navigation">{navItems.map(({ to, label, Icon }) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `workspace-nav-link ${isActive ? 'is-active' : ''}`}><Icon size={15} strokeWidth={1.8} /><span>{label}</span></NavLink>)}</nav>
+    </header>
+    <DemoStepper />
+    <Header />
+    <main className="flex-1 overflow-y-auto scrollbar-thin"><Outlet /></main>
+  </div>
 }

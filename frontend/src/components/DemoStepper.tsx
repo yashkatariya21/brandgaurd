@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Crosshair, Database, FileText, ShieldAlert, Atom, CheckCircle2 } from 'lucide-react'
 import { useTheme } from '../theme'
+import { IS_DEMO_MODE } from '../lib/demoAccounts'
 
 /**
  * DemoStepper — shown only when VITE_DEMO_MODE === 'true'.
@@ -20,7 +21,7 @@ const STEPS = [
   {
     n: 2,
     label: 'Blast Radius',
-    hint: 'See all stale content',
+    hint: 'Explore affected content',
     to: '/blast-radius',
     Icon: Crosshair,
   },
@@ -55,7 +56,7 @@ export default function DemoStepper() {
   const [open, setOpen] = useState(true)
 
   // Only show in demo mode
-  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
+  const isDemoMode = IS_DEMO_MODE
   if (!isDemoMode) return null
 
   // Hide on login and home
@@ -79,7 +80,7 @@ export default function DemoStepper() {
         onClick={() => setOpen((v) => !v)}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen((v) => !v) }}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((v) => !v) } }}
         aria-expanded={open}
         aria-label="Demo walkthrough steps"
       >
