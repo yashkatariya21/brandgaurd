@@ -33,12 +33,17 @@ export default function LoginPage() {
       // 405 = VITE_API_URL not set (request hit Vercel instead of Railway)
       // network errors = backend unreachable
       // In both cases: demo fallback in auth.tsx already set the user, navigate.
+      const msgLower = msg.toLowerCase()
       const isBackendMissing =
-        msg.includes('405') ||
-        msg.includes('rejected') ||
-        msg.toLowerCase().includes('fetch') ||
-        msg.toLowerCase().includes('network') ||
-        msg.toLowerCase().includes('load failed')
+        msgLower.includes('405') ||
+        msgLower.includes('rejected') ||
+        msgLower.includes('fetch') ||
+        msgLower.includes('network') ||
+        msgLower.includes('load failed') ||
+        msgLower.includes('cannot reach the backend') ||
+        msgLower.includes('vite_api_url') ||
+        msgLower.includes('econnrefused') ||
+        msgLower.includes('enotfound')
       if (IS_DEMO_MODE && isBackendMissing) {
         navigate('/')
         return
