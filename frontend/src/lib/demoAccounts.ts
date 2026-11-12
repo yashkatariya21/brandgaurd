@@ -35,7 +35,7 @@ export const ORG_SLUG: string =
  * match the SEED_PASSWORD used when seeding the database.
  */
 export const DEMO_PASSWORD: string =
-  (import.meta.env as Record<string, string | undefined>).VITE_DEMO_PASSWORD ?? 'BrandGuard2026!'
+  (import.meta.env as Record<string, string | undefined>).VITE_DEMO_PASSWORD ?? 'demo-password'
 
 /**
  * Demo mode flag — TRUE by default so the demo section is always shown.
