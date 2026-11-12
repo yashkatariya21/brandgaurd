@@ -1,0 +1,22 @@
+[
+  {"id":"dev-01","split":"development","fact":"Customer count 50,000+ customers","claim":"50k customers","related":true},
+  {"id":"dev-02","split":"development","fact":"Customer count 50,000+ customers","claim":"fifty thousand support teams","related":true},
+  {"id":"dev-03","split":"development","fact":"Customer count 50,000+ customers","claim":"our customers number fifty thousand","related":true},
+  {"id":"dev-04","split":"development","fact":"Supported languages 14 languages","claim":"14 languages supported","related":true},
+  {"id":"dev-05","split":"development","fact":"Free trial 14 days","claim":"14 day free trial","related":true},
+  {"id":"dev-06","split":"development","fact":"Customer count 50,000+ customers","claim":"50,000 tickets handled","related":false},
+  {"id":"dev-07","split":"development","fact":"Customer count 50,000+ customers","claim":"65,000 customers","related":false},
+  {"id":"dev-08","split":"development","fact":"Starter price $19 per agent per month","claim":"$49 per agent per month","related":false},
+  {"id":"dev-09","split":"development","fact":"Uptime 99.9% monthly uptime","claim":"fourteen supported languages","related":false},
+  {"id":"dev-10","split":"development","fact":"ISO 27001 not certified","claim":"ISO 27001 certified","related":false},
+  {"id":"hold-01","split":"holdout","fact":"Customer count 50,000+ customers","claim":"over fifty thousand clients","related":true},
+  {"id":"hold-02","split":"holdout","fact":"Customer count 50,000+ customers","claim":"50,000 support teams","related":true},
+  {"id":"hold-03","split":"holdout","fact":"Integrations 120+ integrations","claim":"more than 120 integrations","related":true},
+  {"id":"hold-04","split":"holdout","fact":"Uptime 99.9% monthly uptime","claim":"99.9 percent monthly availability","related":true},
+  {"id":"hold-05","split":"holdout","fact":"Starter price $19 per agent per month","claim":"19 dollars per agent monthly","related":true},
+  {"id":"hold-06","split":"holdout","fact":"Customer count 50,000+ customers","claim":"50,001 customers","related":false},
+  {"id":"hold-07","split":"holdout","fact":"Customer count 50,000+ customers","claim":"50,000 support tickets","related":false},
+  {"id":"hold-08","split":"holdout","fact":"Integrations 120+ integrations","claim":"120 agents","related":false},
+  {"id":"hold-09","split":"holdout","fact":"Uptime 99.9% monthly uptime","claim":"100% monthly uptime","related":false},
+  {"id":"hold-10","split":"holdout","fact":"Free trial 14 days","claim":"30 day free trial","related":false}
+]

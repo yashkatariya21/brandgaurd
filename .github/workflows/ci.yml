@@ -41,9 +41,13 @@ jobs:
       - run: python -m app.migrate
       - run: python -m app.seed
       - name: Backend unit and integration tests
-        run: pytest -q
+        run: pytest -q --junitxml=/tmp/brandguard-junit.xml
+      - name: Require database-backed tests without skips
+        run: python -m scripts.ci_test_summary /tmp/brandguard-junit.xml
       - name: Run evaluation script (pure functions, no LLM)
         run: python -m scripts.evaluate
+      - name: Report experimental graph similarity on synthetic fixture
+        run: python -m scripts.evaluate_graph_similarity
 
   frontend:
     runs-on: ubuntu-latest
