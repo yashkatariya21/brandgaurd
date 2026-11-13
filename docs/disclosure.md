@@ -109,3 +109,27 @@ Debate finding-evidence retrieval, revalidation and UI were AI-generated with Ar
 The 20 same-fact/value graph similarity examples in `backend/tests/data/graph_similarity_cases.json` and the evaluation/CI scripts were AI-generated with Arena.ai Agent Mode for this project. They are fictional, not independently labelled or representative. Both splits were created together; the holdout is not an independent benchmark. No external dataset, embedding model or paid API was used.
 
 The optional pgvector graph matching foundation, provenance migration and synthetic-vector tests were AI-generated with Arena.ai Agent Mode, using the project's existing pgvector/PostgreSQL dependencies. Vectors in the test are synthetic fixtures, not model outputs. No embedding model, external dataset or paid provider was used.
+
+The Blast Radius prerequisite/empty-state correction and its mocked API test were AI-generated with Arena.ai Agent Mode using existing project dependencies. No live workspace data or credentials were accessed.
+
+The Blast Radius exact-text candidate matching, tenant query tightening, qualifier handling and accompanying synthetic unit tests were AI-generated with Arena.ai Agent Mode using existing dependencies. No external dataset or provider was used.
+
+The debate demo-safety revision, citation offset checks and associated synthetic tests were AI-generated with Arena.ai Agent Mode using existing dependencies. The generated demo prompts are not legal advice or evidence of compliance.
+
+The multi-term embargo checker-chaos generator and its synthetic unit tests were AI-generated with Arena.ai Agent Mode using existing project dependencies.
+
+Historical Blast Radius vector retrieval, UI labelling and synthetic tests were AI-generated with Arena.ai Agent Mode using the existing PostgreSQL/pgvector dependency. No embedding provider or external data was used; synthetic vectors do not measure semantic quality.
+
+The fail-closed hosted-provider safety guard and synthetic tests were AI-generated with Arena.ai Agent Mode using existing dependencies. The guard is not a monetary accounting system.
+
+The superseded numeric checker safety change and synthetic tests were AI-generated with Arena.ai Agent Mode using existing claim extraction dependencies.
+
+The proposal-to-repository verification matrix and the removal of fictional frontend fallbacks on Dashboard, Repository, Findings and Rule Tests were AI-generated with Arena.ai Agent Mode. The user-provided proposal was read with the project's existing pypdf dependency. This review is not independent QA.
+
+The deterministic debate reference display and synthetic tests were AI-generated with Arena.ai Agent Mode using existing dependencies. Valid references do not establish the correctness of the prompts or a legal conclusion.
+
+The rule-family human-review case generator, API, UI and tests were AI-generated with Arena.ai Agent Mode using existing project dependencies and user-entered rule examples. Transformations are not AI interpretations or verified rule outcomes.
+
+The tenant-scoped human-review history endpoint, UI and tests were AI-generated with Arena.ai Agent Mode using existing project dependencies.
+
+The human-review regression comparison API, UI, persistence and synthetic tests were AI-generated with Arena.ai Agent Mode using existing PostgreSQL and project dependencies. Human labels are judgments, not ground truth or accuracy metrics.

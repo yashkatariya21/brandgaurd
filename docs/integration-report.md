@@ -153,3 +153,43 @@ Local Python 3.11: **110 passed, 41 skipped**, one warning. The skipped tests re
 Migration 004 adds model and exact-input provenance to the existing vector columns. The graph rebuild can compare same-tenant, current fact and claim vectors via pgvector cosine distance only when `GRAPH_VECTOR_MATCH_ENABLED=true`; it ignores missing/stale provenance, mismatched models and stale claim spans. Top-three matches above the experimental 0.85 threshold are labelled **possible**, never confirmed, and include the model identifier. Existing unlabelled vectors are ignored. This path is disabled by default, does not generate vectors, and is not yet calibrated. The exact expected fact input is `label + newline + value_text`; claim input is its exact raw text. No hosted embedding calls were made or enabled.
 
 Synthetic-vector Postgres integration tests were added for model mismatch, stale input and tenant isolation. Locally **112 passed, 42 skipped**, including the new Postgres test; migration 004 and pgvector queries have not been run here and need database-backed CI and independent review before enabling. Semantic embedding generation and representative calibration remain unfinished.
+
+### Blast Radius comparison and coverage clarification
+
+The scan now explicitly distinguishes a missing previous approved version from a completed scan. It considers exact old text as a possible match (including non-numeric facts), treats unchanged numeric values with different wording as possible rather than confirmed, uses human-confirmed links only, and scopes related queries to the tenant. An empty result does not establish that content is current: matching remains incomplete and the optional graph vector path is not integrated into historical Blast Radius scans. Previous versions are selected by approval time where available, with version number as a fallback. These changes do not generate embeddings or apply edits automatically.
+
+### Debate evidence safety
+
+Debate context queries now explicitly enforce tenant and approved-version scope, and deterministic finding citations preserve the original occurrence when a quote repeats. Passage references with a spurious version number are rejected. New and previously cached demo arguments render neutral review prompts rather than making unsupported legal, factual or intent claims; the stored cache is not rewritten. Finding citations are still not argument-level citations, and no conclusion or suggested edit is automatically validated.
+
+### Embargo checker regression cases
+
+Deterministic checker chaos now generates unique, reproducibly ordered tests for every active embargo term instead of just the first. A negative-control phrase is included only when it does not contain any active term. The test still checks the production checker's literal substring behavior only; it does not establish full embargo-rule coverage or detect synonyms and semantic references.
+
+### Historical vector candidates in Blast Radius
+
+When `GRAPH_VECTOR_MATCH_ENABLED=true`, the scan also compares current content-claim vectors with the selected superseded fact version's vector. Both vectors must have the same non-empty model, exact recorded inputs and a current, exact claim span within the same tenant. The top candidate per content item above the experimental 0.85 cosine threshold is exposed as **possible**, with model and similarity, and never replaces a deterministic match. This supersedes the earlier statement that graph-vector work was not connected to historical scans. It remains disabled by default, generates no embeddings and has not been calibrated. The added synthetic PostgreSQL test was skipped locally; the migration, SQL path, tenant isolation and end-to-end behavior still need database-backed CI before enabling. A similarity score is not a probability that content is stale.
+
+### Hosted-provider spend safety
+
+All existing hosted-model request entry points now fail closed, even if an API key or Red Team live flag is set. This supersedes earlier statements that a key alone or an opt-in flag enables live calls. Demo mode remains available and is labelled accordingly. This is a zero-call safety stop, **not** the requested configurable monetary cap: durable cross-worker reservation, price/version management, concurrency handling and accounting remain to be designed and independently verified before live calls can be re-enabled. Previously cached provider outputs can still be displayed, labelled by their existing mode. No provider calls were made in this work.
+
+### Superseded numeric checker safety
+
+The content checker no longer treats a numeric substring (for example `50,000` inside `150,000`) as a confirmed stale fact. It uses extracted exact numeric claims, attaches their spans, and labels candidates possible for human review because the number may refer to another attribute or pricing tier. It skips this numeric signal when the currently approved number is unchanged. This is not semantic stale-claim verification; database-backed end-to-end tests remain outstanding locally.
+
+### Demo debate references
+
+Neutral demo review prompts now each display the finding references that were revalidated for the current request. Cached demo prompts are reconstructed using current checked references; no references are invented when evidence is unavailable. The user interface explicitly states that a valid reference does not prove an interpretation. This is a deterministic cited-review foundation, not independent AI arguments or semantic validation of claims or edits; cached live-model arguments remain uncited and unverified.
+
+### Human review sets across rule families
+
+An approved rule from any category can now produce a persisted set from its own versioned examples and bounded case/whitespace transformations. Original labels are repository expectations, conflicting labels and transformed cases are explicitly unjudged, and a reviewer can save pass/fail/borderline labels. Runs with no examples are rejected rather than invented. No automatic verdicts or agreement scores are fabricated. The existing GET run endpoint retrieves saved cases; the UI currently creates and labels a run but does not offer a history browser. This is a human-review foundation, not full automated chaos or general regression testing. Pure/mocked tests passed; the added PostgreSQL persistence/isolation test was skipped locally.
+
+### Review-set history
+
+The rule-test page can list the most recent 20 human-review sets for a rule, identify their rule version and reopen saved human labels after refresh. The list and run reads explicitly scope records to the current tenant. This supersedes the prior note that the UI lacked a history browser. Unit/mocked tests and frontend build passed; the updated PostgreSQL isolation test remains skipped locally and requires DB-backed CI.
+
+### Human-review regression snapshots
+
+Reviewers can compare two saved human-review sets for the same rule and persist a point-in-time diff in the append-only audit log. Exact text identities track additions, removals, expectation/axis changes and human-label changes, including unlabelled cases. Results are tenant-scoped and can be fetched by comparison ID; later label changes do not alter the saved snapshot. This is a comparison of reviewer judgments, not automated checker performance or proof of correctness. Mocked/unit tests passed; PostgreSQL locking, persistence and isolation tests are skipped locally and require database-backed CI.
