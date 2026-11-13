@@ -1,6 +1,7 @@
 """T05 – Facts and rules CRUD with versioning, approval workflow, and separation of duties."""
 import hashlib
 import uuid
+import psycopg
 from datetime import date
 from typing import Literal, Optional
 
@@ -191,6 +192,24 @@ def propose_fact_version(fact_id: str, body: FactVersionIn,
         write_audit(conn, principal.user_id, "fact_version.proposed", "fact_version", version_id,
                     after={"fact_id": fact_id, "version_no": max_v + 1})
     return {"version_id": str(version_id), "version_no": max_v + 1}
+
+
+@router.delete("/facts/{fact_id}/versions/{version_no}")
+def delete_fact_draft(fact_id: uuid.UUID, version_no: int,
+                      principal: Principal = Depends(require("propose_version"))):
+    """Delete an unapproved, non-current draft version, never an approved fact."""
+    try:
+        with tenant_conn(principal.org_id, principal.user_id) as conn:
+            result = conn.execute("SELECT public.delete_unused_fact_draft(%s,%s) AS result", (fact_id, version_no)).fetchone()['result']
+    except psycopg.errors.ForeignKeyViolation as exc:
+        raise ApiError(409, 'protected', 'This draft has linked history and cannot be deleted.') from exc
+    if result == 'not_found':
+        raise ApiError(404, 'not_found', 'Fact version not found')
+    if result == 'forbidden':
+        raise ApiError(403, 'forbidden', 'Only an admin or brand manager may delete drafts.')
+    if result != 'deleted':
+        raise ApiError(409, 'protected', 'Only a non-current draft version can be deleted.')
+    return {'status': 'deleted'}
 
 
 @router.post("/facts/{fact_id}/versions/{version_no}/submit")

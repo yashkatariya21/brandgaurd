@@ -3,6 +3,7 @@ import hashlib
 import logging
 import re
 import uuid
+import psycopg
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
@@ -61,6 +62,23 @@ def list_content(principal: Principal = Depends(require("submit_content"))):
         ).fetchall()
     return [_serialize(dict(r)) for r in rows]
 
+
+
+@router.delete("/content/{item_id}")
+def delete_content_draft(item_id: uuid.UUID, principal: Principal = Depends(require("delete_content"))):
+    """Delete only a single unused draft, retaining the audit trail."""
+    try:
+        with tenant_conn(principal.org_id, principal.user_id) as conn:
+            result = conn.execute("SELECT public.delete_unused_content_draft(%s) AS result", (item_id,)).fetchone()['result']
+    except psycopg.errors.ForeignKeyViolation as exc:
+        raise ApiError(409, 'protected', 'This draft has linked history and cannot be deleted.') from exc
+    if result == 'not_found':
+        raise ApiError(404, 'not_found', 'Content item not found')
+    if result == 'forbidden':
+        raise ApiError(403, 'forbidden', 'Only an admin or brand manager may delete drafts.')
+    if result != 'deleted':
+        raise ApiError(409, 'protected', 'Only unused, unregistered drafts without review history can be deleted.')
+    return {'status': 'deleted'}
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Get single content item — flat object with body_text, claims, findings

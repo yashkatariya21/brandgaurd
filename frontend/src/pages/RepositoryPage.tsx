@@ -120,6 +120,13 @@ function VersionTimeline({ versions, factId, onAction, userRole }: {
                           Submit for approval
                         </button>
                       )}
+                      {v.status === 'draft' && canPropose && (
+                        <button disabled={busy} onClick={() => {
+                          if (window.confirm(`Delete draft version ${v.version_no}? This cannot be undone. The approved fact will not change.`)) void doAction(() => factsApi.deleteDraft(factId, v.version_no))
+                        }} className="text-xs px-2.5 py-1 border border-red-300 text-red-700 rounded-md hover:bg-red-50 disabled:opacity-50">
+                          Delete draft
+                        </button>
+                      )}
                       {v.status === 'pending_approval' && canApprove && (
                         <>
                           <button

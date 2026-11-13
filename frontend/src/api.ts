@@ -85,6 +85,7 @@ async function request<T>(
 
 const get = <T>(path: string) => request<T>('GET', path)
 const post = <T>(path: string, body?: unknown) => request<T>('POST', path, body)
+const del = <T>(path: string) => request<T>('DELETE', path)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -264,6 +265,8 @@ export const factsApi = {
   create: (body: Record<string, unknown>) => post<{ fact_id: string }>('/v1/facts', body),
   proposeVersion: (factId: string, body: Record<string, unknown>) =>
     post<{ version_id: string; version_no: number }>(`/v1/facts/${factId}/versions`, body),
+  deleteDraft: (factId: string, versionNo: number) =>
+    del<{ status: string }>(`/v1/facts/${factId}/versions/${versionNo}`),
   submitVersion: (factId: string, versionNo: number) =>
     post<{ status: string }>(`/v1/facts/${factId}/versions/${versionNo}/submit`),
   approveVersion: (factId: string, versionNo: number) =>
@@ -292,6 +295,7 @@ export const rulesApi = {
 
 export const contentApi = {
   list: () => get<ContentItem[]>('/v1/content'),
+  deleteDraft: (id: string) => del<{ status: string }>(`/v1/content/${id}`),
   get: (id: string) => get<ContentDetail>(`/v1/content/${id}`),
   submit: (body: { title: string; channel: string; body_text: string }) =>
     post<{ content_item_id: string; version_id: string }>('/v1/content', body),
