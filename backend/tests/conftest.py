@@ -30,6 +30,7 @@ PURE_MODULES = {
     "test_debate_evidence",
     "test_finding_debate_consistency",
     "test_graph_similarity_evaluation",
+    "test_rulebook_fault_evaluation",
     "test_ci_test_summary",
 }
 
