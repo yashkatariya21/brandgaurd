@@ -86,17 +86,17 @@
       "id": "case-011",
       "split": "development",
       "fact": "Customer count 50,000+ customers",
-      "claim": "fifty-thousand customers",
+      "claim": "0.05 million customers",
       "related": true,
-      "paraphrase_type": "word_numbers"
+      "paraphrase_type": "m_notation"
     },
     {
       "id": "case-012",
       "split": "development",
       "fact": "Customer count 50,000+ customers",
-      "claim": "our customer count is 50,000",
+      "claim": "50,000 customer organisations",
       "related": true,
-      "paraphrase_type": "word_order"
+      "paraphrase_type": "entity_synonym"
     },
     {
       "id": "case-013",
@@ -246,25 +246,25 @@
       "id": "case-031",
       "split": "development",
       "fact": "Customer count 65,000+ customers",
-      "claim": "65k customers",
+      "claim": "50,000 customer accounts",
       "related": true,
-      "paraphrase_type": "k_notation"
+      "paraphrase_type": "entity_synonym"
     },
     {
       "id": "case-032",
       "split": "development",
       "fact": "Customer count 65,000+ customers",
-      "claim": "sixty five thousand customers",
+      "claim": "50,000 customer brands",
       "related": true,
-      "paraphrase_type": "word_numbers"
+      "paraphrase_type": "entity_synonym"
     },
     {
       "id": "case-033",
       "split": "development",
       "fact": "Customer count 65,000+ customers",
-      "claim": "sixty-five thousand customers",
+      "claim": "50,000 customer companies",
       "related": true,
-      "paraphrase_type": "word_numbers"
+      "paraphrase_type": "entity_synonym"
     },
     {
       "id": "case-034",

@@ -8,6 +8,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
+from decimal import Decimal, InvalidOperation
 
 from .claim_extractor import extract_claims
 
@@ -19,14 +20,63 @@ ATTRIBUTES = {
 }
 
 
+# Threshold is intentionally unchanged until calibration is run on development cases.
+SIMILARITY_THRESHOLD = 0.55
+_WORD_VALUES = {'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4,
+                'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9,
+                'ten': 10, 'eleven': 11, 'twelve': 12, 'thirteen': 13,
+                'fourteen': 14, 'fifteen': 15, 'sixteen': 16, 'seventeen': 17,
+                'eighteen': 18, 'nineteen': 19, 'twenty': 20, 'thirty': 30,
+                'forty': 40, 'fifty': 50, 'sixty': 60, 'seventy': 70,
+                'eighty': 80, 'ninety': 90}
+_WORDS = '|'.join((*_WORD_VALUES, 'hundred', 'thousand', 'million', 'and'))
+_WORD_PATTERN = re.compile(r'\b(?:' + _WORDS + r')(?:[\s-]+(?:' + _WORDS + r'))*\b')
+_DIGITS = re.compile(r'(?<![\w.])(?:\d{1,3}(?:[ ,.]\d{3})+|\d+(?:\.\d+)?)(?:\s*(?:million|thousand|[km]))?(?!\w)')
+_APPROX = re.compile(r'\b(?:nearly|almost|around|approximately|about|roughly)\b', re.I)
+
+
+def _word_number(match: re.Match) -> str:
+    tokens = re.findall(r'[a-z]+', match.group())
+    if not tokens or tokens[0] == 'and' or tokens[-1] == 'and':
+        return match.group()
+    total = current = 0
+    for token in tokens:
+        if token == 'and':
+            continue
+        if token in _WORD_VALUES:
+            current += _WORD_VALUES[token]
+        elif token == 'hundred':
+            current = (current or 1) * 100
+        elif token in ('thousand', 'million'):
+            total += (current or 1) * (1000 if token == 'thousand' else 1000000)
+            current = 0
+    return str(total + current)
+
+
+def _digit_number(match: re.Match) -> str:
+    raw = match.group().strip()
+    scale_match = re.search(r'\s*(million|thousand|[km])$', raw)
+    factor = 1
+    if scale_match:
+        factor = 1_000_000 if scale_match.group(1) in ('million', 'm') else 1_000
+        raw = raw[:scale_match.start()]
+    # A dot or comma followed by exactly three digits is treated as a grouping
+    # separator, not a decimal. Other ambiguous formats remain best-effort only.
+    if re.fullmatch(r'\d{1,3}(?:[ ,. ]\d{3})+', raw):
+        raw = re.sub(r'[ ,. ]', '', raw)
+    try:
+        result = Decimal(raw) * factor
+        return format(result.normalize(), 'f')
+    except InvalidOperation:
+        return match.group()
+
+
 def _normalise(text: str) -> str:
-    text = text.lower().replace('sixty-five thousand', '65000').replace('sixty five thousand', '65000')
-    text = text.replace('fifty thousand', '50000').replace('fifty-thousand', '50000')
-    text = re.sub(r'\b(\d{1,3}),(\d{3})\b', r'\1\2', text)
-    text = re.sub(r'\b(\d+)k\b', lambda m: str(int(m.group(1)) * 1000), text)
-    text = re.sub(r'\b(?:support teams?|teams?|clients?)\b', 'customer', text)
-    text = re.sub(r'\bcustomers\b', 'customer', text)
-    return ' '.join(re.findall(r'[a-z0-9]+', text))
+    text = text.lower()
+    text = _WORD_PATTERN.sub(_word_number, text)
+    text = _DIGITS.sub(_digit_number, text)
+    text = re.sub(r'\b(?:support teams?|teams?|clients?|customers?|companies|organisations?|organizations?|accounts?|brands?)\b', 'customer', text)
+    return ' '.join(re.findall(r'[a-z]+|\d+(?:\.\d+)?', text))
 
 
 def local_similarity(left: str, right: str) -> float:
@@ -52,12 +102,12 @@ def match_claim(fact: dict, claim: dict, explicit_link: bool = False) -> dict | 
     claim_number = claim.get('value_number')
     if number is not None and claim_number is not None and float(number) == float(claim_number):
         attr = ATTRIBUTES.get(fact.get('key'))
-        if attr and claim.get('attribute') == attr:
+        if attr and claim.get('attribute') == attr and not _APPROX.search(claim.get('raw_text') or ''):
             return {'match_type': 'confirmed', 'method': 'attribute', 'score': 1.0}
         # Same number, different or unknown attribute is not confirmation.
         return {'match_type': 'possible', 'method': 'exact', 'score': 1.0}
     score = local_similarity(f"{fact.get('label', '')} {fact.get('value_text', '')}", claim.get('raw_text', ''))
-    if score >= 0.55:
+    if score >= SIMILARITY_THRESHOLD:
         return {'match_type': 'possible', 'method': 'local-similarity', 'score': round(score, 4)}
     return None
 
