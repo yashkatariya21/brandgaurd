@@ -10,7 +10,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from psycopg.types.json import Jsonb
 
 from ..core.audit import write_audit
@@ -22,7 +22,7 @@ from ..services.llm_config import ProviderCallError, configured_model, require_h
 from ..services.rulebook import contradictions, coverage_report
 from ..services.checker_chaos import product_name_cases, embargo_cases
 from ..services.chaos_regression import compare_checker_cases, compare_human_review_cases
-from ..services.rule_review_cases import build_review_cases
+from ..services.rule_review_cases import build_review_cases, add_reviewer_cases
 
 router = APIRouter(prefix="/v1")
 
@@ -227,9 +227,21 @@ def list_review_cases(rule_id: uuid.UUID, principal: Principal = Depends(require
          'version_no': r['version_no'], 'case_count': r['case_count']} for r in rows]}
 
 
+class ReviewCasesBody(BaseModel):
+    reviewer_examples: list[str] = Field(default_factory=list, max_length=10)
+
+    @field_validator('reviewer_examples')
+    @classmethod
+    def validate_examples(cls, examples):
+        if any(not text.strip() or len(text) > 2000 for text in examples):
+            raise ValueError('Each reviewer example must contain 1–2000 non-whitespace characters.')
+        return examples
+
+
 @router.post("/rules/{rule_id}/review-cases", status_code=201)
-def create_review_cases(rule_id: uuid.UUID, principal: Principal = Depends(require("run_chaos"))):
-    """Create a persisted human-review set from an approved rule's examples."""
+def create_review_cases(rule_id: uuid.UUID, body: ReviewCasesBody = ReviewCasesBody(),
+                        principal: Principal = Depends(require("run_chaos"))):
+    """Create a human-review set without modifying the approved rule or its examples."""
     with tenant_conn(principal.org_id, principal.user_id) as conn:
         rule = conn.execute("""SELECT r.key, rv.id AS version_id FROM rules r
             JOIN rule_versions rv ON rv.id=r.current_version_id AND rv.org_id=r.org_id
@@ -240,9 +252,9 @@ def create_review_cases(rule_id: uuid.UUID, principal: Principal = Depends(requi
         examples = conn.execute("""SELECT kind,text FROM rule_examples
             WHERE org_id=%s AND rule_version_id=%s ORDER BY created_at,id LIMIT 20""",
             (principal.org_id, rule['version_id'])).fetchall()
-        cases = build_review_cases([dict(e) for e in examples])
+        cases = add_reviewer_cases(build_review_cases([dict(e) for e in examples]), body.reviewer_examples)
         if not cases:
-            raise ApiError(422, 'no_examples', 'This approved rule version has no examples to review.')
+            raise ApiError(422, 'no_examples', 'This rule has no saved examples. Supply at least one review-only example.')
         run_id = uuid.uuid4()
         conn.execute("""INSERT INTO chaos_runs (id,org_id,rule_version_ids,status,started_at,finished_at,
             created_by,n_interpreters,model_id,prompt_version)
@@ -258,7 +270,7 @@ def create_review_cases(rule_id: uuid.UUID, principal: Principal = Depends(requi
         write_audit(conn, principal.user_id, 'chaos.run', 'chaos_run', run_id,
                     after={'rule_id': str(rule_id), 'cases': len(cases), 'mode': 'human_review'})
     return {'run_id': str(run_id), 'rule_key': rule['key'], 'cases': cases,
-            'note': 'Source labels are repository expectations; transformed cases need human judgement. No automated interpretations were run.'}
+            'note': 'Source labels are repository expectations; transformed and reviewer-supplied cases need human judgement. No approved rule was changed and no automated interpretations were run.'}
 
 
 class CompareReviewBody(BaseModel):

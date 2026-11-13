@@ -262,6 +262,7 @@ export default function RuleTestsPage() {
   const [reviewHistory, setReviewHistory] = useState<{run_id: string; created_at: string; version_no: number; case_count: number}[]>([])
   const [historyError, setHistoryError] = useState('')
   const [compareId, setCompareId] = useState('')
+  const [reviewExamples, setReviewExamples] = useState('')
   const [reviewDiff, setReviewDiff] = useState<ReviewComparison | null>(null)
   const [coverage, setCoverage] = useState<RulebookCoverage | null>(null)
   const [coverageError, setCoverageError] = useState('')
@@ -351,9 +352,14 @@ export default function RuleTestsPage() {
 
   const runHumanReview = async () => {
     if (!selectedRuleId) return
+    const examples = reviewExamples.split('\n').map(text => text.trim()).filter(Boolean)
+    if (examples.length > 10 || examples.some(text => text.length > 2000)) {
+      setError('Add at most 10 examples, each no longer than 2,000 characters.')
+      return
+    }
     setReviewBusy(true); setError(''); setReviewResult(null); setCompareId(''); setReviewDiff(null)
     try {
-      const created = await chaosApi.reviewCases(selectedRuleId)
+      const created = await chaosApi.reviewCases(selectedRuleId, examples)
       setReviewResult(created)
       try { setReviewHistory((await chaosApi.reviewHistory(selectedRuleId)).runs); setHistoryError('') }
       catch { setHistoryError('Run created, but its history could not be refreshed.') }
@@ -446,7 +452,7 @@ export default function RuleTestsPage() {
               value={selectedRuleId}
               onChange={(e) => {
                 setSelectedRuleId(e.target.value)
-                setResult(null); setCheckerResult(null); setReviewResult(null)
+                setResult(null); setCheckerResult(null); setReviewResult(null); setReviewExamples('')
               }}
               disabled={running || checkerBusy || reviewBusy}
               className="w-full px-3 py-2 border border-subtle rounded-lg text-sm focus:outline-none focus:border-accent bg-surface text-main"
@@ -486,7 +492,9 @@ export default function RuleTestsPage() {
         </div>
 
         {selectedRule && <div className="mt-4 border border-subtle rounded p-3 space-y-2">
-          <p className="text-sm text-main">Human review for any rule family: build cases from this approved version’s examples. No automated interpretations or accuracy claims.</p>
+          <p className="text-sm text-main">Human review for any rule family: use saved examples or add review-only examples below. These do not change the approved rule. No automated interpretations or accuracy claims.</p>
+          <label htmlFor="review-examples" className="block text-xs text-muted">Optional review examples, one per line (up to 10; 2,000 characters each)</label>
+          <textarea id="review-examples" value={reviewExamples} onChange={e => setReviewExamples(e.target.value)} disabled={reviewBusy} rows={3} className="w-full border border-subtle rounded bg-surface text-main p-2 text-sm" placeholder="Enter a case for a person to review" />
           <button disabled={reviewBusy} onClick={() => void runHumanReview()} className="px-3 py-2 rounded bg-accent text-white text-sm disabled:opacity-50">{reviewBusy ? 'Loading…' : 'Create human review cases'}</button>
           {historyError && <p role="alert" className="text-xs text-red-700">{historyError}</p>}
           {reviewHistory.length > 0 && <div><label htmlFor="review-history" className="block text-xs text-muted mt-2">Open a saved review set (latest 20)</label>

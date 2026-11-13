@@ -133,3 +133,9 @@ The rule-family human-review case generator, API, UI and tests were AI-generated
 The tenant-scoped human-review history endpoint, UI and tests were AI-generated with Arena.ai Agent Mode using existing project dependencies.
 
 The human-review regression comparison API, UI, persistence and synthetic tests were AI-generated with Arena.ai Agent Mode using existing PostgreSQL and project dependencies. Human labels are judgments, not ground truth or accuracy metrics.
+
+The graph path traversal, API, UI and synthetic tests were AI-generated with Arena.ai Agent Mode using existing project dependencies. Graph relationships are snapshot-derived and do not establish factual truth or stale content.
+
+Review-only case entry, validation, API/UI integration and synthetic tests were AI-generated with Arena.ai Agent Mode using existing dependencies. Inputs are human-supplied and are not verified truth or approved rule edits.
+
+The QA report refresh, README/About corrections, submission evidence brief and supplemental PDF were AI-generated with Arena.ai Agent Mode, with project lead review required. The PDF was generated using ReportLab and pypdf (Python libraries) and system DejaVu Sans fonts; it is a separate supplement, not an independently verified original proposal. GitHub Actions metadata was accessed with GitHub CLI; current deployment and independent QA were not verified. No model or external dataset was used at runtime.

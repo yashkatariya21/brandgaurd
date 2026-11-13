@@ -1,55 +1,38 @@
 # BrandGuard
 
-AI-powered brand governance platform. Checks marketing content against your approved fact repository — catching stale statistics, wrong prices, banned product name forms, and embargo violations before they go live. Three innovations: **Blast-Radius Intelligence**, **Adversarial Red Team**, and **Guideline Chaos Testing**.
+Brand governance prototype for reviewing registered content against approved facts and rules. It surfaces possible stale statistics, naming and embargo issues for human decisions; it does not publish content automatically. Three focus areas: **Dependency-graph Blast Radius**, **Evidence-grounded Red Team**, and **Full Guideline Chaos Testing**. Hosted AI calls are currently disabled pending spend-cap enforcement.
 
 Built for the **Inkloom AI Hackathon 2026**.
 
 ---
 
-## What it does
+## What it does and current limits
 
-### 1. Fact Repository & Blast-Radius Intelligence
-Store approved facts (customer counts, prices, certifications, product names) with version history, expiry dates, and separation-of-duties approval workflows. When a fact changes, **Blast Radius** instantly shows every content asset that references the old value — with two labels:
+### Dependency-graph Blast Radius
+Facts have versions, approvals, validity dates and separation of duties. A historical scan compares the previous approved value with current versions of content registered in the workspace. It cannot scan the public web or guarantee every paraphrase is found. If there is no previous version, no comparison is performed.
 
-- **Confirmed** – exact value match AND attribute matches the fact (e.g. "customers" → `customer_count`). Definitely stale, needs updating.
-- **Possible – needs confirmation** – numeric value matches but attribute differs (e.g. "50,000 tickets" matches numerically but is about ticket volume, not customer count). Human review required.
+Matches are **Confirmed** only for specific deterministic value-and-attribute or human-confirmed-link matches; a **Possible** match needs human review. A label is not proof of factual truth or legal compliance. The dependency graph shows fact → claim → content → channel relationships in its last rebuilt snapshot, not proof of publication or historical impact. Nothing is changed automatically.
 
-Nothing is changed automatically. A human decides.
+The local character-similarity matcher is experimental and uncalibrated. An optional pgvector path is disabled by default and requires compatible, provenance-labelled vectors; it never generates embeddings and labels its matches Possible. Vector search over uploaded documents and representative calibration remain unfinished.
 
-### 2. Adversarial Brand Red Team
-Three personas — **Brand Police**, **Legal Eagle**, **Customer Voice** — review content from distinct perspectives and flag risks. They use the same configured model, not independent AI systems. All Red Team findings are labelled `possible` (AI judgement, not deterministic proof). Legal Eagle findings carry the note "AI risk perspective, not legal advice."
+### Evidence-grounded Red Team
+Four perspectives — **Brand Police**, **Legal Eagle**, **Customer Voice** and **Competitor Watch** — raise Possible findings. The service validates cited passages and versioned fact/rule references against tenant-scoped records, groups repeated findings and hides unstable findings by default. Repetition of deterministic demo heuristics is not measured reliability. Legal Eagle is not legal advice.
 
-Each finding can open a **Prosecutor vs Defender** debate: two arguments shown side-by-side so a human can decide. Neither argument is a verdict. The panel never labels anything `confirmed`.
+A Prosecutor/Defender panel presents review prompts and validated finding references; a person decides. Demo prompts are not substantive AI arguments, cached provider arguments are not validated, and an evidence reference does not prove a conclusion or suggested edit.
 
-### 3. Guideline Chaos Testing
-Test tone brand rules for ambiguity with five interpretations per generated case (≈4 clear-pass, 4 clear-fail, 4 borderline). With an API key these are separate calls to the configured model; demo mode uses five lightweight heuristics instead. The **agreement score** is the number of matching interpretations divided by five. Low agreement flags a case for human review; it does not prove that the rule or verdict is wrong. Human labels record reviewer judgments.
+### Full Guideline Chaos Testing
+Tone-rule demo tests use heuristic interpretations; agreement measures consistency, not correctness. Rulebook coverage and contradiction candidates require human decisions. Reviewers can build and label persisted review sets for any rule family from saved examples or review-only inputs, and compare saved sets. Checker-specific tests and regression diffs currently cover only the unchanged seeded product-name and embargo checks. Full automated testing across all rule families remains unfinished.
 
-When ≥1 case is ambiguous, a suggested clarification is generated. You can accept or reject it. Round 2 scope: **tone rules only**.
+### Content and decisions
+Paste or upload TXT, PDF or DOCX for bounded extraction and registered-content checks. Extraction and deterministic rules are incomplete; not every claim is identified or every deterministic finding necessarily confirmed. Human reviewers can accept, edit, dismiss with a reason, or escalate. No content is published or edited automatically.
 
-### 4. Content Analysis (deterministic)
-Paste or upload content. BrandGuard extracts every factual claim, links it to approved facts, and runs deterministic checks — value mismatch, expired fact, banned product name forms, embargo violations. All deterministic findings are `confirmed` with `high` confidence.
+## AI and spend safety
 
-### 5. Findings & Decisions
-Reviewers accept, edit, dismiss (with reason), or escalate each finding. Full audit trail. Human always decides — BrandGuard never publishes or auto-applies corrections.
+**Hosted-model calls are currently disabled**, even when `OPENAI_API_KEY` or a live feature flag is set. The app uses clearly labelled deterministic demo heuristics and neutral review prompts. This is a zero-call safety stop while a durable monetary cap is unfinished; it is not an enforced configurable budget. Previously cached model output, if any, can still be displayed with its mode. No current live-AI rehearsal is claimed.
 
----
+## Verification
 
-## Demo mode (no AI key)
-
-Red Team, Chaos Testing, and Debate have deterministic demo paths when `OPENAI_API_KEY` is not set. These are heuristics or canned arguments, not AI output, and responses identify demo mode. With a key, the API calls OpenAI using `OPENAI_MODEL` (default `gpt-4o-mini`). If a provider call fails, Red Team and Debate fall back to demo output; Chaos can return `mixed` when only some interpretations fall back. The UI shows the mode and any fallback note.
-
-Set `OPENAI_API_KEY` in `.env` to enable real AI (gpt-4o-mini by default).
-
----
-
-## Confirmed vs Possible
-
-| Label | Meaning | Source |
-|---|---|---|
-| **Confirmed** | Deterministic check: direct contradiction of an approved fact, banned name form, or embargo violation | `source_kind: deterministic`, `confidence: high` |
-| **Possible** | AI judgement / value-only match / persona finding — may be a real issue, needs human review | `source_kind: persona` or `retrieval`, `confidence: low/medium` |
-
-Repeated AI agreement never raises confidence. Disagreement may lower it. A `Confirmed` badge never appears on an AI opinion.
+A [database-backed GitHub Actions run](https://github.com/yashkatariya21/brandgaurd/actions/runs/43367031731) passed at commit `7855164e820ee89ee865a588f561a5b93c5d1fbf`. Its backend job used PostgreSQL/pgvector, applied migrations and seed data, ran tests, and passed the no-skips JUnit guard; its frontend lint/build passed. This is evidence for that commit, not for later changes or a deployed site. Current-branch local checks and their database skips are recorded in [QA report](docs/QA-report.md). Independent QA, current database-backed CI and a full live-browser walkthrough remain pending.
 
 ---
 
@@ -58,7 +41,7 @@ Repeated AI agreement never raises confidence. Disagreement may lower it. A `Con
 ```bash
 cp .env.example .env
 # Edit .env — set OWNER_DB_PASSWORD, APP_DB_PASSWORD, JWT_SECRET, SEED_PASSWORD
-# Optional: add OPENAI_API_KEY for real AI
+# Hosted AI calls are currently disabled until spend-cap enforcement exists
 
 docker compose up --build
 ```
@@ -98,7 +81,7 @@ set MIGRATION_DATABASE_URL=postgresql://brandguard_owner:...@localhost:5432/bran
 set APP_DB_PASSWORD=...
 set JWT_SECRET=...
 set SEED_PASSWORD=demopassword123
-# set OPENAI_API_KEY=sk-...  (optional)
+# Hosted AI calls are currently disabled until spend-cap enforcement exists
 
 python -m app.migrate
 python -m app.seed
@@ -131,18 +114,17 @@ backend/
     services/      claim_extractor, checker, blast_radius, extraction,
                    redteam, chaos, retrieval
     scripts/       evaluate.py — precision/recall on labelled test set
-  tests/           18 original tests + new: blast_radius, checker,
-                   redteam, chaos
+  tests/           unit and database integration tests
 db/
-  migrations/      001_init.sql — full schema with RLS
+  migrations/      versioned migrations, including RLS and graph foundations
   grants.sql
 ```
 
-PostgreSQL with `pgvector` extension. Row-level security isolates each organisation's data at the database layer.
+PostgreSQL with `pgvector` extension. Row-level security policies are defined per organisation; deployment must use a restricted non-owner role and be verified separately.
 
 **Stack:** Vite + React + Tailwind CSS frontend; FastAPI backend; PostgreSQL + pgvector.
 **Note:** The Round 1 proposal mentioned Next.js — the implementation uses **Vite + React** (not Next.js).
-**Note:** Vector search (embeddings) is implemented as a database stub (pgvector installed) but not used in Round 2. Retrieval in Round 2 is structured fact/rule lookup. Full vector search is planned for Round 3.
+**Note:** Optional provenance-aware pgvector matching is experimental and disabled by default; embeddings are not generated by this service. Document vector retrieval remains unfinished.
 
 ---
 
@@ -157,10 +139,12 @@ PostgreSQL with `pgvector` extension. Row-level security isolates each organisat
 | GET | `/v1/blast-radius/{fact_id}` | Get latest scan for a fact |
 | POST | `/v1/content` | Submit content (text) |
 | POST | `/v1/content/{id}/analyse` | Run deterministic analysis |
-| POST | `/v1/content/{id}/redteam` | Run 3-persona red team |
+| POST | `/v1/content/{id}/redteam` | Run four-persona Red Team (currently demo heuristics) |
 | POST | `/v1/findings/{id}/debate` | Generate Prosecutor vs Defender |
 | POST | `/v1/findings/{id}/decide` | Record human decision |
-| POST | `/v1/rules/{id}/chaos-test` | Run chaos test (tone rules) |
+| POST | `/v1/rules/{id}/chaos-test` | Run tone interpretation test (currently demo heuristics) |
+| POST | `/v1/rules/{id}/review-cases` | Create human-review cases for an approved rule |
+| GET | `/v1/graph/facts/{id}/paths` | Explore fact-to-channel graph snapshot paths |
 | GET | `/v1/chaos-runs/{run_id}` | Get chaos run result |
 | POST | `/v1/chaos-cases/{id}/label` | Set human label |
 | POST | `/v1/chaos-issues/{id}/resolve` | Accept/reject clarification |
@@ -186,7 +170,7 @@ cd backend
 pytest -q
 ```
 
-To run the evaluation script (prints measured precision/recall — no hard-coded numbers):
+To run the evaluation script on the fictional test set (not a real-world accuracy benchmark):
 
 ```bash
 python -m scripts.evaluate

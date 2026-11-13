@@ -25,3 +25,15 @@ def build_review_cases(examples: list[dict]) -> list[dict]:
                 seen.add(candidate)
                 result.append({'text': candidate, 'axis': axis, 'intended_label': 'borderline'})
     return result
+
+
+def add_reviewer_cases(cases: list[dict], texts: list[str]) -> list[dict]:
+    """Append unjudged reviewer-supplied inputs without changing approved rules."""
+    result = [dict(case) for case in cases]
+    seen = {case['text'] for case in result}
+    for text in texts:
+        text = text.strip()
+        if text and text not in seen:
+            seen.add(text)
+            result.append({'text': text, 'axis': 'reviewer_input', 'intended_label': 'borderline'})
+    return result

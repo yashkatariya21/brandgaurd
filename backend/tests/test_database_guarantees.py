@@ -239,7 +239,7 @@ def test_historical_blast_vector_provenance_and_tenant(two_orgs, monkeypatch):
 
 
 def test_human_review_cases_persist_and_remain_tenant_scoped(two_orgs):
-    from app.api.chaos import create_review_cases, get_chaos_run, label_case, LabelBody, list_review_cases, compare_review_runs, CompareReviewBody, get_review_comparison
+    from app.api.chaos import create_review_cases, get_chaos_run, label_case, LabelBody, list_review_cases, compare_review_runs, CompareReviewBody, get_review_comparison, ReviewCasesBody
     from app.core.rbac import Principal
     from app.core.errors import ApiError
     (org_a, user_a), (org_b, user_b) = two_orgs
@@ -258,6 +258,10 @@ def test_human_review_cases_persist_and_remain_tenant_scoped(two_orgs):
     assert next(c for c in saved['cases'] if str(c['id']) == str(case_id))['human_label'] == 'fail'
     assert saved['run']['mode'] == 'human_review'
     assert list_review_cases(rule, principal=principal_a)['runs'][0]['run_id'] == result['run_id']
+    custom = create_review_cases(rule, ReviewCasesBody(reviewer_examples=['User case']), principal=principal_a)
+    assert any(c['text'] == 'User case' and c['axis'] == 'reviewer_input' for c in custom['cases'])
+    with tenant_conn(org_a, user_a) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM rule_examples WHERE rule_version_id=%s', (ver,)).fetchone()['n'] == 1
     second = create_review_cases(rule, principal=principal_a)
     snapshot = compare_review_runs(rule, CompareReviewBody(previous_run_id=result['run_id'], current_run_id=second['run_id']), principal=principal_a)
     label_case(uuid.UUID(second['cases'][0]['id']), LabelBody(human_label='pass'), principal=principal_a)
@@ -272,3 +276,25 @@ def test_human_review_cases_persist_and_remain_tenant_scoped(two_orgs):
         get_chaos_run(uuid.UUID(result['run_id']), principal=principal_b)
     with pytest.raises(ApiError):
         label_case(case_id, LabelBody(human_label='pass'), principal=principal_b)
+
+
+def test_graph_fact_paths_are_scoped_to_tenant_and_snapshot(two_orgs):
+    from app.api.graph import rebuild_graph, fact_paths
+    from app.core.rbac import Principal
+    from app.core.errors import ApiError
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        fact = conn.execute('SELECT id FROM facts WHERE org_id=%s', (org_a,)).fetchone()['id']
+        version = conn.execute("""INSERT INTO fact_versions
+            (org_id,fact_id,version_no,value_text,value_number,valid_from,status,proposed_by)
+            VALUES (%s,%s,1,'50,000 customers',50000,'2026-01-01','approved',%s) RETURNING id""", (org_a, fact, user_a)).fetchone()['id']
+        conn.execute('UPDATE facts SET current_version_id=%s WHERE id=%s', (version, fact))
+        item = conn.execute("INSERT INTO content_items (org_id,title,channel) VALUES (%s,'Draft','web') RETURNING id", (org_a,)).fetchone()['id']
+        cv = conn.execute("INSERT INTO content_versions (org_id,content_item_id,version_no,body_text,content_hash) VALUES (%s,%s,1,'50,000 tickets','hash') RETURNING id", (org_a,item)).fetchone()['id']
+        conn.execute('UPDATE content_items SET current_version_id=%s WHERE id=%s', (cv,item))
+        rebuild_graph(conn, org_a)
+    result = fact_paths(fact, principal=Principal(user_a, org_a, 'admin'))
+    assert len(result['paths']) == 1 and result['paths'][0]['match_type'] == 'possible'
+    assert result['paths'][0]['channels'] == ['web']
+    with pytest.raises(ApiError):
+        fact_paths(fact, principal=Principal(user_b, org_b, 'admin'))

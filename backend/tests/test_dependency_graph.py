@@ -54,3 +54,67 @@ def test_vectors_cannot_override_confirmed_exact_match():
     support = [e for e in edges if e['type'] == 'supports']
     assert len(support) == 1 and support[0]['method'] == 'attribute'
     assert support[0]['evidence']['match_type'] == 'confirmed'
+
+
+def test_impact_paths_follow_only_correct_edges_and_do_not_promote_similarity():
+    from app.services.dependency_graph import graph_impact_paths
+    nodes = [{'id':'f', 'node_type':'fact', 'ref_id':'fact1', 'label':'Customers', 'meta':{}},
+             {'id':'q', 'node_type':'claim', 'ref_id':'v:0:3', 'label':'50k', 'meta':{'span_start':0,'span_end':3}},
+             {'id':'c', 'node_type':'content', 'ref_id':'item', 'label':'Home', 'meta':{'registered_state':'published','status':'approved'}},
+             {'id':'ch', 'node_type':'channel', 'ref_id':'web', 'label':'web', 'meta':{}}]
+    edges = [{'src_id':'f','dst_id':'q','edge_type':'supports','match_method':'embedding','score':.9,'evidence':{'match_type':'confirmed'}},
+             {'src_id':'q','dst_id':'c','edge_type':'extracted_from','match_method':'link','score':None,'evidence':{}},
+             {'src_id':'c','dst_id':'ch','edge_type':'published_on','match_method':'link','score':None,'evidence':{}}]
+    output = graph_impact_paths('fact1', nodes, edges)
+    assert len(output['paths']) == 1
+    path = output['paths'][0]
+    assert path['match_type'] == 'possible' and path['channels'] == ['web']
+    assert path['content_id'] == 'item' and path['span_start'] == 0
+    assert 'do not establish' in output['limitations']
+    assert graph_impact_paths('missing', nodes, edges) is None
+    edges[1]['edge_type'] = 'asserts'
+    assert graph_impact_paths('fact1', nodes, edges)['paths'] == []
+
+
+def test_impact_paths_preserve_mixed_evidence_and_known_confirmed_methods():
+    from app.services.dependency_graph import graph_impact_paths
+    nodes = [{'id':'f','node_type':'fact','ref_id':'f','label':'F','meta':{}},
+             {'id':'q','node_type':'claim','ref_id':'q','label':'Claim','meta':{}},
+             {'id':'c','node_type':'content','ref_id':'c','label':'Draft','meta':{'status':'draft'}}]
+    edges = [{'src_id':'f','dst_id':'q','edge_type':'supports','match_method':method,'score':1,'evidence':{'match_type':label}}
+             for method,label in [('attribute','confirmed'),('exact','possible')]]
+    edges.append({'src_id':'q','dst_id':'c','edge_type':'extracted_from','match_method':'link','score':None,'evidence':{}})
+    paths = graph_impact_paths('f',nodes,edges)['paths']
+    assert {p['match_type'] for p in paths} == {'confirmed','possible'}
+    assert all(p['channels'] == [] for p in paths)
+
+
+def test_fact_path_api_queries_only_current_tenant_and_locks_snapshot(monkeypatch):
+    from contextlib import contextmanager
+    from uuid import uuid4
+    from app.api import graph
+    from app.core.rbac import Principal
+    org, user, fact_id = uuid4(), uuid4(), uuid4()
+    calls = []
+    class Rows:
+        def __init__(self, rows): self.rows = rows
+        def fetchall(self): return self.rows
+    class Conn:
+        def execute(self, query, args):
+            calls.append(query)
+            if 'advisory' in query:
+                assert args == (str(org),)
+                return Rows([])
+            assert args == (org,)
+            if 'graph_nodes' in query:
+                return Rows([{'id':'n','node_type':'fact','ref_id':str(fact_id),'label':'Fact','meta':{}}])
+            if 'graph_edges' in query: return Rows([])
+            raise AssertionError(query)
+    @contextmanager
+    def tenant(*args):
+        assert args == (org, user)
+        yield Conn()
+    monkeypatch.setattr(graph, 'tenant_conn', tenant)
+    output = graph.fact_paths(fact_id, Principal(user, org, 'admin'))
+    assert output['fact_id'] == str(fact_id) and output['paths'] == []
+    assert 'advisory' in calls[0]
