@@ -3,6 +3,8 @@ import { Atom, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react'
 import { rulesApi, chaosApi, Rule, ChaosCase, ChaosIssue, ChaosRunResult, RuleConflict, RulebookCoverage, CheckerChaosResult, HumanReviewResult, ReviewComparison } from '../api'
 import { useTheme } from '../theme'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
+import ReportButton from '../components/ReportButton'
+import { checkerReport, humanReviewReport, chaosReport } from '../lib/resultReports'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -521,6 +523,7 @@ export default function RuleTestsPage() {
 
       {checkerResult && <section className="glass-panel rounded-xl p-5 space-y-3">
         <h2 className="font-semibold text-main">Checker test · {checkerResult.rule_key}</h2>
+        <ReportButton report={checkerReport(checkerResult)} />
         <p className="text-sm text-main">Confirmed checker misses: {checkerResult.checker_misses}. {checkerResult.note}</p>
         <div className="border border-subtle rounded p-3 text-sm text-main"><strong>Regression comparison</strong>
           {!checkerResult.regression.previous_run_id ? <p>No earlier saved checker run for this rule.</p> : checkerResult.regression.diff && <>
@@ -533,6 +536,7 @@ export default function RuleTestsPage() {
       </section>}
       {reviewResult && <section className="glass-panel rounded-xl p-5 space-y-3">
         <h2 className="font-semibold text-main">Human review · {reviewResult.rule_key}</h2>
+        <ReportButton report={humanReviewReport(reviewResult)} />
         <p className="text-xs text-muted">{reviewResult.note} Run ID: {reviewResult.run_id}</p>
         {reviewHistory.some(r => r.run_id !== reviewResult.run_id) && <div className="border border-subtle rounded p-3 space-y-2">
           <label htmlFor="review-compare" className="block text-xs text-muted">Compare this set with another saved set</label>
@@ -548,6 +552,7 @@ export default function RuleTestsPage() {
       </section>}
       {result && (
         <div className="glass-panel rounded-xl">
+          <div className="p-5 pb-0"><ReportButton report={chaosReport(result, localCases, localIssues)} /></div>
           {/* Summary + clarity ring */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-5 border-b border-subtle items-start">
             <div>

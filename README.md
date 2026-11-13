@@ -26,6 +26,10 @@ Tone-rule demo tests use heuristic interpretations; agreement measures consisten
 ### Content and decisions
 Paste or upload TXT, PDF or DOCX for bounded extraction and registered-content checks. Extraction and deterministic rules are incomplete; not every claim is identified or every deterministic finding necessarily confirmed. Human reviewers can accept, edit, dismiss with a reason, or escalate. No content is published or edited automatically.
 
+### Saving a result as PDF
+
+After running a Blast Radius scan, Red Team review, or a Rule Tests run, use **Print / Save as PDF** on that result. Choose your browser's **Save as PDF** destination; availability and layout depend on the browser. The report is generated in the browser from the displayed result, includes its run ID and export time, and may contain sensitive workspace content. It is a snapshot, not a signed audit export or compliance certificate. Red Team reports do not include later human decisions; check Findings for those. Human-review reports reflect the labels shown at export time.
+
 ## AI and spend safety
 
 **Hosted-model calls are currently disabled**, even when `OPENAI_API_KEY` or a live feature flag is set. The app uses clearly labelled deterministic demo heuristics and neutral review prompts. This is a zero-call safety stop while a durable monetary cap is unfinished; it is not an enforced configurable budget. Previously cached model output, if any, can still be displayed with its mode. No current live-AI rehearsal is claimed.
