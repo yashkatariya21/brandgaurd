@@ -250,3 +250,18 @@ def test_nearly_word_and_digit_values_remain_possible():
     for text in ('nearly 50,000 customers', 'nearly fifty thousand customers'):
         result = _scan(text)
         assert result is not None and result['match_type'] == 'possible'
+
+
+def test_scope_accounts_for_every_registered_item():
+    from app.api.blast_radius import _scan_scope
+    rows = [
+        {'id': 'a', 'title': 'Text', 'cv_id': 'v1', 'version_no': 2, 'body_text': '50,000 customers'},
+        {'id': 'b', 'title': 'Empty', 'cv_id': 'v2', 'version_no': 1, 'body_text': ' '},
+        {'id': 'c', 'title': 'Missing', 'cv_id': None, 'version_no': None, 'body_text': None},
+    ]
+    selected, scope = _scan_scope(rows)
+    assert [row['id'] for row in selected] == ['a']
+    assert scope['items_scanned'] + len(scope['items_not_scanned']) == len(rows)
+    assert {item['reason'] for item in scope['items_not_scanned']} == {'no_extracted_text', 'no_current_version'}
+    assert scope['claims_extracted'] == 1
+    assert scope['scanned_items'][0]['scanned_version_no'] == 2

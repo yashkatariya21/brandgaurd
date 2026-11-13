@@ -247,6 +247,14 @@ export interface BlastRadiusResult {
     by_status: { draft: number; in_review: number; scheduled: number; published: number }
   }
   scope_note?: string
+  scope?: {
+    items_scanned: number
+    items_not_scanned: Array<{content_item_id: string; title: string; reason: string}>
+    scanned_items: Array<{content_item_id: string; title: string; scanned_version_no: number | null; current_version_no: number | null; stale: boolean}>
+    claims_extracted: number
+    limits: string[]
+    graph_similarity_evaluation: {date: string; n_holdout: number; threshold: number; holdout_metrics: {precision: number | null; recall: number | null}; fixture_note: string} | null
+  }
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────

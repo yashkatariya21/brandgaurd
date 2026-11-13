@@ -338,6 +338,17 @@ export default function BlastRadiusPage() {
             </div>
           )}
 
+          {result.scope && <details className="glass-panel rounded-xl p-4" open>
+            <summary className="cursor-pointer font-semibold text-sm text-main">Scope and limits</summary>
+            <div className="mt-3 space-y-2 text-sm text-muted">
+              <p>Registered items scanned: {result.scope.items_scanned} · Not scanned: {result.scope.items_not_scanned.length} · Extracted claims: {result.scope.claims_extracted}</p>
+              {result.scope.items_not_scanned.length > 0 && <ul className="list-disc pl-5">{result.scope.items_not_scanned.map(item => <li key={item.content_item_id}>{item.title}: {item.reason.replace(/_/g, ' ')}</li>)}</ul>}
+              {result.scope.scanned_items.length > 0 && <details><summary className="cursor-pointer">Scanned versions at run time</summary><ul className="mt-2 space-y-1">{result.scope.scanned_items.map(item => <li key={item.content_item_id}>{item.title}: scanned v{item.scanned_version_no ?? 'unknown'}, current at scan v{item.current_version_no ?? 'unknown'}{item.stale ? ' · stale' : ''}</li>)}</ul></details>}
+              <ul className="list-disc pl-5">{result.scope.limits.map(limit => <li key={limit}>{limit}</li>)}</ul>
+              {result.scope.graph_similarity_evaluation ? <p>Graph character-similarity evaluation, synthetic fixture ({result.scope.graph_similarity_evaluation.n_holdout} holdout cases; labels unreviewed): precision {result.scope.graph_similarity_evaluation.holdout_metrics.precision == null ? 'not applicable' : `${(result.scope.graph_similarity_evaluation.holdout_metrics.precision * 100).toFixed(1)}%`}, recall {result.scope.graph_similarity_evaluation.holdout_metrics.recall == null ? 'not applicable' : `${(result.scope.graph_similarity_evaluation.holdout_metrics.recall * 100).toFixed(1)}%`}. This evaluates graph scoring, not this scan. {result.scope.graph_similarity_evaluation.fixture_note}</p> : <p>Graph similarity evaluation: not available.</p>}
+            </div>
+          </details>}
+
           {/* Match type explainer */}
           {result.affected_count > 0 && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 space-y-1">
