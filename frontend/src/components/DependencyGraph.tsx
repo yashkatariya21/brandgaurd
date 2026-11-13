@@ -53,7 +53,7 @@ export default function DependencyGraph() {
   }
   const connected = graph?.edges.filter(e => e.src_id === selected || e.dst_id === selected) ?? []
   return <section className="glass-panel rounded-xl p-5 space-y-4" aria-label="Dependency graph">
-    <div className="flex justify-between flex-wrap gap-3"><div><h2 className="font-semibold text-main">Dependency-graph Blast Radius</h2><p className="text-sm text-muted">Explore derived fact, claim, content and channel relationships.</p></div>
+    <div className="flex justify-between flex-wrap gap-3"><div><h2 className="font-semibold text-main">Brand-as-Code with Blast-Radius Intelligence</h2><p className="text-sm text-muted">Explore derived fact, claim, content and channel relationships.</p></div>
       <button disabled={busy} onClick={() => void load(true)} className="px-3 py-2 rounded bg-accent text-white disabled:opacity-50">{busy ? 'Loading…' : 'Rebuild graph'}</button></div>
     <p className="text-xs text-muted">{graph?.scope_note} {graph?.limitations}</p>
     {error && <div role="alert" className="text-red-700">{error} <button onClick={() => void load()} className="underline">Retry</button></div>}

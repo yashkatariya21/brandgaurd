@@ -203,7 +203,7 @@ export default function BlastRadiusPage() {
     <div className="space-y-6 max-w-[1440px] mx-auto p-4 md:p-6 pb-12">
       <div>
         <h1 className={`text-main ${isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'}`}>
-          Dependency-graph Blast Radius
+          Brand-as-Code with Blast-Radius Intelligence
         </h1>
         <p className="text-sm text-muted mt-1">
           Explore registered content that may be affected when a fact changes.
