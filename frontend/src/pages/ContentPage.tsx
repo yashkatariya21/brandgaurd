@@ -549,7 +549,7 @@ export default function ContentPage() {
           )}
 
           <form onSubmit={submit} className="space-y-3 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}

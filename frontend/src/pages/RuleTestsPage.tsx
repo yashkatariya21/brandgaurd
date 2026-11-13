@@ -405,7 +405,7 @@ export default function RuleTestsPage() {
         <h1
           className={`text-main ${isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'}`}
         >
-          Guideline Chaos Testing
+          Full Guideline Chaos Testing
         </h1>
         <p className="text-sm text-muted mt-1">
           Use human review cases for any rule family with approved examples. Heuristic interpretations are available for tone rules only; agreement is not correctness.

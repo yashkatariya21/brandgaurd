@@ -16,5 +16,5 @@ const sectionMeta: Record<string, { label: string; desc: string }> = {
 export default function Header() {
   const { pathname } = useLocation()
   const meta = sectionMeta[pathname] ?? { label: 'BrandGuard', desc: '' }
-  return <div className="workspace-breadcrumb"><div className="workspace-container workspace-breadcrumb-inner"><div className="workspace-breadcrumb-path"><span>WORKSPACE</span><ArrowUpRight size={13} /><strong>{meta.label}</strong><span className="workspace-page-desc">{meta.desc}</span></div><span className="workspace-human"><Sparkles size={13} /> HUMAN-LED REVIEW</span></div></div>
+  return <div className="workspace-breadcrumb"><div className="workspace-breadcrumb-path"><span>WORKSPACE</span><ArrowUpRight size={13} /><strong>{meta.label}</strong><span className="workspace-page-desc">{meta.desc}</span></div><span className="workspace-human"><Sparkles size={13} /> HUMAN-LED REVIEW</span></div>
 }

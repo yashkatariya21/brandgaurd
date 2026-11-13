@@ -123,7 +123,7 @@ function FindingsBySeverityCard({
           <span className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-100 text-red-700">
             <ShieldAlert size={16} />
           </span>
-          <h3 className="text-sm font-semibold text-main">Open findings ({open.length})</h3>
+          <h3 className="text-sm font-semibold text-main">Open Findings</h3>
         </div>
         <button
           onClick={() => navigate('/findings')}
@@ -308,29 +308,19 @@ export default function DashboardPage() {
     },
   ]
 
-  // Exposure includes every returned finding; distribute rounding remainders so totals equal 100.
-  const severityGroups = [
-    { label: 'Critical', key: 'critical', color: '#DC2626' },
-    { label: 'High', key: 'high', color: '#B45309' },
-    { label: 'Medium', key: 'medium', color: '#CA8A04' },
-    { label: 'Low', key: 'low', color: '#475569' },
-    { label: 'Other', key: 'other', color: '#64748b' },
+  // Severity exposure bars
+  const sevCounts: Record<string, number> = {}
+  for (const f of findings) sevCounts[f.severity] = (sevCounts[f.severity] ?? 0) + 1
+  const totalFindings = findings.length || 1
+  const exposure = [
+    { label: 'Critical', pct: Math.round(((sevCounts.critical ?? 0) / totalFindings) * 100), color: '#DC2626' },
+    { label: 'High',     pct: Math.round(((sevCounts.high     ?? 0) / totalFindings) * 100), color: '#B45309' },
+    { label: 'Medium',   pct: Math.round(((sevCounts.medium   ?? 0) / totalFindings) * 100), color: '#CA8A04' },
+    { label: 'Low',      pct: Math.round(((sevCounts.low      ?? 0) / totalFindings) * 100), color: '#475569' },
   ]
-  const known = new Set(severityGroups.slice(0, 4).map(group => group.key))
-  const exposure = severityGroups.map(group => {
-    const count = findings.filter(f => group.key === 'other' ? !known.has(f.severity) : f.severity === group.key).length
-    const exact = findings.length ? count * 100 / findings.length : 0
-    return { ...group, count, pct: Math.floor(exact), remainder: exact - Math.floor(exact) }
-  })
-  let remaining = findings.length ? 100 - exposure.reduce((sum, item) => sum + item.pct, 0) : 0
-  for (const item of [...exposure].sort((a, b) => b.remainder - a.remainder)) {
-    if (remaining <= 0) break
-    item.pct += 1
-    remaining -= 1
-  }
 
   const recentFindings = [...findings]
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .sort((a, b) => (a.status === 'open' ? -1 : 1) - (b.status === 'open' ? -1 : 1))
     .slice(0, 4)
 
   if (loadError) return <div className="p-6 space-y-3"><p role="alert" className="text-red-700">Could not load dashboard: {loadError}</p><button className="text-accent underline" onClick={load}>Retry</button></div>
@@ -440,27 +430,27 @@ export default function DashboardPage() {
 
           {/* Exposure + recent findings */}
           <div className="rounded-xl glass-panel p-5">
-            <h2 className="text-sm font-semibold text-main mb-4">Finding exposure — all findings ({findings.length})</h2>
+            <h2 className="text-sm font-semibold text-main mb-4">Finding Exposure</h2>
             <div className="space-y-3">
               {exposure.map((e) => (
                 <div key={e.label}>
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="text-muted">{e.label}</span>
                     <span className="font-mono-numbers text-main font-medium">
-                      {e.count} · {e.pct}%
+                      {findings.length === 0 ? 0 : e.pct}%
                     </span>
                   </div>
                   <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${e.count} · {e.pct}%`, backgroundColor: e.color }}
+                      style={{ width: `${findings.length === 0 ? 0 : e.pct}%`, backgroundColor: e.color }}
                     />
                   </div>
                 </div>
               ))}
             </div>
             <div className="mt-5 pt-4 border-t border-subtle">
-              <p className="text-[11px] text-muted uppercase tracking-wide font-semibold mb-2">Recent findings — all findings ({findings.length})</p>
+              <p className="text-[11px] text-muted uppercase tracking-wide font-semibold mb-2">Recent findings</p>
               <div className="space-y-2">
                 {loading ? (
                   [...Array(3)].map((_, i) => <Skeleton key={i} className="h-6 w-full" />)
