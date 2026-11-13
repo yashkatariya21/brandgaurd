@@ -5,7 +5,7 @@ import { IS_DEMO_MODE } from '../lib/demoAccounts'
 import { resetProgress, useDemoProgress } from '../lib/demoProgress'
 
 const STEPS = [
-  { title: 'Propose the fact change', role: 'Brand Manager', roleId: 'brand_manager', to: '/repository', instruction: 'Open Customer count; submit its draft v2 (65,000+ customers) for approval, or propose that value.', expected: 'The change is ready for approval.', feature: 'Brand-as-Code with Blast-Radius Intelligence' },
+  { title: 'Propose the fact change', role: 'Brand Manager', roleId: 'brand_manager', to: '/repository', instruction: 'Open Customer count, choose Propose new version, and enter 65,000+ customers.', expected: 'The change is ready for approval.', feature: 'Brand-as-Code with Blast-Radius Intelligence' },
   { title: 'Approve it', role: 'Approver', roleId: 'approver', to: '/repository', instruction: 'Open Customer count and approve the pending v2 as a different user.', expected: 'The new version is approved.', feature: 'Brand-as-Code with Blast-Radius Intelligence' },
   { title: 'See the Blast Radius', role: 'Brand Manager or any permitted role', to: '/blast-radius', instruction: 'Select Customer count (customer_count) and run the scan.', expected: 'Review Confirmed and Possible matches and the registered-content scope note.', feature: 'Brand-as-Code with Blast-Radius Intelligence' },
   { title: 'Run the Red Team', role: 'Brand Manager or a permitted content reviewer', to: '/content', instruction: 'Create “Demo risk copy” with “Guaranteed 100% uptime. ISO 27001 certified. Project Heron launches Q1.” Open it and run Red Team.', expected: 'Review the Possible findings and the demo-mode notice; actual results may vary.', feature: 'Adversarial Brand Red Team' },
