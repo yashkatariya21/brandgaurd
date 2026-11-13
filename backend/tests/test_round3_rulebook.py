@@ -56,3 +56,13 @@ def test_unknown_and_conflicting_directive_in_one_clause_do_not_create_candidate
     assert not contradictions(rules)
     rules[0]['description'] = 'Use contractions. Do not use contractions.'
     assert not contradictions(rules)
+
+
+def test_family_capabilities_do_not_imply_general_checker_coverage():
+    from app.services.rulebook import coverage_report, FAMILIES
+    capabilities = {r['family']: r for r in coverage_report([], [])['family_capabilities']}
+    assert set(capabilities) == set(FAMILIES)
+    assert 'No general accessibility' in capabilities['accessibility']['content_checker']
+    assert 'R-04' in capabilities['terminology']['chaos_testing']
+    assert 'R-12' in capabilities['embargo']['chaos_testing']
+    assert 'Human review cases only' in capabilities['claims']['chaos_testing']

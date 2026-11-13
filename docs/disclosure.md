@@ -152,3 +152,5 @@ The 150-case synthetic graph fixture, standard-library normalization, calibratio
 The polarity- and channel-aware rule-conflict heuristic and its tests were AI-generated with Arena.ai Agent Mode using Python's standard library. It recognises a narrow set of imperative phrases; candidates require human interpretation and the heuristic is not exhaustive.
 
 The rulebook fault fixture, evaluation script and predicate tests were AI-generated with Arena.ai Agent Mode. Its product-name and embargo examples and labels are synthetic, unreviewed and require human review. They were developed alongside the detector and are not an independent benchmark. Evaluation exercises shared production predicates, not the database-backed checker end to end; other rule families are not measured.
+
+The family capability inventory and Rule Tests display were AI-generated with Arena.ai Agent Mode using existing project dependencies. They describe implemented checker and test paths, not individual-rule coverage or compliance.

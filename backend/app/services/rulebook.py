@@ -73,6 +73,17 @@ CLAIM_PATTERNS = {
 }
 FAMILIES = ('tone', 'terminology', 'claims', 'accessibility', 'embargo', 'other')
 
+# This is a capability inventory, not a per-rule compliance result.
+FAMILY_CAPABILITIES = {
+    'tone': ('No general tone check in the content checker.', 'Demo heuristic interpretations; human review cases.'),
+    'terminology': ('Selected product-name forms and linked banned aliases.', 'Shared product-name predicate for unchanged seed rule R-04; human review cases.'),
+    'claims': ('Linked numeric mismatch and fact validity candidates; not general claims verification.', 'Human review cases only.'),
+    'accessibility': ('No general accessibility check.', 'Human review cases only.'),
+    'embargo': ('Literal active embargo-term matching.', 'Shared embargo predicate for unchanged seed rule R-12 and active terms; human review cases.'),
+    'other': ('No general checker for this family.', 'Human review cases only.'),
+}
+
+
 
 def _claim_types(rule):
     """Conservative keyword coverage, not proof that a rule actually enforces a claim."""
@@ -122,5 +133,7 @@ def coverage_report(rules: list[dict], content: list[dict]) -> dict:
         if 'unclear' in behaviour and not re.search(r'\d', (r.get('description') or '')):
             gaps.append({'kind': 'unclear_threshold', 'subject': r['key'], 'evidence': r.get('description') or ''})
     return {'channels': channels, 'families': list(FAMILIES), 'claim_types': list(CLAIM_PATTERNS),
+            'family_capabilities': [{'family': family, 'content_checker': FAMILY_CAPABILITIES[family][0],
+                                     'chaos_testing': FAMILY_CAPABILITIES[family][1]} for family in FAMILIES],
             'matrix': matrix, 'gaps': gaps,
             'note': 'Coverage counts use channel scopes and keyword heuristics. Gaps are candidates for human review, not proof of compliance.'}

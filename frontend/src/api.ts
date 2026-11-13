@@ -487,6 +487,7 @@ export interface CheckerChaosResult {
   cases: { id: string; text: string; intended_label: string; observed: string; checker_miss: boolean; false_positive: boolean; rationale: string }[]
 }
 export interface RulebookCoverage {
+  family_capabilities?: {family: string; content_checker: string; chaos_testing: string}[]
   channels: string[]
   families: string[]
   claim_types: string[]
