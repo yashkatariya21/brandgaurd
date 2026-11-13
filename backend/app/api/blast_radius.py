@@ -25,6 +25,7 @@ from ..core.db import tenant_conn
 from ..core.errors import ApiError
 from ..core.rbac import Principal, require
 from ..services.claim_extractor import extract_claims, normalise_number
+from ..services.offline_candidates import offline_candidate
 
 router = APIRouter(prefix="/v1")
 
@@ -252,6 +253,10 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
                 vector_match = vector_candidates.get(str(ci['cv_id']))
                 if vector_match:
                     match = {**vector_match, 'suggested_replacement': new_text}
+            if not match:
+                candidate = offline_candidate(body, old_text, new_text)
+                if candidate:
+                    match = {**candidate, 'suggested_replacement': new_text}
             if match:
                 reg = ci["registered_state"] or "none"
                 status_key = reg if reg in ("scheduled", "published") else \
@@ -294,7 +299,7 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
             "affected_count": len(affected),
             "affected": affected,
             "summary": summary_counts,
-            "scope_note": "Only current versions of content registered in BrandGuard were scanned. Matching is incomplete; no matches does not prove content is current. Any vector similarity is experimental and requires human review.",
+            "scope_note": "Only current versions of content registered in BrandGuard were scanned. Matching is incomplete; no matches does not prove content is current. Offline lexical candidates and vector similarity are experimental, uncalibrated and require human review.",
         }
 
         # Persist in analysis_runs.config so GET can return it

@@ -46,7 +46,7 @@ export default function AboutPage() {
           <div className="p-5 rounded-xl glass-panel"><h2 className="font-semibold text-main">Adversarial Brand Red Team</h2><p className="text-sm text-muted mt-2">Four perspectives provide Possible findings with checked references. Demo repetition is not a reliability measurement, and Legal Eagle is not legal advice.</p></div>
           <div className="p-5 rounded-xl glass-panel"><h2 className="font-semibold text-main">Guideline Chaos Testing</h2><p className="text-sm text-muted mt-2">Review possible contradictions, coverage gaps and human-labelled cases. Automated checker tests cover only selected seeded rules.</p></div>
         </div>
-        <div className="mt-5 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900"><strong>Current AI mode:</strong> hosted model calls are disabled until a monetary spending cap is enforced. Demo heuristics are not AI. Optional vector matching is off by default and uncalibrated.</div>
+        <div className="mt-5 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900"><strong>Current AI mode:</strong> hosted model calls are disabled until a monetary spending cap is enforced. Offline lexical matching and demo heuristics are not AI models or measured reliability. Optional vector matching is off by default and uncalibrated.</div>
       </section>
       {/* Future work */}
       <section>

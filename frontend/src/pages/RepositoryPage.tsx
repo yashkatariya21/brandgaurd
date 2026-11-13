@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, X, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import { factsApi, rulesApi, Fact, FactDetail, Rule } from '../api'
 import { useAuth } from '../auth'
@@ -180,6 +181,7 @@ function FactModal({ fact: initial, onClose, userRole }: {
 }) {
   const [detail, setDetail] = useState<FactDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [detailError, setDetailError] = useState('')
   const [showPropose, setShowPropose] = useState(false)
   const [proposeValue, setProposeValue] = useState('')
   const [proposeNote, setProposeNote] = useState('')
@@ -188,7 +190,8 @@ function FactModal({ fact: initial, onClose, userRole }: {
 
   const load = () => {
     setLoading(true)
-    factsApi.get(initial.id).then(setDetail).finally(() => setLoading(false))
+    setDetailError('')
+    factsApi.get(initial.id).then(setDetail).catch((e: unknown) => setDetailError(e instanceof Error ? e.message : 'Could not load fact.')).finally(() => setLoading(false))
   }
 
   useEffect(load, [initial.id])
@@ -229,6 +232,8 @@ function FactModal({ fact: initial, onClose, userRole }: {
         <div className="overflow-y-auto scrollbar-thin px-6 py-5">
           {loading ? (
             <p className="text-muted text-sm">Loading…</p>
+          ) : detailError ? (
+            <div role="alert" className="text-sm text-red-700">Could not load fact: {detailError} <button onClick={load} className="underline">Retry</button></div>
           ) : detail ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
@@ -473,6 +478,8 @@ function CreateFactModal({ onClose, onCreated }: { onClose: () => void; onCreate
 export default function RepositoryPage() {
   const { user } = useAuth()
   const { isAuthority } = useTheme()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const factId = searchParams.get('fact')
   const [tab, setTab] = useState<Tab>('facts')
   const [facts, setFacts] = useState<Fact[]>([])
   const [rules, setRules] = useState<Rule[]>([])
@@ -500,6 +507,20 @@ export default function RepositoryPage() {
   }
 
   useEffect(load, [])
+  useEffect(() => {
+    if (!factId || loading) return
+    const fact = facts.find(item => item.id === factId)
+    if (fact) { setTab('facts'); setSelectedFact(fact) }
+  }, [factId, facts, loading])
+
+  function closeFact() {
+    setSelectedFact(null)
+    if (factId) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('fact')
+      setSearchParams(next, { replace: true })
+    }
+  }
 
   const categoryColors: Record<string, string> = {
     statistic: 'bg-blue-100 text-blue-700',
@@ -694,7 +715,7 @@ export default function RepositoryPage() {
       )}
 
       {selectedFact && (
-        <FactModal fact={selectedFact} onClose={() => setSelectedFact(null)} userRole={user?.role ?? ''} />
+        <FactModal fact={selectedFact} onClose={closeFact} userRole={user?.role ?? ''} />
       )}
       {showCreate && <CreateFactModal onClose={() => setShowCreate(false)} onCreated={load} />}
     </div>

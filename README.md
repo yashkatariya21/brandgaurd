@@ -13,7 +13,7 @@ Facts have versions, approvals, validity dates and separation of duties. A histo
 
 Matches are **Confirmed** only for specific deterministic value-and-attribute or human-confirmed-link matches; a **Possible** match needs human review. A label is not proof of factual truth or legal compliance. The dependency graph shows fact → claim → content → channel relationships in its last rebuilt snapshot, not proof of publication or historical impact. Nothing is changed automatically.
 
-The local character-similarity matcher is experimental and uncalibrated. An optional pgvector path is disabled by default and requires compatible, provenance-labelled vectors; it never generates embeddings and labels its matches Possible. Vector search over uploaded documents and representative calibration remain unfinished.
+The scan also uses bounded offline lexical candidate matching for some non-numeric wording variants. It is not an embedding or AI model, returns only Possible matches, and is uncalibrated. The local character-similarity matcher is experimental and uncalibrated. An optional pgvector path is disabled by default and requires compatible, provenance-labelled vectors; it never generates embeddings and labels its matches Possible. Vector search over uploaded documents and representative calibration remain unfinished.
 
 ### Adversarial Brand Red Team
 Four perspectives — **Brand Police**, **Legal Eagle**, **Customer Voice** and **Competitor Watch** — raise Possible findings. The service validates cited passages and versioned fact/rule references against tenant-scoped records, groups repeated findings and hides unstable findings by default. Repetition of deterministic demo heuristics is not measured reliability. Legal Eagle is not legal advice.
