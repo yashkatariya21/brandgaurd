@@ -123,7 +123,7 @@ function FindingsBySeverityCard({
           <span className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-100 text-red-700">
             <ShieldAlert size={16} />
           </span>
-          <h3 className="text-sm font-semibold text-main">Open findings ({open.length})</h3>
+          <h3 className="text-sm font-semibold text-main">Open findings {loading ? '(loading…)': `(${open.length})`}</h3>
         </div>
         <button
           onClick={() => navigate('/findings')}
@@ -440,8 +440,8 @@ export default function DashboardPage() {
 
           {/* Exposure + recent findings */}
           <div className="rounded-xl glass-panel p-5">
-            <h2 className="text-sm font-semibold text-main mb-4">Finding exposure — all findings ({findings.length})</h2>
-            <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-main mb-4">Finding exposure — all findings {loading ? '(loading…)': `(${findings.length})`}</h2>
+            {loading ? <Skeleton className="h-32 w-full" /> : <div className="space-y-3">
               {exposure.map((e) => (
                 <div key={e.label}>
                   <div className="flex items-center justify-between text-xs mb-1">
@@ -453,12 +453,12 @@ export default function DashboardPage() {
                   <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${e.count} · {e.pct}%`, backgroundColor: e.color }}
+                      style={{ width: `${e.pct}%`, backgroundColor: e.color }}
                     />
                   </div>
                 </div>
               ))}
-            </div>
+            </div>}
             <div className="mt-5 pt-4 border-t border-subtle">
               <p className="text-[11px] text-muted uppercase tracking-wide font-semibold mb-2">Recent findings — all findings ({findings.length})</p>
               <div className="space-y-2">

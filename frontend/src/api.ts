@@ -264,6 +264,8 @@ export const factsApi = {
   create: (body: Record<string, unknown>) => post<{ fact_id: string }>('/v1/facts', body),
   proposeVersion: (factId: string, body: Record<string, unknown>) =>
     post<{ version_id: string; version_no: number }>(`/v1/facts/${factId}/versions`, body),
+  submitVersion: (factId: string, versionNo: number) =>
+    post<{ status: string }>(`/v1/facts/${factId}/versions/${versionNo}/submit`),
   approveVersion: (factId: string, versionNo: number) =>
     post<{ status: string }>(`/v1/facts/${factId}/versions/${versionNo}/approve`),
   rejectVersion: (factId: string, versionNo: number, reason?: string) =>

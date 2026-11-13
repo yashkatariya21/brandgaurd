@@ -1,4 +1,3 @@
-import { markStep } from '../lib/demoProgress'
 import React, { useEffect, useState } from 'react'
 import { Plus, X, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import { factsApi, rulesApi, Fact, FactDetail, Rule } from '../api'
@@ -11,10 +10,9 @@ type Tab = 'facts' | 'rules'
 
 // ── Version timeline ────────────────────────────────────────────────────────
 
-function VersionTimeline({ versions, factId, factKey, onAction, userRole }: {
+function VersionTimeline({ versions, factId, onAction, userRole }: {
   versions: FactDetail['versions']
   factId: string
-  factKey: string
   onAction: () => void
   userRole: string
 }) {
@@ -115,7 +113,7 @@ function VersionTimeline({ versions, factId, factKey, onAction, userRole }: {
                       {v.status === 'draft' && canPropose && (
                         <button
                           disabled={busy}
-                          onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
+                          onClick={() => doAction(() => factsApi.submitVersion(factId, v.version_no))}
                           className="text-xs px-2.5 py-1 bg-accent text-white rounded-md hover:opacity-90 disabled:opacity-50"
                         >
                           Submit for approval
@@ -125,8 +123,7 @@ function VersionTimeline({ versions, factId, factKey, onAction, userRole }: {
                         <>
                           <button
                             disabled={busy}
-                            data-demo-target="2"
-                            onClick={() => doAction(async () => { const r = await factsApi.approveVersion(factId, v.version_no); if (factKey === 'customer_count' && v.value_text === '65,000+ customers' && r.status === 'approved') markStep(2); return r })}
+                            onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
                             className="text-xs px-2.5 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50"
                           >
                             Approve
@@ -204,7 +201,6 @@ function FactModal({ fact: initial, onClose, userRole }: {
         value_text: proposeValue,
         change_note: proposeNote,
       })
-      if (initial.key === 'customer_count' && proposeValue.trim() === '65,000+ customers') markStep(1)
       setProposeValue('')
       setProposeNote('')
       setShowPropose(false)
@@ -281,7 +277,6 @@ function FactModal({ fact: initial, onClose, userRole }: {
                     >
                       <p className="text-xs font-semibold text-accent">Propose new version</p>
                       <input
-                        data-demo-target="1"
                         value={proposeValue}
                         onChange={(e) => setProposeValue(e.target.value)}
                         required
@@ -313,7 +308,6 @@ function FactModal({ fact: initial, onClose, userRole }: {
                     </form>
                   ) : (
                     <button
-                      data-demo-target="1"
                       onClick={() => setShowPropose(true)}
                       className="text-sm text-accent hover:opacity-80 font-medium"
                     >
@@ -326,7 +320,6 @@ function FactModal({ fact: initial, onClose, userRole }: {
               <VersionTimeline
                 versions={detail.versions}
                 factId={detail.id}
-                factKey={detail.key}
                 onAction={load}
                 userRole={userRole}
               />

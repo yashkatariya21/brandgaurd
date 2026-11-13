@@ -1,4 +1,3 @@
-import { markStep } from '../lib/demoProgress'
 import React, { useEffect, useRef, useState } from 'react'
 import { X, Scale, Shield, Gavel, Pencil, XCircle, ArrowUp, FileText, ChevronDown } from 'lucide-react'
 import { findingsApi, debateApi, contentApi, Finding, Debate } from '../api'
@@ -254,7 +253,6 @@ function DecideModal({ finding, onClose, onDecided }: {
         reasonText || undefined,
         finalText || undefined,
       )
-      markStep(5)
       onDecided()
       onClose()
     } catch (e: unknown) {
@@ -572,7 +570,7 @@ export default function FindingsPage() {
                                 Show debate
                               </button>
                               <button
-                                data-demo-target="5" onClick={() => setSelected(f)}
+                                onClick={() => setSelected(f)}
                                 className="text-xs px-2 py-1 bg-accent text-white rounded hover:opacity-90"
                               >
                                 Decide
