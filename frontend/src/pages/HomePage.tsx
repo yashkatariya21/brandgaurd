@@ -10,20 +10,20 @@ import { IS_DEMO_MODE } from '../lib/demoAccounts'
 
 const pillars = [
   {
-    number: '01', icon: GitBranch, label: 'DEPENDENCY-GRAPH BLAST RADIUS',
-    title: 'See what a change touches.',
+    number: '01', icon: GitBranch, label: '01 / TRACE',
+    title: 'Brand-as-Code with Blast-Radius Intelligence',
     text: 'Trace connections between approved facts, claims, content and channels. Review confirmed and possible matches separately.',
     link: '/blast-radius', action: 'Explore blast radius', tone: 'mint',
   },
   {
-    number: '02', icon: ShieldEllipsis, label: 'EVIDENCE-GROUNDED RED TEAM',
-    title: 'Put your claims to the test.',
+    number: '02', icon: ShieldEllipsis, label: '02 / CHALLENGE',
+    title: 'Adversarial Brand Red Team',
     text: 'Review evidence-backed concerns from four perspectives, compare repeated findings, and make the final call yourself.',
     link: '/content', action: 'Review content', tone: 'peach',
   },
   {
-    number: '03', icon: Atom, label: 'FULL GUIDELINE CHAOS TESTING',
-    title: 'Make the rules clearer.',
+    number: '03', icon: Atom, label: '03 / TEST',
+    title: 'Guideline Chaos Testing',
     text: 'Explore potential rule conflicts and gaps, and test how interpretations differ. Agreement is consistency, not correctness.',
     link: '/rule-tests', action: 'Explore rule tests', tone: 'lilac',
   },
