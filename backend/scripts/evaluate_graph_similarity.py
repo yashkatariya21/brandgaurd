@@ -31,7 +31,7 @@ def evaluate(cases, threshold):
 
 def main():
     threshold = float(sys.argv[1]) if len(sys.argv) > 1 else 0.55
-    cases = json.loads(CASES.read_text())
+    cases = json.loads(CASES.read_text())['cases']
     print('Synthetic same-fact/value pairs; local character similarity only, not embeddings.')
     print('Threshold:', threshold)
     for split in ('development', 'holdout'):
