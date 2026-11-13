@@ -153,6 +153,7 @@ function RippleDiagram({
 export default function BlastRadiusPage() {
   const { isAuthority } = useTheme()
   const [facts, setFacts] = useState<Fact[]>([])
+  const [factsLoading, setFactsLoading] = useState(true)
   const [selectedFactId, setSelectedFactId] = useState('')
   const [result, setResult] = useState<BlastRadiusResult | null>(null)
   const [running, setRunning] = useState(false)
@@ -165,7 +166,7 @@ export default function BlastRadiusPage() {
       setFacts(fs)
       const cc = fs.find((f) => f.key === 'customer_count')
       if (cc) setSelectedFactId(cc.id)
-    }).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load facts.'))
+    }).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load facts.')).finally(() => setFactsLoading(false))
   }, [])
 
   const runScan = async () => {
@@ -203,7 +204,7 @@ export default function BlastRadiusPage() {
     <div className="space-y-6 max-w-[1440px] mx-auto p-4 md:p-6 pb-12">
       <div>
         <h1 className={`text-main ${isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'}`}>
-          Dependency-graph Blast Radius
+          Brand-as-Code with Blast-Radius Intelligence
         </h1>
         <p className="text-sm text-muted mt-1">
           Explore registered content that may be affected when a fact changes.
@@ -228,7 +229,7 @@ export default function BlastRadiusPage() {
               onChange={(e) => { setSelectedFactId(e.target.value); setResult(null) }}
               className="w-full px-3 py-2 border border-subtle rounded-lg text-sm focus:outline-none focus:border-accent bg-surface text-main"
             >
-              <option value="">— choose a fact —</option>
+              <option value="">{factsLoading ? 'Loading facts…' : '— choose a fact —'}</option>
               {facts.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.label} ({f.key}) – {f.value_text ?? '?'}
@@ -238,7 +239,7 @@ export default function BlastRadiusPage() {
           </div>
           <button
             onClick={runScan}
-            disabled={running || !selectedFactId}
+            disabled={running || factsLoading || !selectedFactId}
             className="flex items-center gap-2 px-5 py-2 bg-accent text-white rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {running ? (
@@ -259,7 +260,10 @@ export default function BlastRadiusPage() {
         )}
       </div>
 
-      {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+      {factsLoading && <div role="status" className="glass-panel rounded-xl p-5"><span className="sr-only">Loading facts…</span><div className="h-4 w-2/3 bg-canvas-secondary rounded animate-pulse" /></div>}
+      {running && <div role="status" className="glass-panel rounded-xl p-5 space-y-3"><span>Scanning registered content…</span><div className="h-4 w-full bg-canvas-secondary rounded animate-pulse" /><div className="h-4 w-2/3 bg-canvas-secondary rounded animate-pulse" /></div>}
+      {!factsLoading && !error && facts.length === 0 && <p className="text-sm text-muted">No facts available. Add an approved fact in the Repository to begin.</p>}
+      {error && <div role="alert" className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
 
       {result && noComparison && (
         <section className="glass-panel rounded-xl p-6" role="status">
@@ -287,7 +291,7 @@ export default function BlastRadiusPage() {
 
           {/* ── Summary strip ── */}
           {result.affected_count > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="glass-panel rounded-xl p-4 text-center">
                 <p className="text-2xl font-bold text-red-700 font-mono-numbers">{confirmed}</p>
                 <p className="text-xs text-muted mt-0.5">Confirmed</p>
@@ -441,7 +445,7 @@ export default function BlastRadiusPage() {
         </div>
       )}
 
-      {!result && !running && (
+      {!result && !running && !factsLoading && !error && facts.length > 0 && (
         <div className="text-center py-16 text-muted">
           <div className="w-16 h-16 rounded-full bg-accent-subtle flex items-center justify-center mx-auto mb-4">
             <Crosshair size={28} className="text-accent" />

@@ -16,9 +16,9 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-main mb-3 text-sm">Product</h4>
             <ul className="space-y-2 text-sm text-muted">
-              <li>Dependency-graph Blast Radius</li>
-              <li>Evidence-grounded Red Team</li>
-              <li>Full Guideline Chaos Testing</li>
+              <li>Brand-as-Code with Blast-Radius Intelligence</li>
+              <li>Adversarial Brand Red Team</li>
+              <li>Guideline Chaos Testing</li>
             </ul>
           </div>
           <div>

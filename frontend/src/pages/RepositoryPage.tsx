@@ -222,7 +222,7 @@ function FactModal({ fact: initial, onClose, userRole }: {
               {initial.key} · {initial.category}
             </p>
           </div>
-          <button onClick={onClose} className="text-muted hover:text-main p-1 rounded-lg hover:bg-accent-subtle">
+          <button onClick={onClose} aria-label="Close" className="text-muted hover:text-main p-1 rounded-lg hover:bg-accent-subtle">
             <X size={18} />
           </button>
         </div>
@@ -231,7 +231,7 @@ function FactModal({ fact: initial, onClose, userRole }: {
             <p className="text-muted text-sm">Loading…</p>
           ) : detail ? (
             <>
-              <div className="grid grid-cols-2 gap-4 mb-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                 <div className="bg-canvas-secondary rounded-lg p-3">
                   <p className="text-xs text-muted mb-1">Current value</p>
                   <p className="text-sm font-semibold text-main">{detail.value_text}</p>
@@ -375,13 +375,13 @@ function CreateFactModal({ onClose, onCreated }: { onClose: () => void; onCreate
       <div className="glass-modal rounded-2xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-subtle">
           <h3 className="font-bold text-main font-newsreader">New Fact</h3>
-          <button onClick={onClose} className="text-muted hover:text-main p-1 rounded-lg hover:bg-accent-subtle">
+          <button onClick={onClose} aria-label="Close" className="text-muted hover:text-main p-1 rounded-lg hover:bg-accent-subtle">
             <X size={18} />
           </button>
         </div>
         <form onSubmit={submit} className="px-6 py-5 space-y-4">
           {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-muted mb-1">Key</label>
               <input
@@ -429,7 +429,7 @@ function CreateFactModal({ onClose, onCreated }: { onClose: () => void; onCreate
               className={inputCls}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-muted mb-1">Numeric value</label>
               <input
