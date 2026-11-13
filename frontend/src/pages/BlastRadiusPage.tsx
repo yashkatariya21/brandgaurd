@@ -279,8 +279,13 @@ export default function BlastRadiusPage() {
         <section className="glass-panel rounded-xl p-6" role="status">
           <h2 className="text-lg font-semibold text-main">No comparison available yet</h2>
           <p className="text-sm text-muted mt-2">{result.message || 'There is no previous approved version to compare.'} No scan was performed.</p>
-          <p className="text-sm text-muted mt-2">To compare a change, submit a new fact version in the Repository and have a different authorised approver approve it. Then return here and run the scan.</p>
-          <Link className="inline-flex mt-4 text-sm font-semibold text-accent underline" to="/repository">Go to Repository</Link>
+          <ol className="mt-4 space-y-2 text-sm text-main list-decimal pl-5">
+            <li>Open <strong>{result.fact_label}</strong> in the Repository. As a Brand Manager, submit a draft version or propose a new one.</li>
+            <li>Switch to a different authorized Approver and approve the pending version.</li>
+            <li>Return to Blast Radius, select the same fact and run the scan again.</li>
+          </ol>
+          <p className="text-xs text-muted mt-3">The scan compares approved versions of this fact; it does not change or publish content.</p>
+          <Link className="inline-flex mt-4 text-sm font-semibold text-accent underline" to={`/repository?fact=${encodeURIComponent(result.fact_id)}`}>Open {result.fact_label} in Repository</Link>
         </section>
       )}
       {result && !noComparison && (

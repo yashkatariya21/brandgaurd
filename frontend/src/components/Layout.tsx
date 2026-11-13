@@ -39,7 +39,7 @@ export default function Layout() {
     logout()
     try {
       await login(account.email, DEMO_PASSWORD, ORG_SLUG)
-      navigate(location.pathname, { replace: true })
+      navigate(location.pathname + location.search + location.hash, { replace: true })
     } catch {
       navigate('/login', { replace: true, state: { demoSwitchFailed: true } })
     } finally { setSwitching(false) }
