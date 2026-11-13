@@ -272,3 +272,12 @@
 .entry-advanced { justify-self:start; color:#345e4d; font-size:12px; font-weight:700; }
 .entry-help,.entry-slow { margin-top:7px; font-size:12px; color:#4c6859; line-height:1.5; }
 .entry-field-error { margin-top:5px; font-size:12px; color:#a12626; }
+.demo-stepper { background:#214b3f; color:#f7f8ed; border-bottom:1px solid #55766a; }
+.demo-stepper-inner { max-width:1320px; min-height:48px; margin:auto; padding:4px clamp(18px,3vw,42px); display:flex; align-items:center; gap:20px; }
+.demo-stepper-toggle { display:flex; align-items:center; gap:8px; white-space:nowrap; font-size:12px; font-weight:700; }
+.demo-steps { display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
+.demo-step { display:inline-flex; align-items:center; gap:5px; padding:5px 8px; border-radius:5px; color:#f2f7ea; font-size:12px; text-decoration:none; }
+.demo-step span { display:grid; place-items:center; width:20px; height:20px; border:1px solid #b8d0ba; border-radius:50%; }
+.demo-step.is-current { color:#173d37; background:#d3e6a0; font-weight:700; }
+.demo-step.is-current span { border-color:#537b5d; }
+@media (max-width:800px) { .demo-stepper-inner { flex-wrap:wrap; gap:2px; }.demo-steps { padding-bottom:5px; } }
