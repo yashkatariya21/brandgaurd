@@ -26,6 +26,7 @@ PURE_MODULES = {
     "test_conflict_decisions",
     "test_chaos_regression",
     "test_debate_evidence",
+    "test_finding_debate_consistency",
     "test_graph_similarity_evaluation",
     "test_ci_test_summary",
 }

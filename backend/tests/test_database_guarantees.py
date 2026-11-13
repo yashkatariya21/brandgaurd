@@ -298,3 +298,24 @@ def test_graph_fact_paths_are_scoped_to_tenant_and_snapshot(two_orgs):
     assert result['paths'][0]['channels'] == ['web']
     with pytest.raises(ApiError):
         fact_paths(fact, principal=Principal(user_b, org_b, 'admin'))
+
+
+def test_finding_detail_sanitises_cached_demo_and_revalidates_evidence(two_orgs):
+    from app.api.findings import get_finding
+    from app.core.rbac import Principal
+    from app.core.errors import ApiError
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        item = conn.execute("INSERT INTO content_items (org_id,title,channel) VALUES (%s,'Draft','web') RETURNING id", (org_a,)).fetchone()['id']
+        cv = conn.execute("INSERT INTO content_versions (org_id,content_item_id,version_no,body_text,content_hash) VALUES (%s,%s,1,'Example passage','h') RETURNING id", (org_a,item)).fetchone()['id']
+        run = conn.execute("INSERT INTO analysis_runs (org_id,content_version_id,kind) VALUES (%s,%s,'review') RETURNING id", (org_a,cv)).fetchone()['id']
+        finding = conn.execute("""INSERT INTO findings (org_id,analysis_run_id,content_version_id,span_start,span_end,finding_type,source_kind,issue,severity,confidence)
+            VALUES (%s,%s,%s,0,7,'possible','deterministic','Issue','high','low') RETURNING id""", (org_a,run,cv)).fetchone()['id']
+        conn.execute("""INSERT INTO debates (org_id,finding_id,prosecutor_text,defender_text,minimal_edit,model_id)
+            VALUES (%s,%s,'unverified claim','unverified defense','unverified edit','stub')""", (org_a,finding))
+    result = get_finding(finding, principal=Principal(str(user_a), str(org_a), 'admin'))
+    assert result['debate']['argument_citations']['prosecutor'][0]['quote'] == 'Example'
+    assert result['debate']['minimal_edit'] is None
+    assert 'unverified claim' not in result['debate']['prosecutor_text']
+    with pytest.raises(ApiError):
+        get_finding(finding, principal=Principal(str(user_b), str(org_b), 'admin'))
