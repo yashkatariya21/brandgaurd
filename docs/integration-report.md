@@ -193,3 +193,15 @@ The rule-test page can list the most recent 20 human-review sets for a rule, ide
 ### Human-review regression snapshots
 
 Reviewers can compare two saved human-review sets for the same rule and persist a point-in-time diff in the append-only audit log. Exact text identities track additions, removals, expectation/axis changes and human-label changes, including unlabelled cases. Results are tenant-scoped and can be fetched by comparison ID; later label changes do not alter the saved snapshot. This is a comparison of reviewer judgments, not automated checker performance or proof of correctness. Mocked/unit tests passed; PostgreSQL locking, persistence and isolation tests are skipped locally and require database-backed CI.
+
+### Fact-to-channel graph path exploration
+
+The graph UI can explore a fact's directed fact → claim → content → channel paths from the last rebuild. Each relationship retains its evidence method and Confirmed/Possible label; only recognised deterministic link/attribute edges can be confirmed. Similarity is always possible. This is a traversal of the current-fact snapshot, not a historical change scan or a guarantee that content is stale; channels are assignments rather than publication evidence. Reads take the same tenant-scoped advisory lock as rebuilds and are bounded. Unit/mocked API tests pass, while the added PostgreSQL isolation test is skipped locally. Embedding generation and calibration are still not implemented.
+
+### Review-only cases for rules without examples
+
+Human reviewers can now supply up to ten bounded examples when creating a review set for any approved rule, including rules with no saved examples. The inputs are persisted as unjudged review cases; they do not alter approved rule versions or rulebook examples, and no AI verdict is claimed. Original saved examples remain supported. The request was tested with a mocked HTTP API; the corresponding PostgreSQL persistence test remains skipped locally. This expands human review, not automated full-family chaos.
+
+### Submission documentation refresh
+
+Updated the QA report, README and About page to distinguish shipped foundations, uncalibrated/disabled vector paths, fail-closed hosted AI, and outstanding work. GitHub Actions metadata confirms run 43367031731 at `7855164e820ee89ee865a588f561a5b93c5d1fbf` passed PostgreSQL/pgvector migration, seed, backend tests, the no-skips guard and frontend build. The exact backend count could not be retrieved from logs here. Added a separate two-page evidence brief (Markdown source and PDF); it includes unmerged branch work and is not proof of deployment or independent QA. No current live-browser or backend-health check was performed.
