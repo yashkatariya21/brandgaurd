@@ -115,8 +115,7 @@ function VersionTimeline({ versions, factId, factKey, onAction, userRole }: {
                       {v.status === 'draft' && canPropose && (
                         <button
                           disabled={busy}
-                          data-demo-target="1"
-                          onClick={() => doAction(async () => { const r = await factsApi.approveVersion(factId, v.version_no); if (factKey === 'customer_count' && v.value_text === '65,000+ customers' && r.status === 'pending_approval') markStep(1); return r })}
+                          onClick={() => doAction(() => factsApi.approveVersion(factId, v.version_no))}
                           className="text-xs px-2.5 py-1 bg-accent text-white rounded-md hover:opacity-90 disabled:opacity-50"
                         >
                           Submit for approval
@@ -314,6 +313,7 @@ function FactModal({ fact: initial, onClose, userRole }: {
                     </form>
                   ) : (
                     <button
+                      data-demo-target="1"
                       onClick={() => setShowPropose(true)}
                       className="text-sm text-accent hover:opacity-80 font-medium"
                     >
