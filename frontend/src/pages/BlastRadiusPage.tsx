@@ -5,6 +5,8 @@ import { Crosshair, Info, ExternalLink, Zap, Globe, Smartphone, Mail, FileText, 
 import { factsApi, Fact, BlastRadiusResult, AffectedItem } from '../api'
 import { useTheme } from '../theme'
 import StatusChip from '../components/StatusChip'
+import ReportButton from '../components/ReportButton'
+import { blastReport } from '../lib/resultReports'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -292,7 +294,7 @@ export default function BlastRadiusPage() {
         <div className="space-y-5">
           {/* ── Header card ── */}
           <div className="glass-panel rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-main mb-3">{result.fact_label}</h2>
+            <div className="flex justify-between items-start gap-3 flex-wrap mb-3"><h2 className="text-sm font-semibold text-main">{result.fact_label}</h2><ReportButton report={blastReport(result)} /></div>
             <div className="flex items-center gap-3 flex-wrap">
               <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 font-mono text-xs text-red-700 line-through">
                 {result.old_value}

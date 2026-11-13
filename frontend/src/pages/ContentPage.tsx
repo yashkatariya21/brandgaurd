@@ -10,6 +10,8 @@ import HighlightedText, { SeverityLegend } from '../components/HighlightedText'
 import { type AnnotatedRange } from '../lib/segments'
 import { IS_DEMO_MODE } from '../lib/demoAccounts'
 import { DEMO_SAMPLES } from '../lib/demoSamples'
+import ReportButton from '../components/ReportButton'
+import { redTeamReport } from '../lib/resultReports'
 
 function ContentDetailModal({ item, onClose, onAnalysed }: {
   item: ContentItem
@@ -316,6 +318,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                   {redTeamResult.mode === 'demo' ? 'Demo mode · heuristic output, not AI' : 'AI-generated · review required'}
                 </span>
               </div>
+              <div className="mb-3"><ReportButton report={redTeamReport(redTeamResult, item.title)} /></div>
               {redTeamResult.demo_note && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
                   {redTeamResult.demo_note}
