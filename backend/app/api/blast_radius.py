@@ -13,6 +13,9 @@ Scope note: only content registered in BrandGuard is scanned.
 from __future__ import annotations
 
 import uuid
+import re
+import os
+import math
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -62,10 +65,11 @@ def _normalise_old_value(value_text: str, value_number: Optional[float]) -> Opti
     return None
 
 
-def _scan_item(body: str, old_norm: float, old_text: str, new_text: str,
+def _scan_item(body: str, old_norm: Optional[float], old_text: str, new_text: str,
                fact_attribute: Optional[str], linked_fact_id: Optional[str],
                fact_id_str: str,
-               linked_claim_spans: Optional[set[tuple[int, int]]] = None) -> Optional[dict]:
+               linked_claim_spans: Optional[set[tuple[int, int]]] = None,
+               new_norm: Optional[float] = None) -> Optional[dict]:
     """
     Scan a single content body.
     Returns a match dict or None.
@@ -87,7 +91,8 @@ def _scan_item(body: str, old_norm: float, old_text: str, new_text: str,
             result = {
                 "match_type": (
                     "confirmed"
-                    if (fact_attribute and c_attr == fact_attribute) or explicitly_linked
+                    if ((fact_attribute and c_attr == fact_attribute) or explicitly_linked)
+                    and (new_norm is None or new_norm != old_norm)
                     else "possible"
                 ),
                 "stale_text": claim["raw_text"],
@@ -99,7 +104,57 @@ def _scan_item(body: str, old_norm: float, old_text: str, new_text: str,
                 return result
             if possible_match is None:
                 possible_match = result
-    return possible_match
+    if possible_match:
+        return possible_match
+    # Exact text can reveal non-numeric facts, but a string match alone does not
+    # establish that the passage makes this claim or that it is stale.
+    text = old_text.strip()
+    if text and text.casefold() != new_text.strip().casefold():
+        pattern = r'(?<!\w)' + re.escape(text) + r'(?!\w)'
+        match = re.search(pattern, body, re.IGNORECASE)
+        if match:
+            return {"match_type": "possible", "stale_text": match.group(),
+                    "span_start": match.start(), "span_end": match.end(),
+                    "suggested_replacement": new_text}
+    return None
+
+
+def _historical_vector_candidates(conn, org_id, fact_id, version_id):
+    """Select provenance-matched candidates against the superseded fact version.
+
+    These are similarities, not determinations that a passage is stale. No
+    embeddings are generated here; unlabelled and stale inputs are ignored.
+    """
+    if os.environ.get('GRAPH_VECTOR_MATCH_ENABLED', '').lower() != 'true':
+        return {}
+    rows = conn.execute("""SELECT cc.content_version_id, cc.span_start, cc.span_end,
+               cc.raw_text, cc.embedding_model, 1-(fv.embedding <=> cc.embedding) AS score
+        FROM fact_versions fv
+        JOIN facts f ON f.id=fv.fact_id AND f.org_id=fv.org_id
+        JOIN content_claims cc ON cc.org_id=fv.org_id
+        JOIN content_versions cv ON cv.id=cc.content_version_id AND cv.org_id=cc.org_id
+        JOIN content_items ci ON ci.id=cv.content_item_id AND ci.org_id=cc.org_id
+            AND ci.current_version_id=cv.id
+        WHERE fv.org_id=%s AND fv.fact_id=%s AND fv.id=%s AND fv.status='superseded'
+          AND fv.embedding IS NOT NULL AND fv.embedding_model IS NOT NULL
+          AND fv.embedding_model <> '' AND fv.embedding_input=f.label || chr(10) || fv.value_text
+          AND cc.embedding IS NOT NULL AND cc.embedding_model=fv.embedding_model
+          AND cc.embedding_input=cc.raw_text
+          AND cc.span_start >= 0 AND cc.span_end > cc.span_start
+          AND substring(cv.body_text FROM cc.span_start + 1 FOR cc.span_end - cc.span_start)=cc.raw_text
+          AND 1-(fv.embedding <=> cc.embedding) >= 0.85
+        ORDER BY cc.content_version_id, score DESC, cc.span_start, cc.id""",
+        (org_id, fact_id, version_id)).fetchall()
+    candidates = {}
+    for row in rows:
+        score = float(row['score'])
+        if not math.isfinite(score) or not 0.85 <= score <= 1.000001:
+            continue
+        key = str(row['content_version_id'])
+        candidates.setdefault(key, {'match_type': 'possible', 'stale_text': row['raw_text'],
+            'span_start': row['span_start'], 'span_end': row['span_end'],
+            'match_method': 'embedding', 'similarity': score, 'embedding_model': row['embedding_model']})
+    return candidates
 
 
 @router.post("/facts/{fact_id}/blast-radius")
@@ -111,8 +166,8 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
             """SELECT f.id, f.key, f.label, f.category,
                       fv.value_text as new_value_text, fv.value_number as new_value_number
                FROM facts f
-               JOIN fact_versions fv ON fv.id = f.current_version_id
-               WHERE f.id=%s AND f.org_id=%s""",
+               JOIN fact_versions fv ON fv.id = f.current_version_id AND fv.org_id=f.org_id
+               WHERE f.id=%s AND f.org_id=%s AND fv.status='approved'""",
             (fact_id, principal.org_id),
         ).fetchone()
         if not fact:
@@ -120,11 +175,11 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
 
         # Previous superseded version
         prev = conn.execute(
-            """SELECT value_text, value_number
+            """SELECT id, value_text, value_number
                FROM fact_versions
-               WHERE fact_id=%s AND status='superseded'
-               ORDER BY version_no DESC LIMIT 1""",
-            (fact_id,),
+               WHERE fact_id=%s AND org_id=%s AND status='superseded'
+               ORDER BY approved_at DESC NULLS LAST, version_no DESC LIMIT 1""",
+            (fact_id, principal.org_id),
         ).fetchone()
 
         if not prev:
@@ -132,12 +187,13 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
                 "fact_id": fact_id_str,
                 "fact_key": fact["key"],
                 "fact_label": fact["label"],
-                "message": "No previous version found – nothing to compare against",
+                "message": "No previous approved version is available for comparison.",
+                "scan_performed": False,
                 "affected": [],
                 "affected_count": 0,
                 "summary": {"confirmed": 0, "possible": 0,
                             "by_status": {"draft": 0, "in_review": 0, "scheduled": 0, "published": 0}},
-                "scope_note": "Only content registered in BrandGuard was scanned.",
+                "scope_note": "No scan was performed. Approve a new fact version before comparing it with the previous version.",
             }
 
         old_text = prev["value_text"] or ""
@@ -150,7 +206,7 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
             """SELECT ci.id, ci.title, ci.channel, ci.status, ci.registered_state,
                       ci.published_url, cv.id as cv_id, cv.body_text
                FROM content_items ci
-               JOIN content_versions cv ON cv.id = ci.current_version_id
+               JOIN content_versions cv ON cv.id = ci.current_version_id AND cv.org_id=ci.org_id
                WHERE ci.org_id=%s""",
             (principal.org_id,),
         ).fetchall()
@@ -160,13 +216,15 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
         linked_rows = conn.execute(
             """SELECT cc.content_version_id, cc.span_start, cc.span_end
                FROM content_claims cc
-               WHERE cc.fact_id=%s AND cc.link_status IN ('auto','confirmed')""",
-            (fact_id,),
+               WHERE cc.org_id=%s AND cc.fact_id=%s AND cc.link_status='confirmed'""",
+            (principal.org_id, fact_id),
         ).fetchall()
         for r in linked_rows:
             linked_claim_spans_by_version.setdefault(
                 str(r["content_version_id"]), set()
             ).add((r["span_start"], r["span_end"]))
+
+        vector_candidates = _historical_vector_candidates(conn, principal.org_id, fact_id, prev['id'])
 
         run_id = uuid.uuid4()
         conn.execute(
@@ -188,7 +246,12 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
                 None,
                 fact_id_str,
                 linked_claim_spans_by_version.get(str(ci["cv_id"]), set()),
+                _normalise_old_value(new_text, fact["new_value_number"]),
             )
+            if not match:
+                vector_match = vector_candidates.get(str(ci['cv_id']))
+                if vector_match:
+                    match = {**vector_match, 'suggested_replacement': new_text}
             if match:
                 reg = ci["registered_state"] or "none"
                 status_key = reg if reg in ("scheduled", "published") else \
@@ -205,6 +268,9 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
                     "registered_state": reg,
                     "published_url": ci["published_url"],
                     "match_type": match["match_type"],
+                    "match_method": match.get("match_method", "deterministic"),
+                    "similarity": match.get("similarity"),
+                    "embedding_model": match.get("embedding_model"),
                     "stale_text": match["stale_text"],
                     "span_start": match["span_start"],
                     "span_end": match["span_end"],
@@ -224,10 +290,11 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
             "old_value": old_text,
             "new_value": new_text,
             "run_id": str(run_id),
+            "scan_performed": True,
             "affected_count": len(affected),
             "affected": affected,
             "summary": summary_counts,
-            "scope_note": "Only content registered in BrandGuard was scanned.",
+            "scope_note": "Only current versions of content registered in BrandGuard were scanned. Matching is incomplete; no matches does not prove content is current. Any vector similarity is experimental and requires human review.",
         }
 
         # Persist in analysis_runs.config so GET can return it

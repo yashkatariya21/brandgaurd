@@ -308,26 +308,42 @@ def _check_banned_form(raw: str, findings: list, r04):
 
 
 def _check_superseded(conn, org_id, content_version_id, body_text: str, findings: list):
-    """Check if content references values from superseded fact versions."""
-    superseded = conn.execute(
-        """SELECT fv.value_text, fv.value_number, f.key, fv.fact_id
-           FROM fact_versions fv
-           JOIN facts f ON f.id = fv.fact_id
-           WHERE fv.org_id=%s AND fv.status='superseded' AND fv.value_number IS NOT NULL""",
-        (org_id,),
-    ).fetchall()
+    """Report numeric candidates, never assert a stale claim from digits alone.
 
+    A shared number may refer to a different attribute or pricing tier. The
+    reviewer must compare the original span with the approved fact.
+    """
+    superseded = conn.execute(
+        """SELECT fv.value_text, fv.value_number, f.key, fv.fact_id,
+                  current.value_number AS current_value_number
+           FROM fact_versions fv
+           JOIN facts f ON f.id=fv.fact_id AND f.org_id=fv.org_id
+           JOIN fact_versions current ON current.id=f.current_version_id AND current.org_id=f.org_id
+           WHERE fv.org_id=%s AND fv.status='superseded' AND fv.value_number IS NOT NULL
+             AND current.status='approved'""", (org_id,),
+    ).fetchall()
+    claims = extract_claims(body_text)
     for sv in superseded:
-        if sv["value_text"] and sv["value_text"].split(",")[0].replace("+", "").replace(" ", "").isdigit():
-            # Check if the old value text appears in body
-            old_val_str = str(int(sv["value_number"])) if sv["value_number"] else None
-            if old_val_str and old_val_str in body_text.replace(",", ""):
-                findings.append({
-                    "id": str(uuid.uuid4()),
-                    "issue": (f"Content references a superseded value for '{sv['key']}': "
-                              f"'{sv['value_text']}'. The approved value has been updated."),
-                    "severity": "high",
-                    "finding_type": "confirmed",
-                    "source_kind": "deterministic",
-                    "fact_id": str(sv["fact_id"]),
-                })
+        old = float(sv['value_number'])
+        current = sv['current_value_number']
+        # If the number is unchanged the numeric signal cannot distinguish the versions.
+        if current is not None and float(current) == old:
+            continue
+        matches = [c for c in claims if c.get('value_number') is not None
+                   and float(c['value_number']) == old]
+        if not matches:
+            continue
+        claim = matches[0]
+        findings.append({
+            'id': str(uuid.uuid4()),
+            'issue': (f"Possible reference to a superseded value for '{sv['key']}': "
+                      f"'{sv['value_text']}'. Review the passage against the current approved fact."),
+            'severity': 'high',
+            'finding_type': 'possible',
+            'source_kind': 'deterministic',
+            'confidence': 'low',
+            'human_review_required': True,
+            'fact_id': str(sv['fact_id']),
+            'span_start': claim['span_start'],
+            'span_end': claim['span_end'],
+        })

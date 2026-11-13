@@ -111,3 +111,37 @@ class TestNormaliseOldValue:
     def test_none_returns_none(self):
         from app.api.blast_radius import _normalise_old_value
         assert _normalise_old_value("", None) is None
+
+
+def test_superseded_numeric_candidates_require_exact_values_and_human_review():
+    from app.services.checker import _check_superseded
+    class Rows:
+        def fetchall(self):
+            return [{'value_text': '50,000 customers', 'value_number': 50000,
+                     'key': 'customer_count', 'fact_id': 'f1', 'current_value_number': 65000}]
+    class Conn:
+        def execute(self, query, args):
+            assert args == ('org',)
+            assert 'f.org_id=fv.org_id' in query
+            return Rows()
+    findings = []
+    _check_superseded(Conn(), 'org', 'version', 'We handled 150,000 tickets.', findings)
+    assert findings == []
+    text = 'We handled 50,000 tickets.'
+    _check_superseded(Conn(), 'org', 'version', text, findings)
+    assert len(findings) == 1 and findings[0]['finding_type'] == 'possible'
+    assert findings[0]['human_review_required'] is True
+    assert text[findings[0]['span_start']:findings[0]['span_end']] == '50,000 tickets'
+
+
+def test_superseded_matching_number_does_not_claim_changed_numeric_value():
+    from app.services.checker import _check_superseded
+    class Rows:
+        def fetchall(self):
+            return [{'value_text': '50,000 customers', 'value_number': 50000,
+                     'key': 'customer_count', 'fact_id': 'f1', 'current_value_number': 50000}]
+    class Conn:
+        def execute(self, *_args): return Rows()
+    findings = []
+    _check_superseded(Conn(), 'org', 'version', '50,000 customers', findings)
+    assert findings == []

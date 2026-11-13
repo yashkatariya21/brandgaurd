@@ -6,12 +6,11 @@ the core demo; enhances with LLM when available.
 """
 from __future__ import annotations
 
-import os
 import re
 from typing import Optional
 from pydantic import BaseModel, field_validator
 
-from .llm_config import ProviderCallError, configured_model
+from .llm_config import ProviderCallError, configured_model, hosted_calls_available, require_hosted_calls_allowed
 
 
 # ─── Pydantic schema for LLM case output ─────────────────────────────────────
@@ -166,6 +165,7 @@ def _demo_interpret(rule_text: str, case_text: str, n: int) -> list[str]:
 
 def _llm_interpret(rule_text: str, case_text: str, n: int) -> list[str]:
     """Run n LLM interpretations with varying temperature/prompts."""
+    require_hosted_calls_allowed()
     import json
     try:
         from openai import OpenAI
@@ -286,10 +286,11 @@ def detect_ambiguities(rules: list[dict]) -> list[dict]:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _has_llm() -> bool:
-    return bool(os.environ.get("OPENAI_API_KEY"))
+    return hosted_calls_available()
 
 
 def _llm_chaos(rule: dict) -> list[dict]:
+    require_hosted_calls_allowed()
     try:
         import json
         from openai import OpenAI

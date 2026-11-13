@@ -45,7 +45,7 @@ def validate_citations(citations: object, content: str, content_version_id: str,
         if kind not in ('fact', 'rule', 'passage') or not isinstance(ref, str) or not isinstance(quote, str) or not quote.strip():
             return None
         if kind == 'passage':
-            if ref != str(content_version_id):
+            if ref != str(content_version_id) or version is not None:
                 return None
             normalised, offsets = _normalised_with_offsets(content)
             needle, _ = _normalised_with_offsets(quote)

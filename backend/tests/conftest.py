@@ -11,6 +11,9 @@ from app.core.db import close_pool, tenant_conn
 # even when the DB environment is not configured.
 PURE_MODULES = {
     "test_blast_radius",
+    "test_blast_no_previous",
+    "test_provider_spend_guard",
+    "test_rule_review_cases",
     "test_checker",
     "test_redteam",
     "test_chaos",

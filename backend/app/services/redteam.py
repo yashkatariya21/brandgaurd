@@ -1,6 +1,6 @@
 """T14/T15 – Red Team (3 personas) + Prosecutor vs Defender debate panel.
 
-When an LLM is available (OPENAI_API_KEY set), uses GPT-4o-mini.
+Hosted-model calls are disabled until monetary spending limits are enforced.
 Falls back to a deterministic stub so the demo always works without spend.
 
 Persona names (final):
@@ -11,13 +11,12 @@ Persona names (final):
 from __future__ import annotations
 
 import json
-import os
 import re
 from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
-from .llm_config import ProviderCallError, configured_model
+from .llm_config import ProviderCallError, configured_model, hosted_calls_available, require_hosted_calls_allowed
 
 
 # ─── Pydantic schema for LLM persona findings ────────────────────────────────
@@ -118,10 +117,11 @@ def run_prosecutor_defender(issue: str, content_text: str, fact_context: str,
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _has_llm() -> bool:
-    return bool(os.environ.get("OPENAI_API_KEY"))
+    return hosted_calls_available()
 
 
 def _llm_call(system: str, user: str, max_tokens: int = 600) -> str:
+    require_hosted_calls_allowed()
     try:
         from openai import OpenAI
         client = OpenAI(timeout=8.0, max_retries=0)
@@ -350,20 +350,15 @@ def _stub_persona_findings(persona: dict, content: str) -> list[dict]:
 
 
 def _stub_debate(issue: str) -> dict:
+    """Neutral review prompts, not a factual finding or legal opinion."""
     return {
         "prosecutor": (
-            f"The issue '{issue[:200]}' represents a clear brand compliance risk. "
-            "If this content is published as-is, it could mislead customers, "
-            "create legal liability, and undermine brand trust. The brand guidelines are clear "
-            "on this point and there is no approved fact that supports the claim as written."
+            "Review whether the identified passage conflicts with the applicable approved "
+            "facts or rules. Check the evidence and context before deciding whether it needs an edit."
         ),
         "defender": (
-            f"While the concern about '{issue[:200]}' is noted, the intent of the content "
-            "is clearly positive and the risk may be lower in practice. "
-            "Readers understand marketing language, and the broader context of the piece "
-            "makes the intended meaning clear. A minor edit may resolve the concern without "
-            "a full rewrite."
+            "Consider whether the passage has relevant context or qualifications, and whether "
+            "the cited facts and rules apply. Do not assume the finding is correct."
         ),
-        # No 'verdict' key — human decides
-        "minimal_edit": "Consider adding qualification language and verifying against the latest approved facts.",
+        "minimal_edit": None,
     }
