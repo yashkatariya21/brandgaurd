@@ -1,0 +1,300 @@
+{
+  "label_review": "unreviewed",
+  "provenance": "AI-generated synthetic product-name and embargo cases; not independently reviewed.",
+  "cases": [
+    {
+      "id": "fault-01",
+      "family": "product_name",
+      "text": "Nimbus Desk helps teams.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-02",
+      "family": "product_name",
+      "text": "Explore Nimbus Desk today.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-03",
+      "family": "product_name",
+      "text": "Why choose Nimbus Desk?",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-04",
+      "family": "product_name",
+      "text": "NimbusDESK helps teams.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-05",
+      "family": "product_name",
+      "text": "Explore NimbusDESK today.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-06",
+      "family": "product_name",
+      "text": "Why choose NimbusDESK?",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-07",
+      "family": "product_name",
+      "text": "Nimbus helps teams.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-08",
+      "family": "product_name",
+      "text": "Explore Nimbus today.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-09",
+      "family": "product_name",
+      "text": "Why choose Nimbus?",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-10",
+      "family": "product_name",
+      "text": "Nimbus  Desk helps teams.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-11",
+      "family": "product_name",
+      "text": "Explore Nimbus  Desk today.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-12",
+      "family": "product_name",
+      "text": "Why choose Nimbus  Desk?",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-13",
+      "family": "product_name",
+      "text": "Nimbus-Desk helps teams.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-14",
+      "family": "product_name",
+      "text": "Explore Nimbus-Desk today.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-15",
+      "family": "product_name",
+      "text": "Why choose Nimbus-Desk?",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-16",
+      "family": "product_name",
+      "text": "Nimbus​Desk helps teams.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-17",
+      "family": "product_name",
+      "text": "Explore Nimbus​Desk today.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-18",
+      "family": "product_name",
+      "text": "Why choose Nimbus​Desk?",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-19",
+      "family": "product_name",
+      "text": "NIMBUS DESK helps teams.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-20",
+      "family": "product_name",
+      "text": "Explore NIMBUS DESK today.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-21",
+      "family": "product_name",
+      "text": "Why choose NIMBUS DESK?",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-22",
+      "family": "product_name",
+      "text": "nimbus desk helps teams.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-23",
+      "family": "product_name",
+      "text": "Explore nimbus desk today.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-24",
+      "family": "product_name",
+      "text": "Why choose nimbus desk?",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-25",
+      "family": "product_name",
+      "text": "nimbusdesk helps teams.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-26",
+      "family": "product_name",
+      "text": "Explore nimbusdesk today.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-27",
+      "family": "product_name",
+      "text": "Why choose nimbusdesk?",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-28",
+      "family": "product_name",
+      "text": "Nimbus_Desk helps teams.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-29",
+      "family": "product_name",
+      "text": "Explore Nimbus_Desk today.",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "fault-30",
+      "family": "product_name",
+      "text": "Why choose Nimbus_Desk?",
+      "expected_flag": true,
+      "note": "Synthetic spelling/casing variant; expected violation requires human review."
+    },
+    {
+      "id": "control-01",
+      "family": "product_name",
+      "text": "NimbusDesk helps teams.",
+      "expected_flag": false,
+      "note": "Synthetic negative control."
+    },
+    {
+      "id": "control-02",
+      "family": "product_name",
+      "text": "Choose NimbusDesk today.",
+      "expected_flag": false,
+      "note": "Synthetic negative control."
+    },
+    {
+      "id": "control-03",
+      "family": "product_name",
+      "text": "A support platform helps teams.",
+      "expected_flag": false,
+      "note": "Synthetic negative control."
+    },
+    {
+      "id": "control-04",
+      "family": "product_name",
+      "text": "Our product supports customers.",
+      "expected_flag": false,
+      "note": "Synthetic negative control."
+    },
+    {
+      "id": "control-05",
+      "family": "product_name",
+      "text": "Try the platform today.",
+      "expected_flag": false,
+      "note": "Synthetic negative control."
+    },
+    {
+      "id": "embargo-01",
+      "family": "embargo",
+      "text": "Project Heron launches soon.",
+      "expected_flag": true,
+      "note": "Synthetic active-term example; transformed names require human review."
+    },
+    {
+      "id": "embargo-02",
+      "family": "embargo",
+      "text": "PROJECT HERON is coming.",
+      "expected_flag": true,
+      "note": "Synthetic active-term example; transformed names require human review."
+    },
+    {
+      "id": "embargo-03",
+      "family": "embargo",
+      "text": "project heron update.",
+      "expected_flag": true,
+      "note": "Synthetic active-term example; transformed names require human review."
+    },
+    {
+      "id": "embargo-04",
+      "family": "embargo",
+      "text": "Project  Heron launches.",
+      "expected_flag": true,
+      "note": "Synthetic active-term example; transformed names require human review."
+    },
+    {
+      "id": "embargo-05",
+      "family": "embargo",
+      "text": "Project-Heron launches.",
+      "expected_flag": true,
+      "note": "Synthetic active-term example; transformed names require human review."
+    },
+    {
+      "id": "embargo-06",
+      "family": "embargo",
+      "text": "A future release is planned.",
+      "expected_flag": false,
+      "note": "Synthetic active-term example; transformed names require human review."
+    },
+    {
+      "id": "embargo-07",
+      "family": "embargo",
+      "text": "Project Finch launches.",
+      "expected_flag": false,
+      "note": "Synthetic active-term example; transformed names require human review."
+    }
+  ]
+}

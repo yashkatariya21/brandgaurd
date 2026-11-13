@@ -118,3 +118,18 @@ def test_fact_path_api_queries_only_current_tenant_and_locks_snapshot(monkeypatc
     output = graph.fact_paths(fact_id, Principal(user, org, 'admin'))
     assert output['fact_id'] == str(fact_id) and output['paths'] == []
     assert 'advisory' in calls[0]
+
+
+def test_number_formats_are_normalized_for_candidate_matching():
+    from app.services.dependency_graph import _normalise
+    for phrase in ('fifty thousand customers', 'fifty-thousand customers', '50 thousand customers',
+                   '50k customers', '0.05 million customers', '50 000 customers', '50.000 customers', '50,000 customers'):
+        assert _normalise(phrase) == '50000 customer'
+    assert _normalise('one million and twenty five thousand customers') == '1025000 customer'
+    assert _normalise('99.9 percent uptime') == '99.9 percent uptime'
+
+
+def test_approximate_numeric_claim_is_possible_not_confirmed():
+    f = fact()
+    result = match_claim(f, {'raw_text': 'nearly 65,000 customers', 'value_number': 65000, 'attribute': 'customer_count'})
+    assert result['match_type'] == 'possible'

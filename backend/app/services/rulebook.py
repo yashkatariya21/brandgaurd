@@ -1,5 +1,6 @@
 """Conservative, explainable candidates; a human must resolve each one."""
 from itertools import combinations
+import re
 
 EXTERNAL_CHANNELS = {'web', 'social', 'email', 'press', 'pdf', 'image'}
 
@@ -11,24 +12,55 @@ def expanded_channels(rule):
     return channels - {'all', 'external'}
 
 
+def _directive(text, subject):
+    """Recognise a narrow imperative vocabulary; unknown wording stays unknown."""
+    noun = {'contractions': r'contractions?', 'emoji': r'emojis?',
+            'formal': r'formal(?:\s+(?:tone|language))?'}[subject]
+    # Search within clauses so a negation elsewhere does not invert a directive.
+    clauses = re.split(r'[.;!?]', text.lower())
+    values = set()
+    for clause in clauses:
+        if not re.search(r'\b' + noun + r'\b', clause):
+            continue
+        if re.search(r"\b(?:do not|don't|never|avoid|prohibit|ban)\s+(?:use\s+)?" + noun + r'\b', clause):
+            values.add('avoid')
+        elif re.search(r'\b(?:use|require|maintain)\s+(?:a\s+)?' + noun + r'\b', clause):
+            values.add('use')
+    return next(iter(values)) if len(values) == 1 else None
+
+
 def contradictions(rules):
+    """Find a small set of polarity-aware candidates, not exhaustive conflicts."""
     results = []
+    examples = {'contractions': "We're pleased to announce our new office.",
+                'emoji': 'We are pleased to announce our new office. 🎉',
+                'formal': 'We are pleased to announce our new office.'}
     for a, b in combinations(rules, 2):
         shared = sorted(expanded_channels(a) & expanded_channels(b))
         if not shared:
             continue
-        ta, tb = (a.get('description') or '').lower(), (b.get('description') or '').lower()
-        text = ta + ' ' + tb
+        ta, tb = (a.get('description') or ''), (b.get('description') or '')
+        da = {subject: _directive(ta, subject) for subject in examples}
+        db = {subject: _directive(tb, subject) for subject in examples}
         scenario = None
-        if 'formal' in text and 'contraction' in text:
-            scenario = "We're pleased to announce our new office."
-        elif 'formal' in text and 'emoji' in text:
-            scenario = 'We are pleased to announce our new office. 🎉'
+        explanation = None
+        for subject in examples:
+            if {da[subject], db[subject]} == {'use', 'avoid'}:
+                scenario = examples[subject]
+                explanation = f'Opposing directives about {subject}; a human must interpret their context.'
+                break
+        if not scenario:
+            for subject in ('contractions', 'emoji'):
+                if ((da['formal'] == 'use' and db[subject] == 'use') or
+                        (db['formal'] == 'use' and da[subject] == 'use')):
+                    scenario = examples[subject]
+                    explanation = 'Potential tone tension; the directives may be compatible in context. A human must decide.'
+                    break
         if scenario:
             results.append({'rule_a': a['key'], 'rule_b': b['key'],
-                            'quote_a': a['description'], 'quote_b': b['description'],
+                            'quote_a': ta, 'quote_b': tb,
                             'channels': shared, 'scenario': scenario, 'type': 'possible',
-                            'explanation': 'Potential tension; the directives may be compatible in context. A human must decide.'})
+                            'explanation': explanation})
     return results
 
 
@@ -40,6 +72,17 @@ CLAIM_PATTERNS = {
     'certification': r'\b(?:iso\s*27001|soc\s*2|certified|certification)\b',
 }
 FAMILIES = ('tone', 'terminology', 'claims', 'accessibility', 'embargo', 'other')
+
+# This is a capability inventory, not a per-rule compliance result.
+FAMILY_CAPABILITIES = {
+    'tone': ('No general tone check in the content checker.', 'Demo heuristic interpretations; human review cases.'),
+    'terminology': ('Selected product-name forms and linked banned aliases.', 'Shared product-name predicate for unchanged seed rule R-04; human review cases.'),
+    'claims': ('Linked numeric mismatch and fact validity candidates; not general claims verification.', 'Human review cases only.'),
+    'accessibility': ('No general accessibility check.', 'Human review cases only.'),
+    'embargo': ('Literal active embargo-term matching.', 'Shared embargo predicate for unchanged seed rule R-12 and active terms; human review cases.'),
+    'other': ('No general checker for this family.', 'Human review cases only.'),
+}
+
 
 
 def _claim_types(rule):
@@ -90,5 +133,7 @@ def coverage_report(rules: list[dict], content: list[dict]) -> dict:
         if 'unclear' in behaviour and not re.search(r'\d', (r.get('description') or '')):
             gaps.append({'kind': 'unclear_threshold', 'subject': r['key'], 'evidence': r.get('description') or ''})
     return {'channels': channels, 'families': list(FAMILIES), 'claim_types': list(CLAIM_PATTERNS),
+            'family_capabilities': [{'family': family, 'content_checker': FAMILY_CAPABILITIES[family][0],
+                                     'chaos_testing': FAMILY_CAPABILITIES[family][1]} for family in FAMILIES],
             'matrix': matrix, 'gaps': gaps,
             'note': 'Coverage counts use channel scopes and keyword heuristics. Gaps are candidates for human review, not proof of compliance.'}

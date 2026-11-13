@@ -52,3 +52,18 @@ def demo_argument_evidence(evidence: list[dict]) -> dict:
         'argument_citations': {'prosecutor': citations, 'defender': [dict(c) for c in citations]},
         'argument_evidence_note': 'References were checked against tenant records; their presence does not prove that either interpretation is correct.',
     }
+
+
+def safe_cached_debate(debate: dict, evidence: list[dict]) -> dict:
+    """Do not display legacy arguments lacking per-argument validation.
+
+    No historical debate row stores verified argument-level citations. Keep the
+    row unchanged in storage, but replace its presentation with neutral prompts.
+    """
+    result = dict(debate)
+    result.update(demo_argument_evidence(evidence))
+    result['minimal_edit'] = None
+    result['mode'] = 'demo'
+    result['demo_note'] = ('Cached arguments are not displayed because their argument-level citations '
+                           'were not validated. These are neutral deterministic review prompts.')
+    return result

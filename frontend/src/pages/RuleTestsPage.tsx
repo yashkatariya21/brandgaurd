@@ -429,6 +429,11 @@ export default function RuleTestsPage() {
       <section className="glass-panel rounded-xl p-6 space-y-3" aria-label="Rulebook coverage">
         <h2 className="text-lg font-semibold text-main">Rulebook health: coverage and gaps</h2>
         <p className="text-sm text-muted">{coverage?.note ?? 'Compare governing rules with channels and claim types found in registered content.'}</p>
+        {coverage?.family_capabilities && <div className="overflow-x-auto"><table className="text-xs text-main border-collapse w-full">
+          <caption className="text-left text-muted mb-2">Implementation capabilities, not proof that individual rules are enforced. Human review cases need examples or reviewer input.</caption>
+          <thead><tr><th scope="col" className="p-2 text-left">Family</th><th scope="col" className="p-2 text-left">Content checker</th><th scope="col" className="p-2 text-left">Test options</th></tr></thead>
+          <tbody>{coverage.family_capabilities.map(row => <tr key={row.family}><th scope="row" className="p-2 text-left">{row.family}</th><td className="p-2 border border-subtle">{row.content_checker}</td><td className="p-2 border border-subtle">{row.chaos_testing}</td></tr>)}</tbody>
+        </table></div>}
         {coverageError && <p role="alert" className="text-red-700">{coverageError}</p>}
         {coverage && coverage.matrix.length === 0 && <p className="text-sm text-muted">No registered content channels yet. Register content to inspect coverage.</p>}
         {coverage && coverage.matrix.length > 0 && <div className="overflow-x-auto"><table className="text-xs text-main border-collapse w-full">
@@ -616,7 +621,7 @@ export default function RuleTestsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-subtle bg-canvas-secondary/50">
-                    {['Case text', 'Expected', 'AI readers', 'Result', 'Human label'].map((h) => (
+                    {['Case text', 'Expected', 'Interpretations', 'Result', 'Human label'].map((h) => (
                       <th
                         key={h}
                         className="text-left px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide"

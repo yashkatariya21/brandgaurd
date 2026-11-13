@@ -1,0 +1,46 @@
+{
+  "label_review": "unreviewed",
+  "n": 42,
+  "scope": "Shared product-name and active-embargo predicates only; not an end-to-end checker test.",
+  "limitations": "AI-generated synthetic labels are unreviewed; cases and detector were developed together. Human review required; no real-world accuracy claim.",
+  "families": {
+    "product_name": {
+      "tp": 18,
+      "fp": 0,
+      "tn": 5,
+      "fn": 12,
+      "missed_ids": [
+        "fault-13",
+        "fault-14",
+        "fault-15",
+        "fault-16",
+        "fault-17",
+        "fault-18",
+        "fault-25",
+        "fault-26",
+        "fault-27",
+        "fault-28",
+        "fault-29",
+        "fault-30"
+      ],
+      "false_positive_ids": [],
+      "precision": 1.0,
+      "recall": 0.6,
+      "false_positive_rate": 0.0
+    },
+    "embargo": {
+      "tp": 3,
+      "fp": 0,
+      "tn": 2,
+      "fn": 2,
+      "missed_ids": [
+        "embargo-04",
+        "embargo-05"
+      ],
+      "false_positive_ids": [],
+      "precision": 1.0,
+      "recall": 0.6,
+      "false_positive_rate": 0.0
+    }
+  }
+}

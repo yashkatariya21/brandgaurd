@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Plus, X, Play, Crosshair, CheckCircle2, FileText, Upload, BookOpen, ChevronDown } from 'lucide-react'
-import { contentApi, redTeamApi, ContentItem, ContentDetail, RedTeamResult } from '../api'
+import { contentApi, redTeamApi, ContentItem, ContentDetail, RedTeamResult, RedTeamDemoEvaluation } from '../api'
 import { useTheme } from '../theme'
 import { useAuth } from '../auth'
 import StatusBadge from '../components/StatusBadge'
@@ -21,6 +21,8 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
   const [analysing, setAnalysing] = useState(false)
   const [redTeaming, setRedTeaming] = useState(false)
   const [redTeamResult, setRedTeamResult] = useState<RedTeamResult | null>(null)
+  const [demoEvaluation, setDemoEvaluation] = useState<RedTeamDemoEvaluation | null>(null)
+  const [evaluationError, setEvaluationError] = useState('')
   const [error, setError] = useState('')
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null)
   const [showClaims, setShowClaims] = useState(false)
@@ -62,6 +64,12 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
     } finally {
       setRedTeaming(false)
     }
+  }
+
+  const loadEvaluation = async () => {
+    setEvaluationError('')
+    try { setDemoEvaluation(await redTeamApi.demoEvaluation()) }
+    catch { setEvaluationError('Could not load the saved evaluation report.') }
   }
 
   const handleSelectHighlight = useCallback((id: string | null) => {
@@ -260,7 +268,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
               {detail.findings.length === 0 && detail.claims.length > 0 && (
                 <div className="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg border border-green-200">
                   <CheckCircle2 size={18} />
-                  <span className="text-sm font-medium">No deterministic findings — content looks clean!</span>
+                  <span className="text-sm font-medium">No deterministic findings were returned. This does not establish that the content is compliant.</span>
                 </div>
               )}
 
@@ -324,6 +332,23 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                 <p>Run time: {redTeamResult.metrics.duration_seconds}s · {redTeamResult.metrics.model}{redTeamResult.cached ? ' · cached' : ''}</p>
               </div>
               {redTeamResult.findings.length === 0 && <p className="text-sm text-muted mb-3">No stable evidence-backed findings. Show {redTeamResult.unstable_findings.length} unstable below.</p>}
+
+              <details className="mb-3 text-xs text-main" onToggle={event => {
+                if (event.currentTarget.open && !demoEvaluation && !evaluationError) void loadEvaluation()
+              }}>
+                <summary className="cursor-pointer font-semibold">Synthetic demo evaluation</summary>
+                {evaluationError && <p role="alert">{evaluationError} <button className="underline" onClick={() => void loadEvaluation()}>Retry</button></p>}
+                {!demoEvaluation && !evaluationError && <p>Loading saved report…</p>}
+                {demoEvaluation && <div className="space-y-2 mt-2">
+                  <p>{demoEvaluation.note}</p>
+                  {demoEvaluation.report && <>
+                    <p>{demoEvaluation.report.n} cases · labels {demoEvaluation.report.label_review}. {demoEvaluation.report.scope}</p>
+                    <p>{demoEvaluation.report.limitations}</p>
+                    <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th>Persona</th><th>TP</th><th>FP</th><th>TN</th><th>FN</th><th>Grounding drops / raw findings</th></tr></thead>
+                      <tbody>{Object.entries(demoEvaluation.report.personas).map(([name, row]) => <tr key={name}><th scope="row">{name}</th><td>{row.tp}</td><td>{row.fp}</td><td>{row.tn}</td><td>{row.fn}</td><td>{row.grounding_drops} / {row.raw_findings}</td></tr>)}</tbody></table></div>
+                  </>}
+                </div>}
+              </details>
 
               {/* Group by persona */}
               {(() => {

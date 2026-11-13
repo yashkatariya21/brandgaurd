@@ -1,0 +1,67 @@
+{
+  "label_review": "unreviewed",
+  "n": 40,
+  "mode": "deterministic demo",
+  "scope": "One target persona per case, single deterministic run, empty fact/rule catalogue. Measures whether any grounded finding is emitted, not correctness of its rationale.",
+  "limitations": "AI-generated synthetic labels are unreviewed; cases are not independent or representative. No real-world accuracy, repeat-run reliability, live provider, database or tenant-isolation measurement.",
+  "personas": {
+    "Brand Police": {
+      "tp": 3,
+      "fp": 0,
+      "tn": 5,
+      "fn": 2,
+      "raw_findings": 10,
+      "grounding_drops": 7,
+      "missed_ids": [
+        "rt-04",
+        "rt-05"
+      ],
+      "false_positive_ids": [],
+      "precision": 1.0,
+      "recall": 0.6,
+      "false_positive_rate": 0.0
+    },
+    "Legal Eagle": {
+      "tp": 5,
+      "fp": 0,
+      "tn": 5,
+      "fn": 0,
+      "raw_findings": 5,
+      "grounding_drops": 0,
+      "missed_ids": [],
+      "false_positive_ids": [],
+      "precision": 1.0,
+      "recall": 1.0,
+      "false_positive_rate": 0.0
+    },
+    "Customer Voice": {
+      "tp": 3,
+      "fp": 0,
+      "tn": 5,
+      "fn": 2,
+      "raw_findings": 5,
+      "grounding_drops": 2,
+      "missed_ids": [
+        "rt-24",
+        "rt-25"
+      ],
+      "false_positive_ids": [],
+      "precision": 1.0,
+      "recall": 0.6,
+      "false_positive_rate": 0.0
+    },
+    "Competitor Watch": {
+      "tp": 5,
+      "fp": 0,
+      "tn": 5,
+      "fn": 0,
+      "raw_findings": 5,
+      "grounding_drops": 0,
+      "missed_ids": [],
+      "false_positive_ids": [],
+      "precision": 1.0,
+      "recall": 1.0,
+      "false_positive_rate": 0.0
+    }
+  }
+}

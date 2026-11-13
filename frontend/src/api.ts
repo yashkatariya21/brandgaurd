@@ -247,6 +247,14 @@ export interface BlastRadiusResult {
     by_status: { draft: number; in_review: number; scheduled: number; published: number }
   }
   scope_note?: string
+  scope?: {
+    items_scanned: number
+    items_not_scanned: Array<{content_item_id: string; title: string; reason: string}>
+    scanned_items: Array<{content_item_id: string; title: string; scanned_version_no: number | null; current_version_no: number | null; stale: boolean}>
+    claims_extracted: number
+    limits: string[]
+    graph_similarity_evaluation: {date: string; n_holdout: number; threshold: number; holdout_metrics: {precision: number | null; recall: number | null}; fixture_note: string} | null
+  }
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -394,7 +402,17 @@ export interface RedTeamResult {
   demo_note?: string | null
 }
 
+export interface RedTeamDemoEvaluation {
+  available: boolean
+  note: string
+  report?: {
+    n: number; mode: string; label_review: string; scope: string; limitations: string
+    personas: Record<string, {tp: number; fp: number; tn: number; fn: number; raw_findings: number; grounding_drops: number}>
+  }
+}
+
 export const redTeamApi = {
+  demoEvaluation: () => get<RedTeamDemoEvaluation>('/v1/redteam/demo-evaluation'),
   run: (itemId: string) =>
     post<RedTeamResult>(`/v1/content/${itemId}/redteam`),
 }
@@ -479,6 +497,7 @@ export interface CheckerChaosResult {
   cases: { id: string; text: string; intended_label: string; observed: string; checker_miss: boolean; false_positive: boolean; rationale: string }[]
 }
 export interface RulebookCoverage {
+  family_capabilities?: {family: string; content_checker: string; chaos_testing: string}[]
   channels: string[]
   families: string[]
   claim_types: string[]

@@ -1,0 +1,246 @@
+{
+  "label_review": "unreviewed",
+  "provenance": "AI-generated synthetic persona-targeted scenarios; labels require human review.",
+  "cases": [
+    {
+      "id": "rt-01",
+      "persona": "Brand Police",
+      "text": "We use Nimbus Desk every day.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-02",
+      "persona": "Brand Police",
+      "text": "Our team uses NimbusDESK.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-03",
+      "persona": "Brand Police",
+      "text": "We welcome users.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-04",
+      "persona": "Brand Police",
+      "text": "We welcome user feedback.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-05",
+      "persona": "Brand Police",
+      "text": "Our tool is Nimbus-Desk.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-06",
+      "persona": "Brand Police",
+      "text": "We use NimbusDesk every day.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-07",
+      "persona": "Brand Police",
+      "text": "Our team welcomes customers.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-08",
+      "persona": "Brand Police",
+      "text": "We help agents reply.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-09",
+      "persona": "Brand Police",
+      "text": "Our product supports teams.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-10",
+      "persona": "Brand Police",
+      "text": "We publish clear updates.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-11",
+      "persona": "Legal Eagle",
+      "text": "We guarantee replies.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-12",
+      "persona": "Legal Eagle",
+      "text": "Our uptime is 100%.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-13",
+      "persona": "Legal Eagle",
+      "text": "We never fail customers.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-14",
+      "persona": "Legal Eagle",
+      "text": "We are ISO 27001 certified.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-15",
+      "persona": "Legal Eagle",
+      "text": "Project Heron launches soon.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-16",
+      "persona": "Legal Eagle",
+      "text": "We target 99.9% uptime.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-17",
+      "persona": "Legal Eagle",
+      "text": "We plan to pursue certification.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-18",
+      "persona": "Legal Eagle",
+      "text": "Our release is planned.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-19",
+      "persona": "Legal Eagle",
+      "text": "The service can help teams.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-20",
+      "persona": "Legal Eagle",
+      "text": "We share a benchmark.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-21",
+      "persona": "Customer Voice",
+      "text": "We have 100 customers and 200 customers.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-22",
+      "persona": "Customer Voice",
+      "text": "50 customers today, 80 customers tomorrow.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-23",
+      "persona": "Customer Voice",
+      "text": "Trusted by 10 customers and 20 customers.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-24",
+      "persona": "Customer Voice",
+      "text": "Our 4.5 rating is popular.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-25",
+      "persona": "Customer Voice",
+      "text": "We are award-winning.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-26",
+      "persona": "Customer Voice",
+      "text": "We have 100 customers.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-27",
+      "persona": "Customer Voice",
+      "text": "Our 20 customers use this service.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-28",
+      "persona": "Customer Voice",
+      "text": "We welcome customer feedback.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-29",
+      "persona": "Customer Voice",
+      "text": "Our product supports agents.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-30",
+      "persona": "Customer Voice",
+      "text": "We help teams work.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-31",
+      "persona": "Competitor Watch",
+      "text": "We are better than competitors.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-32",
+      "persona": "Competitor Watch",
+      "text": "Our tool is faster than alternatives.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-33",
+      "persona": "Competitor Watch",
+      "text": "We are cheaper than rivals.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-34",
+      "persona": "Competitor Watch",
+      "text": "Compare our product with competitors.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-35",
+      "persona": "Competitor Watch",
+      "text": "Our product is superior to rivals.",
+      "expected_flag": true
+    },
+    {
+      "id": "rt-36",
+      "persona": "Competitor Watch",
+      "text": "We support our customers.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-37",
+      "persona": "Competitor Watch",
+      "text": "Our software is fast.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-38",
+      "persona": "Competitor Watch",
+      "text": "We offer clear pricing.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-39",
+      "persona": "Competitor Watch",
+      "text": "Our team works together.",
+      "expected_flag": false
+    },
+    {
+      "id": "rt-40",
+      "persona": "Competitor Watch",
+      "text": "We offer a product tour.",
+      "expected_flag": false
+    }
+  ]
+}

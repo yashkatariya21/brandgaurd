@@ -1,22 +1,1206 @@
-[
-  {"id":"dev-01","split":"development","fact":"Customer count 50,000+ customers","claim":"50k customers","related":true},
-  {"id":"dev-02","split":"development","fact":"Customer count 50,000+ customers","claim":"fifty thousand support teams","related":true},
-  {"id":"dev-03","split":"development","fact":"Customer count 50,000+ customers","claim":"our customers number fifty thousand","related":true},
-  {"id":"dev-04","split":"development","fact":"Supported languages 14 languages","claim":"14 languages supported","related":true},
-  {"id":"dev-05","split":"development","fact":"Free trial 14 days","claim":"14 day free trial","related":true},
-  {"id":"dev-06","split":"development","fact":"Customer count 50,000+ customers","claim":"50,000 tickets handled","related":false},
-  {"id":"dev-07","split":"development","fact":"Customer count 50,000+ customers","claim":"65,000 customers","related":false},
-  {"id":"dev-08","split":"development","fact":"Starter price $19 per agent per month","claim":"$49 per agent per month","related":false},
-  {"id":"dev-09","split":"development","fact":"Uptime 99.9% monthly uptime","claim":"fourteen supported languages","related":false},
-  {"id":"dev-10","split":"development","fact":"ISO 27001 not certified","claim":"ISO 27001 certified","related":false},
-  {"id":"hold-01","split":"holdout","fact":"Customer count 50,000+ customers","claim":"over fifty thousand clients","related":true},
-  {"id":"hold-02","split":"holdout","fact":"Customer count 50,000+ customers","claim":"50,000 support teams","related":true},
-  {"id":"hold-03","split":"holdout","fact":"Integrations 120+ integrations","claim":"more than 120 integrations","related":true},
-  {"id":"hold-04","split":"holdout","fact":"Uptime 99.9% monthly uptime","claim":"99.9 percent monthly availability","related":true},
-  {"id":"hold-05","split":"holdout","fact":"Starter price $19 per agent per month","claim":"19 dollars per agent monthly","related":true},
-  {"id":"hold-06","split":"holdout","fact":"Customer count 50,000+ customers","claim":"50,001 customers","related":false},
-  {"id":"hold-07","split":"holdout","fact":"Customer count 50,000+ customers","claim":"50,000 support tickets","related":false},
-  {"id":"hold-08","split":"holdout","fact":"Integrations 120+ integrations","claim":"120 agents","related":false},
-  {"id":"hold-09","split":"holdout","fact":"Uptime 99.9% monthly uptime","claim":"100% monthly uptime","related":false},
-  {"id":"hold-10","split":"holdout","fact":"Free trial 14 days","claim":"30 day free trial","related":false}
-]
+{
+  "label_review": "unreviewed",
+  "fixture_note": "AI-generated synthetic hand-authored examples; labels require human review.",
+  "cases": [
+    {
+      "id": "case-001",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50k customers",
+      "related": true,
+      "paraphrase_type": "k_notation"
+    },
+    {
+      "id": "case-002",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "fifty thousand customers",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-003",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50,000 clients",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-004",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50 000 customers",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-005",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50.000 customers",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-006",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "more than 50,000 customers",
+      "related": true,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-007",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "over fifty thousand customers",
+      "related": true,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-008",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50k+ support teams",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-009",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "at least 50,000 clients",
+      "related": true,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-010",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50 thousand customers",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-011",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "0.05 million customers",
+      "related": true,
+      "paraphrase_type": "m_notation"
+    },
+    {
+      "id": "case-012",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50,000 customer organisations",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-013",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50,001 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-014",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "49,999 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-015",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50,000 tickets",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-016",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50,000 employees",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-017",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "65,000 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-018",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-019",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "nearly 50,000 customers",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-020",
+      "split": "development",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "tens of thousands of customers",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-021",
+      "split": "holdout",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "fifty thousand clients",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-022",
+      "split": "holdout",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50.000 clients",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-023",
+      "split": "holdout",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "over 50k customers",
+      "related": true,
+      "paraphrase_type": "k_notation"
+    },
+    {
+      "id": "case-024",
+      "split": "holdout",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50 thousand clients",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-025",
+      "split": "holdout",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "at least 50,000 customer organisations",
+      "related": true,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-026",
+      "split": "holdout",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50 000 clients",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-027",
+      "split": "holdout",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50,000 support tickets",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-028",
+      "split": "holdout",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "nearly fifty thousand customers",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-029",
+      "split": "holdout",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "50,100 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-030",
+      "split": "holdout",
+      "fact": "Customer count 50,000+ customers",
+      "claim": "the launch is next week",
+      "related": false,
+      "paraphrase_type": "unrelated"
+    },
+    {
+      "id": "case-031",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65,000 customer accounts",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-032",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65,000 customer brands",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-033",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65,000 customer companies",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-034",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65,000 clients",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-035",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65 000 customers",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-036",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65.000 customers",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-037",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "more than 65,000 customers",
+      "related": true,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-038",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "over 65 thousand customers",
+      "related": true,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-039",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "at least 65,000 clients",
+      "related": true,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-040",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65k+ support teams",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-041",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "customer count is 65,000",
+      "related": true,
+      "paraphrase_type": "word_order"
+    },
+    {
+      "id": "case-042",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "sixty-five thousand clients",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-043",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65,001 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-044",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "64,999 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-045",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65,000 tickets",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-046",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65,000 employees",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-047",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "50,000 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-048",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-049",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "nearly 65,000 customers",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-050",
+      "split": "development",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "tens of thousands of customers",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-051",
+      "split": "holdout",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "sixty five thousand clients",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-052",
+      "split": "holdout",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65.000 clients",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-053",
+      "split": "holdout",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "over 65k customers",
+      "related": true,
+      "paraphrase_type": "k_notation"
+    },
+    {
+      "id": "case-054",
+      "split": "holdout",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65 thousand clients",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-055",
+      "split": "holdout",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "more than 65,000 clients",
+      "related": true,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-056",
+      "split": "holdout",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65 000 clients",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-057",
+      "split": "holdout",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65,000 tickets processed",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-058",
+      "split": "holdout",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "nearly sixty five thousand customers",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-059",
+      "split": "holdout",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "65,500 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-060",
+      "split": "holdout",
+      "fact": "Customer count 65,000+ customers",
+      "claim": "spring campaign starts tomorrow",
+      "related": false,
+      "paraphrase_type": "unrelated"
+    },
+    {
+      "id": "case-061",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "$19 per agent per month",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-062",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "19 dollars per agent per month",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-063",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "nineteen dollars per agent per month",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-064",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "$19 per agent monthly",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-065",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "19 USD per agent each month",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-066",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "monthly rate of $19 per agent",
+      "related": true,
+      "paraphrase_type": "word_order"
+    },
+    {
+      "id": "case-067",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "per agent per month $19",
+      "related": true,
+      "paraphrase_type": "word_order"
+    },
+    {
+      "id": "case-068",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "19 dollars monthly per agent",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-069",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "starter price is $19 per agent monthly",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-070",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "each agent costs $19 a month",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-071",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "nineteen dollars per agent monthly",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-072",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "monthly agent fee is 19 dollars",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-073",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "$49 per agent per month",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-074",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "$18 per agent per month",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-075",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "$19 per team per month",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-076",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "$19 per agent per year",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-077",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "19 agents in one team",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-078",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "free for every agent",
+      "related": false,
+      "paraphrase_type": "unrelated"
+    },
+    {
+      "id": "case-079",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "nearly $19 per agent monthly",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-080",
+      "split": "development",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "about $20 per agent monthly",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-081",
+      "split": "holdout",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "$19 monthly per agent",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-082",
+      "split": "holdout",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "19 dollars per agent each month",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-083",
+      "split": "holdout",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "monthly per-agent rate $19",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-084",
+      "split": "holdout",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "nineteen dollars per agent each month",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-085",
+      "split": "holdout",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "per agent monthly cost is $19",
+      "related": true,
+      "paraphrase_type": "word_order"
+    },
+    {
+      "id": "case-086",
+      "split": "holdout",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "19 USD per month per agent",
+      "related": true,
+      "paraphrase_type": "price"
+    },
+    {
+      "id": "case-087",
+      "split": "holdout",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "$19 per agent annually",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-088",
+      "split": "holdout",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "$20 per agent monthly",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-089",
+      "split": "holdout",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "19 customers registered",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-090",
+      "split": "holdout",
+      "fact": "Starter price $19 per agent per month",
+      "claim": "the weather is sunny",
+      "related": false,
+      "paraphrase_type": "unrelated"
+    },
+    {
+      "id": "case-091",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9% monthly uptime",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-092",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9 percent monthly uptime",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-093",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "monthly uptime is 99.9%",
+      "related": true,
+      "paraphrase_type": "word_order"
+    },
+    {
+      "id": "case-094",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9% uptime each month",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-095",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "monthly availability is 99.9 percent",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-096",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9 percent monthly availability",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-097",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "uptime per month is 99.9%",
+      "related": true,
+      "paraphrase_type": "word_order"
+    },
+    {
+      "id": "case-098",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "monthly service uptime 99.9%",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-099",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9 percent uptime per month",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-100",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "service availability is 99.9% monthly",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-101",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9% monthly service availability",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-102",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "uptime reaches 99.9% monthly",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-103",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "100% monthly uptime",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-104",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.8% monthly uptime",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-105",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9% customer satisfaction",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-106",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9% annual uptime",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-107",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9 tickets per month",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-108",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "no uptime target is stated",
+      "related": false,
+      "paraphrase_type": "unrelated"
+    },
+    {
+      "id": "case-109",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "nearly 99.9% monthly uptime",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-110",
+      "split": "development",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "about 99% uptime",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-111",
+      "split": "holdout",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9 percent uptime monthly",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-112",
+      "split": "holdout",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "monthly availability 99.9%",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-113",
+      "split": "holdout",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "uptime each month is 99.9 percent",
+      "related": true,
+      "paraphrase_type": "word_order"
+    },
+    {
+      "id": "case-114",
+      "split": "holdout",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9% monthly service uptime",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-115",
+      "split": "holdout",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "monthly uptime target 99.9 percent",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-116",
+      "split": "holdout",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9% monthly availability",
+      "related": true,
+      "paraphrase_type": "percentage"
+    },
+    {
+      "id": "case-117",
+      "split": "holdout",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99% monthly uptime",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-118",
+      "split": "holdout",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9% customer retention",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-119",
+      "split": "holdout",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "99.9% yearly uptime",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-120",
+      "split": "holdout",
+      "fact": "Uptime 99.9% monthly uptime",
+      "claim": "our office is open today",
+      "related": false,
+      "paraphrase_type": "unrelated"
+    },
+    {
+      "id": "case-121",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "one million customers",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-122",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1m customers",
+      "related": true,
+      "paraphrase_type": "m_notation"
+    },
+    {
+      "id": "case-123",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1,000,000 clients",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-124",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1 000 000 customers",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-125",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1.000.000 customers",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-126",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "one million clients",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-127",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1 million customers",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-128",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "one-million customers",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-129",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "customer count is 1,000,000",
+      "related": true,
+      "paraphrase_type": "word_order"
+    },
+    {
+      "id": "case-130",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1000k customers",
+      "related": true,
+      "paraphrase_type": "k_notation"
+    },
+    {
+      "id": "case-131",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "a million customers",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-132",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1m clients",
+      "related": true,
+      "paraphrase_type": "m_notation"
+    },
+    {
+      "id": "case-133",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1,000,001 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-134",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "999,999 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-135",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1,000,000 tickets",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-136",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1,000,000 employees",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-137",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "one thousand customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-138",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "0.05 million customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-139",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "nearly one million customers",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-140",
+      "split": "development",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "millions of customers",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-141",
+      "split": "holdout",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "one million customer accounts",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-142",
+      "split": "holdout",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1.000.000 clients",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-143",
+      "split": "holdout",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1 000 000 clients",
+      "related": true,
+      "paraphrase_type": "separator"
+    },
+    {
+      "id": "case-144",
+      "split": "holdout",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1 million clients",
+      "related": true,
+      "paraphrase_type": "word_numbers"
+    },
+    {
+      "id": "case-145",
+      "split": "holdout",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1000k clients",
+      "related": true,
+      "paraphrase_type": "k_notation"
+    },
+    {
+      "id": "case-146",
+      "split": "holdout",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1m support teams",
+      "related": true,
+      "paraphrase_type": "entity_synonym"
+    },
+    {
+      "id": "case-147",
+      "split": "holdout",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "one million support tickets",
+      "related": false,
+      "paraphrase_type": "different_attribute"
+    },
+    {
+      "id": "case-148",
+      "split": "holdout",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "nearly one million clients",
+      "related": false,
+      "paraphrase_type": "hedge"
+    },
+    {
+      "id": "case-149",
+      "split": "holdout",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "1,000,100 customers",
+      "related": false,
+      "paraphrase_type": "near_miss"
+    },
+    {
+      "id": "case-150",
+      "split": "holdout",
+      "fact": "Customer count 1,000,000 customers",
+      "claim": "we launched a new feature",
+      "related": false,
+      "paraphrase_type": "unrelated"
+    }
+  ]
+}

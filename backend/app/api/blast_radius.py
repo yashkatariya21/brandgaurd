@@ -16,6 +16,8 @@ import uuid
 import re
 import os
 import math
+import json
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -89,10 +91,13 @@ def _scan_item(body: str, old_norm: Optional[float], old_text: str, new_text: st
                 linked_claim_spans is not None
                 and (claim["span_start"], claim["span_end"]) in linked_claim_spans
             )
+            prefix = body[max(0, claim["span_start"] - 24):claim["span_start"]]
+            approximate = bool(re.search(r'\b(?:nearly|almost|around|approximately|about|roughly)\s*$', prefix, re.I)
+                               or re.match(r'\s*(?:nearly|almost|around|approximately|about|roughly)\b', claim["raw_text"], re.I))
             result = {
                 "match_type": (
                     "confirmed"
-                    if ((fact_attribute and c_attr == fact_attribute) or explicitly_linked)
+                    if (explicitly_linked or (fact_attribute and c_attr == fact_attribute and not approximate))
                     and (new_norm is None or new_norm != old_norm)
                     else "possible"
                 ),
@@ -158,6 +163,50 @@ def _historical_vector_candidates(conn, org_id, fact_id, version_id):
     return candidates
 
 
+def _scan_scope(rows):
+    """Partition the tenant's registered items using the versions read by this scan."""
+    scanned, excluded = [], []
+    claims = 0
+    for row in rows:
+        entry = {'content_item_id': str(row['id']), 'title': row['title'],
+                 'scanned_version_no': None, 'current_version_no': row.get('version_no'),
+                 'stale': False}
+        if not row.get('cv_id'):
+            entry['reason'] = 'no_current_version'
+            excluded.append(entry)
+        elif not (row.get('body_text') or '').strip():
+            entry['reason'] = 'no_extracted_text'
+            excluded.append(entry)
+        else:
+            entry['scanned_version_no'] = row.get('version_no')
+            scanned.append(row)
+            claims += len(extract_claims(row['body_text']))
+    return scanned, {
+        'items_scanned': len(scanned), 'items_not_scanned': excluded,
+        'claims_extracted': claims,
+        'scanned_items': [{'content_item_id': str(row['id']), 'title': row['title'],
+                           'scanned_version_no': row.get('version_no'), 'current_version_no': row.get('version_no'),
+                           'stale': False} for row in scanned],
+        'limits': [
+            'Only registered, text-extracted content in this workspace is scanned.',
+            'Pages outside this workspace and image or video content are not scanned.',
+            'The scan does not find every paraphrase or claim the extractor cannot parse.',
+            'Version numbers describe the snapshot read for this run; later changes are not checked.',
+            'Graph similarity evaluation does not measure the historical scan.',
+        ],
+    }
+
+
+def _graph_eval_report():
+    """Read static offline evaluation data, if shipped; never substitute made-up metrics."""
+    path = Path(__file__).resolve().parents[2] / 'graph_eval_report.json'
+    try:
+        report = json.loads(path.read_text())
+        return {key: report[key] for key in ('date', 'n_holdout', 'threshold', 'holdout_metrics', 'fixture_note')}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 @router.post("/facts/{fact_id}/blast-radius")
 def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require("view_repository"))):
     fact_id_str = str(fact_id)
@@ -205,12 +254,15 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
         # Load all content with current version text
         items = conn.execute(
             """SELECT ci.id, ci.title, ci.channel, ci.status, ci.registered_state,
-                      ci.published_url, cv.id as cv_id, cv.body_text
+                      ci.published_url, cv.id as cv_id, cv.body_text, cv.version_no
                FROM content_items ci
-               JOIN content_versions cv ON cv.id = ci.current_version_id AND cv.org_id=ci.org_id
+               LEFT JOIN content_versions cv ON cv.id = ci.current_version_id
+                   AND cv.org_id=ci.org_id AND cv.content_item_id=ci.id
                WHERE ci.org_id=%s""",
             (principal.org_id,),
         ).fetchall()
+        items, scope = _scan_scope(items)
+        scope['graph_similarity_evaluation'] = _graph_eval_report()
 
         # Load existing claim-to-fact links for this fact
         linked_claim_spans_by_version: dict[str, set[tuple[int, int]]] = {}
@@ -299,6 +351,7 @@ def run_blast_radius(fact_id: uuid.UUID, principal: Principal = Depends(require(
             "affected_count": len(affected),
             "affected": affected,
             "summary": summary_counts,
+            "scope": scope,
             "scope_note": "Only current versions of content registered in BrandGuard were scanned. Matching is incomplete; no matches does not prove content is current. Offline lexical candidates and vector similarity are experimental, uncalibrated and require human review.",
         }
 
