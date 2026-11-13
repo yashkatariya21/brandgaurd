@@ -104,7 +104,7 @@ def match_claim(fact: dict, claim: dict, explicit_link: bool = False) -> dict | 
     claim_number = claim.get('value_number')
     if number is not None and claim_number is not None and float(number) == float(claim_number):
         attr = ATTRIBUTES.get(fact.get('key'))
-        if attr and claim.get('attribute') == attr and not _APPROX.search(claim.get('raw_text') or ''):
+        if attr and claim.get('attribute') == attr and not claim.get('_approximate') and not _APPROX.search(claim.get('raw_text') or ''):
             return {'match_type': 'confirmed', 'method': 'attribute', 'score': 1.0}
         # Same number, different or unknown attribute is not confirmation.
         return {'match_type': 'possible', 'method': 'exact', 'score': 1.0, 'confidence_band': 'low'}
@@ -147,7 +147,9 @@ def graph_projection(facts: list[dict], items: list[dict], links: list[dict],
             edge(claim, content, 'extracted_from', evidence={'quote': c['raw_text']})
             for f, fact in fact_nodes:
                 linked = (str(item['version_id']), c['span_start'], c['span_end'], str(f['id'])) in link_set
-                match = match_claim(f, c, linked)
+                prefix = (item.get('body_text') or '')[max(0, c['span_start'] - 24):c['span_start']]
+                approximate = bool(re.search(r'\b(?:nearly|almost|around|approximately|about|roughly)\s*$', prefix, re.I))
+                match = match_claim(f, {**c, '_approximate': approximate}, linked)
                 vector = vectors.get((str(item['version_id']), c['span_start'], c['span_end'], str(f['id']), c['raw_text']))
                 # An embedding may suggest a relationship, never confirm it.
                 if vector and (match is None or match['method'] == 'local-similarity'):

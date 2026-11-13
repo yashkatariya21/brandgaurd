@@ -244,3 +244,9 @@ def test_historical_vector_candidates_remain_possible_and_reject_nonfinite(monke
     assert list(candidates) == ['v1']
     assert candidates['v1']['match_type'] == 'possible'
     assert candidates['v1']['match_method'] == 'embedding'
+
+
+def test_nearly_word_and_digit_values_remain_possible():
+    for text in ('nearly 50,000 customers', 'nearly fifty thousand customers'):
+        result = _scan(text)
+        assert result is not None and result['match_type'] == 'possible'

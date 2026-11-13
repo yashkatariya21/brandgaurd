@@ -89,10 +89,13 @@ def _scan_item(body: str, old_norm: Optional[float], old_text: str, new_text: st
                 linked_claim_spans is not None
                 and (claim["span_start"], claim["span_end"]) in linked_claim_spans
             )
+            prefix = body[max(0, claim["span_start"] - 24):claim["span_start"]]
+            approximate = bool(re.search(r'\b(?:nearly|almost|around|approximately|about|roughly)\s*$', prefix, re.I)
+                               or re.match(r'\s*(?:nearly|almost|around|approximately|about|roughly)\b', claim["raw_text"], re.I))
             result = {
                 "match_type": (
                     "confirmed"
-                    if ((fact_attribute and c_attr == fact_attribute) or explicitly_linked)
+                    if (explicitly_linked or (fact_attribute and c_attr == fact_attribute and not approximate))
                     and (new_norm is None or new_norm != old_norm)
                     else "possible"
                 ),
