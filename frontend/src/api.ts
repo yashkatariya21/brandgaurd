@@ -402,7 +402,17 @@ export interface RedTeamResult {
   demo_note?: string | null
 }
 
+export interface RedTeamDemoEvaluation {
+  available: boolean
+  note: string
+  report?: {
+    n: number; mode: string; label_review: string; scope: string; limitations: string
+    personas: Record<string, {tp: number; fp: number; tn: number; fn: number; raw_findings: number; grounding_drops: number}>
+  }
+}
+
 export const redTeamApi = {
+  demoEvaluation: () => get<RedTeamDemoEvaluation>('/v1/redteam/demo-evaluation'),
   run: (itemId: string) =>
     post<RedTeamResult>(`/v1/content/${itemId}/redteam`),
 }

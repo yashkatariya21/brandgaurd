@@ -7,6 +7,7 @@ import logging
 import hashlib
 import json
 import os
+from pathlib import Path
 import time
 from concurrent.futures import ThreadPoolExecutor
 import uuid
@@ -41,6 +42,22 @@ def _serialise(row: dict) -> dict:
         else:
             out[k] = v
     return out
+
+
+# This checked-in snapshot is not live telemetry and contains no tenant data.
+DEMO_EVAL_REPORT = Path(__file__).resolve().parents[2] / 'redteam_demo_eval_report.json'
+
+
+@router.get('/redteam/demo-evaluation')
+def redteam_demo_evaluation(principal: Principal = Depends(require('submit_content'))):
+    try:
+        report = json.loads(DEMO_EVAL_REPORT.read_text(encoding='utf-8'))
+        if (not isinstance(report, dict) or report.get('mode') != 'deterministic demo'
+                or not isinstance(report.get('personas'), dict)):
+            raise ValueError('Invalid report')
+    except (OSError, ValueError, UnicodeError):
+        return {'available': False, 'note': 'The saved demo evaluation report is unavailable.'}
+    return {'available': True, 'note': 'Saved synthetic fixture evaluation, not live telemetry; it may not reflect later code changes.', 'report': report}
 
 
 # ─── POST /v1/content/{item_id}/redteam ──────────────────────────────────────
