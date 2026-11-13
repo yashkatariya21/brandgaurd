@@ -67,3 +67,36 @@ def safe_cached_debate(debate: dict, evidence: list[dict]) -> dict:
     result['demo_note'] = ('Cached arguments are not displayed because their argument-level citations '
                            'were not validated. These are neutral deterministic review prompts.')
     return result
+
+
+def validate_argument_pair(payload: object, content: str, content_version_id: str,
+                           catalogue: dict) -> dict | None:
+    """Validate a future hosted debate's own citations and literal numeric figures.
+
+    This narrow check does not establish entailment, catch written-out numbers,
+    or enable hosted calls. Each side needs citations; digit figures must appear
+    verbatim within that side's validated quotes. The caller must supply only
+    records retrieved under its tenant context.
+    """
+    import re
+    if not isinstance(payload, dict):
+        return None
+    figure_pattern = re.compile(r'(?<![\d.,])[£$€]?\d+(?:[,.]\d+)*(?:\s*%|[a-zA-Z]+)?(?!\w|,|\.\d)')
+    checked = {}
+    for side in ('prosecutor', 'defender'):
+        argument = payload.get(side)
+        if not isinstance(argument, dict):
+            return None
+        text = argument.get('text')
+        if not isinstance(text, str) or not text.strip():
+            return None
+        citations = validate_citations(argument.get('citations'), content, content_version_id, catalogue)
+        if not citations:
+            return None
+        cited_figures = {match.group().replace(' ', '') for citation in citations
+                         for match in figure_pattern.finditer(citation['quote'])}
+        arguments_figures = {match.group().replace(' ', '') for match in figure_pattern.finditer(text)}
+        if not arguments_figures <= cited_figures:
+            return None
+        checked[side] = {'text': text, 'citations': citations}
+    return checked

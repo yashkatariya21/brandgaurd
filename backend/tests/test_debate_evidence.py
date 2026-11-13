@@ -74,3 +74,41 @@ def test_legacy_hosted_debate_is_not_displayed_without_argument_validation():
     assert result['minimal_edit'] is None
     assert 'not validated' in result['demo_note']
     assert cached['minimal_edit'] == 'Fake edit'  # presentation only; do not rewrite history
+
+
+def test_future_argument_validation_requires_each_side_to_cite_and_support_digits():
+    from app.services.debate_evidence import validate_argument_pair
+    quote = '99.9% uptime for Enterprise'
+    citation = {'kind': 'passage', 'ref_id': 'v', 'version': None, 'quote': quote}
+    pair = {'prosecutor': {'text': 'The 99.9% figure needs review.', 'citations': [citation]},
+            'defender': {'text': 'Consider Enterprise context.', 'citations': [citation]}}
+    result = validate_argument_pair(pair, quote, 'v', {})
+    assert result and result['prosecutor']['citations'][0]['span_start'] == 0
+    pair['prosecutor']['text'] = 'The 100% figure needs review.'
+    assert validate_argument_pair(pair, quote, 'v', {}) is None
+    pair['prosecutor']['text'] = 'The 99.9% figure needs review.'
+    pair['defender']['citations'] = []
+    assert validate_argument_pair(pair, quote, 'v', {}) is None
+
+
+def test_future_argument_validation_rejects_cross_tenant_and_unquoted_figures():
+    from app.services.debate_evidence import validate_argument_pair
+    rule = {'kind': 'rule', 'ref_id': 'other', 'version': 1, 'quote': 'Use 42 items'}
+    argument = {'text': 'Use 42 items.', 'citations': [rule]}
+    pair = {'prosecutor': argument, 'defender': argument}
+    assert validate_argument_pair(pair, '', 'v', {}) is None
+    assert validate_argument_pair(pair, '', 'v', {('rule', 'other', 1): 'Use 42 items'})
+    pair['prosecutor'] = {'text': 'Use 42% of items.', 'citations': [rule]}
+    assert validate_argument_pair(pair, '', 'v', {('rule', 'other', 1): 'Use 42 items'}) is None
+
+
+def test_future_argument_validation_checks_punctuation_and_suffixes():
+    from app.services.debate_evidence import validate_argument_pair
+    citation = {'kind': 'passage', 'ref_id': 'v', 'version': None, 'quote': '50 customers'}
+    pair = {side: {'text': 'There are 50 customers.', 'citations': [citation]}
+            for side in ('prosecutor', 'defender')}
+    assert validate_argument_pair(pair, '50 customers', 'v', {})
+    pair['defender']['text'] = 'There are 50k customers.'
+    assert validate_argument_pair(pair, '50 customers', 'v', {}) is None
+    pair['defender']['text'] = 'There are 999.'
+    assert validate_argument_pair(pair, '50 customers', 'v', {}) is None
