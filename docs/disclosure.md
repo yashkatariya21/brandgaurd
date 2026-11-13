@@ -4,16 +4,16 @@
 
 | Service | Provider | Model | Used for |
 |---|---|---|---|
-| Red Team (3 personas) | OpenAI | Configurable via `OPENAI_MODEL` (default: `gpt-4o-mini`) | Generating persona findings when `OPENAI_API_KEY` is set |
-| Prosecutor vs Defender | OpenAI | Configurable via `OPENAI_MODEL` (default: `gpt-4o-mini`) | Generating debate arguments when the key is set |
-| Chaos Test interpretation | OpenAI | Configurable via `OPENAI_MODEL` (default: `gpt-4o-mini`) | Five calls/interpretations of the configured model per case; these are not independent readers |
-| Chaos case generation | OpenAI | Configurable via `OPENAI_MODEL` (default: `gpt-4o-mini`) | Generating balanced pass/fail/borderline test cases |
+| Red Team (3 personas) | OpenAI | Configurable via `OPENAI_MODEL` (default: `gpt-4o-mini`) | Intended hosted persona findings; currently disabled |
+| Prosecutor vs Defender | OpenAI | Configurable via `OPENAI_MODEL` (default: `gpt-4o-mini`) | Intended hosted debate arguments; currently disabled |
+| Chaos Test interpretation | OpenAI | Configurable via `OPENAI_MODEL` (default: `gpt-4o-mini`) | Intended hosted interpretations; currently disabled |
+| Chaos case generation | OpenAI | Configurable via `OPENAI_MODEL` (default: `gpt-4o-mini`) | Intended hosted case generation; currently disabled |
 
 The LLM provider is **OpenAI**. The exact model is configurable via the `OPENAI_MODEL` environment variable (default: `gpt-4o-mini`).
 
 ## Data sent to the LLM
 
-When `OPENAI_API_KEY` is set, submitted text and context are sent to OpenAI's API as required by the selected feature. This can include user-submitted content; do not submit data that you are not permitted to share with OpenAI.
+Hosted calls are currently disabled even if an API key is set: no durable monetary cap has been implemented. If a future implementation enables hosted calls, submitted text and context could include user content and must be handled under an approved data-sharing policy.
 
 - **Red Team:** Content item body text + a summary of approved facts (key: value, version, expiry) + a summary of approved rules (key, description, severity)
 - **Debate:** The finding issue text + relevant content body text + related fact/rule context
@@ -24,7 +24,7 @@ Avoid including personal data, credentials, or secrets in submitted content or c
 
 ## Demo-mode fallback
 
-When `OPENAI_API_KEY` is **not set**, all AI features run in **demo mode**:
+Hosted AI calls are disabled; supported fallback features run in **demo mode**:
 
 - **Red Team:** Deterministic heuristic stubs (regex-based checks for known patterns in the NimbusDesk seed data)
 - **Debate:** Pre-written stub prosecutor/defender texts
@@ -65,7 +65,7 @@ The following tools and dependencies are used by the integration/build setup. Ex
 | Backend libraries | FastAPI, Uvicorn, psycopg, bcrypt, PyJWT, Pydantic, pytest, HTTPX, python-docx, pypdf, python-multipart; versions/ranges in `backend/requirements.txt` | API, database access, authentication, extraction, and tests |
 | Frontend libraries | React, React DOM, React Router, Vite, TypeScript, ESLint, Tailwind CSS and listed plugins; versions in `frontend/package.json` / lockfile | Existing web UI, build, and lint |
 | Static frontend server | `serve` installed globally in the existing frontend Dockerfile (version not pinned) | Serves the Vite production bundle |
-| OpenAI Python SDK | `openai>=1.30,<2` in `backend/requirements.txt` | Optional hosted-model integration used when `OPENAI_API_KEY` is configured |
+| OpenAI Python SDK | `openai>=1.30,<2` in `backend/requirements.txt` | Optional hosted-model integration, currently fail-closed even if a key is configured |
 | Secret guard | `backend/scripts/check_secrets.py` (AI-assisted project code) | Lightweight CI scan of tracked files for environment files and selected high-confidence credential patterns; not a full secret scanner or git-history scan |
 
 The CI workflow contains fixed, non-production credentials solely for its disposable GitHub-hosted PostgreSQL service. No live credentials are required by the workflow. Deployment targets are not configured or deployed by this integration work.
@@ -78,7 +78,7 @@ The Docker Compose health checks, CI workflow updates, `.env.example` changes, a
 
 Round 2 code is pre-existing, submitted in Round 2. Round 3 changes in this session were AI-generated with Arena.ai Agent Mode and require human review. They use the existing project dependencies and fictional NimbusDesk seed data; no new dataset, live AI service, or external deployment was used. The frontend lockfile was regenerated against the existing package manifest. Local Python and Node test/build results and their limitations are recorded in `docs/integration-report.md`.
 
-The Round 3 dependency-graph projection, local character-trigram matcher and graph UI were AI-generated with Arena.ai Agent Mode, using existing project libraries and fictional seed data. The local matcher is experimental and has not been calibrated or independently evaluated.
+The Round 3 dependency-graph projection, local character-trigram matcher and graph UI were AI-generated with Arena.ai Agent Mode, using existing project libraries and fictional seed data. The local matcher is experimental; the synthetic unreviewed calibration described below is not independent validation.
 
 The Red Team grounding and stability helper functions, associated tests, and Competitor Watch changes were AI-generated with Arena.ai Agent Mode using existing dependencies. The helpers are not yet connected to the API; no live AI output or reliability metric was generated in this session.
 
@@ -106,7 +106,7 @@ The checker regression comparison, API/UI wiring, and tests were AI-generated wi
 
 Debate finding-evidence retrieval, revalidation and UI were AI-generated with Arena.ai Agent Mode, using existing dependencies. Revalidated sources are evidence attached to the finding, not verified citations for each argument; no live provider call was made.
 
-The 20 same-fact/value graph similarity examples in `backend/tests/data/graph_similarity_cases.json` and the evaluation/CI scripts were AI-generated with Arena.ai Agent Mode for this project. They are fictional, not independently labelled or representative. Both splits were created together; the holdout is not an independent benchmark. No external dataset, embedding model or paid API was used.
+The synthetic graph similarity examples in `backend/tests/data/graph_similarity_cases.json` and the evaluation/CI scripts were AI-generated with Arena.ai Agent Mode for this project. They are fictional, not independently labelled or representative. Both splits were created together; the holdout is not an independent benchmark. No external dataset, embedding model or paid API was used.
 
 The optional pgvector graph matching foundation, provenance migration and synthetic-vector tests were AI-generated with Arena.ai Agent Mode, using the project's existing pgvector/PostgreSQL dependencies. Vectors in the test are synthetic fixtures, not model outputs. No embedding model, external dataset or paid provider was used.
 
@@ -146,3 +146,5 @@ The finding-detail debate consistency fix, synthetic tests and refreshed CI evid
 The bounded offline lexical candidate matcher, its integration and synthetic tests were AI-generated with Arena.ai Agent Mode using Python's standard library. Its small handwritten synonym list is not an embedding model, a calibrated semantic-retrieval system or proof of stale content. No external dataset or model is used at runtime.
 
 The guarded draft-deletion migration, API, UI and synthetic tests were AI-generated with Arena.ai Agent Mode using the existing PostgreSQL and project dependencies. Deletion is restricted to admins and brand managers and preserves audit records; prior audit entries and historical snapshots can still contain references. Database-backed validation and deployment are required before relying on these controls.
+
+The 150-case synthetic graph fixture, standard-library normalization, calibration script, Blast Radius scope changes, and checker coverage documentation were AI-generated with Arena.ai Agent Mode using existing dependencies and fictional examples. Labels are unreviewed and require human review. The holdout was observed before three overlapping examples were replaced, so it is not pristine. No external provider calls were made during development.
