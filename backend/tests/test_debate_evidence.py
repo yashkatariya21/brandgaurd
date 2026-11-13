@@ -26,3 +26,38 @@ def test_rejects_tampered_quotes_and_wrong_version():
         {'kind':'passage', 'ref_id':'v', 'version':None, 'quote':'not present'},
         {'kind':'rule', 'ref_id':'r', 'version':99, 'quote':'Text'}]}
     assert finding_evidence(finding, 'present', {('rule','r',1):'Text'}) == ([], 2)
+
+
+def test_repeated_deterministic_quote_preserves_finding_span():
+    finding = {'source_kind': 'deterministic', 'content_version_id': 'v', 'span_start': 5, 'span_end': 9}
+    evidence, rejected = finding_evidence(finding, 'text text', {})
+    assert rejected == 0
+    assert (evidence[0]['span_start'], evidence[0]['span_end']) == (5, 9)
+
+
+def test_passage_citation_cannot_claim_a_version_number():
+    finding = {'source_kind': 'persona', 'content_version_id': 'v', 'citations': [
+        {'kind': 'passage', 'ref_id': 'v', 'version': 3, 'quote': 'text'}]}
+    assert finding_evidence(finding, 'text', {}) == ([], 1)
+
+
+def test_demo_argument_references_only_checked_evidence():
+    from app.services.debate_evidence import demo_argument_evidence
+    finding = {'source_kind': 'persona', 'content_version_id': 'v', 'citations': [
+        {'kind': 'passage', 'ref_id': 'v', 'version': None, 'quote': 'actual passage'},
+        {'kind': 'rule', 'ref_id': 'other-tenant', 'version': 1, 'quote': 'secret'}]}
+    evidence, rejected = finding_evidence(finding, 'actual passage', {})
+    output = demo_argument_evidence(evidence)
+    assert rejected == 1
+    for side in ('prosecutor', 'defender'):
+        assert len(output['argument_citations'][side]) == 1
+        assert output['argument_citations'][side][0]['quote'] == 'actual passage'
+    assert 'does not prove' in output['argument_evidence_note']
+
+
+def test_demo_argument_with_no_evidence_does_not_invent_sources():
+    from app.services.debate_evidence import demo_argument_evidence
+    output = demo_argument_evidence([])
+    assert not output['argument_citations']['prosecutor']
+    assert not output['argument_citations']['defender']
+    assert 'No validated evidence' in output['prosecutor_text']

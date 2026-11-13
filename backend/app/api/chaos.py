@@ -18,10 +18,11 @@ from ..core.db import tenant_conn
 from ..core.errors import ApiError
 from ..core.rbac import Principal, require
 from ..services.chaos import generate_chaos_cases, interpret_case, detect_ambiguities, _has_llm
-from ..services.llm_config import ProviderCallError, configured_model
+from ..services.llm_config import ProviderCallError, configured_model, require_hosted_calls_allowed
 from ..services.rulebook import contradictions, coverage_report
 from ..services.checker_chaos import product_name_cases, embargo_cases
-from ..services.chaos_regression import compare_checker_cases
+from ..services.chaos_regression import compare_checker_cases, compare_human_review_cases
+from ..services.rule_review_cases import build_review_cases
 
 router = APIRouter(prefix="/v1")
 
@@ -202,6 +203,107 @@ def checker_chaos(rule_id: uuid.UUID, principal: Principal = Depends(require("ru
                     after={'mode':'checker','cases':len(cases),'checker_misses':len(misses), 'previous_run_id': previous_id})
     return {'run_id': str(run_id), 'rule_key': rule['key'], 'mode': 'checker', 'cases': cases,
             'checker_misses': len(misses), 'regression': {'previous_run_id': previous_id, 'diff': diff}, 'note': 'Checker misses are confirmed observations on explicitly covered constructed inputs, not a claim of rulebook correctness.'}
+
+
+@router.get("/rules/{rule_id}/review-cases")
+def list_review_cases(rule_id: uuid.UUID, principal: Principal = Depends(require("run_chaos"))):
+    """List recent human-review sets, including prior rule versions, for this tenant."""
+    with tenant_conn(principal.org_id, principal.user_id) as conn:
+        rule = conn.execute('SELECT id, key FROM rules WHERE id=%s AND org_id=%s',
+                            (rule_id, principal.org_id)).fetchone()
+        if not rule:
+            raise ApiError(404, 'not_found', 'Rule not found')
+        rows = conn.execute("""SELECT cr.id, cr.created_at, rv.version_no, COUNT(cc.id) AS case_count
+            FROM chaos_runs cr
+            JOIN chaos_cases cc ON cc.chaos_run_id=cr.id AND cc.org_id=cr.org_id
+            JOIN rule_versions rv ON rv.id=cc.rule_version_id AND rv.org_id=cr.org_id
+            WHERE cr.org_id=%s AND cr.prompt_version='review-cases-v1' AND cr.status='done'
+              AND rv.rule_id=%s
+            GROUP BY cr.id, cr.created_at, rv.version_no
+            ORDER BY cr.created_at DESC, cr.id DESC LIMIT 20""",
+            (principal.org_id, rule_id)).fetchall()
+    return {'rule_key': rule['key'], 'runs': [
+        {'run_id': str(r['id']), 'created_at': r['created_at'].isoformat(),
+         'version_no': r['version_no'], 'case_count': r['case_count']} for r in rows]}
+
+
+@router.post("/rules/{rule_id}/review-cases", status_code=201)
+def create_review_cases(rule_id: uuid.UUID, principal: Principal = Depends(require("run_chaos"))):
+    """Create a persisted human-review set from an approved rule's examples."""
+    with tenant_conn(principal.org_id, principal.user_id) as conn:
+        rule = conn.execute("""SELECT r.key, rv.id AS version_id FROM rules r
+            JOIN rule_versions rv ON rv.id=r.current_version_id AND rv.org_id=r.org_id
+            WHERE r.id=%s AND r.org_id=%s AND rv.status='approved'""",
+            (rule_id, principal.org_id)).fetchone()
+        if not rule:
+            raise ApiError(404, 'not_found', 'Rule not found or has no approved version')
+        examples = conn.execute("""SELECT kind,text FROM rule_examples
+            WHERE org_id=%s AND rule_version_id=%s ORDER BY created_at,id LIMIT 20""",
+            (principal.org_id, rule['version_id'])).fetchall()
+        cases = build_review_cases([dict(e) for e in examples])
+        if not cases:
+            raise ApiError(422, 'no_examples', 'This approved rule version has no examples to review.')
+        run_id = uuid.uuid4()
+        conn.execute("""INSERT INTO chaos_runs (id,org_id,rule_version_ids,status,started_at,finished_at,
+            created_by,n_interpreters,model_id,prompt_version)
+            VALUES (%s,%s,%s::uuid[],'done',now(),now(),%s,0,'human-review','review-cases-v1')""",
+            (run_id, principal.org_id, [str(rule['version_id'])], principal.user_id))
+        for case in cases:
+            case_id = uuid.uuid4()
+            conn.execute("""INSERT INTO chaos_cases (id,org_id,chaos_run_id,rule_version_id,text,axis,intended_label)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                (case_id, principal.org_id, run_id, rule['version_id'], case['text'], case['axis'], case['intended_label']))
+            case['id'] = str(case_id)
+            case['human_label'] = None
+        write_audit(conn, principal.user_id, 'chaos.run', 'chaos_run', run_id,
+                    after={'rule_id': str(rule_id), 'cases': len(cases), 'mode': 'human_review'})
+    return {'run_id': str(run_id), 'rule_key': rule['key'], 'cases': cases,
+            'note': 'Source labels are repository expectations; transformed cases need human judgement. No automated interpretations were run.'}
+
+
+class CompareReviewBody(BaseModel):
+    previous_run_id: uuid.UUID
+    current_run_id: uuid.UUID
+
+
+@router.post('/rules/{rule_id}/review-comparisons', status_code=201)
+def compare_review_runs(rule_id: uuid.UUID, body: CompareReviewBody,
+                        principal: Principal = Depends(require('run_chaos'))):
+    """Save a point-in-time snapshot of two human-review sets for one rule."""
+    if body.previous_run_id == body.current_run_id:
+        raise ApiError(422, 'same_run', 'Choose two different review runs.')
+    with tenant_conn(principal.org_id, principal.user_id) as conn:
+        snapshots = {}
+        # Consistent lock ordering prevents comparisons from deadlocking one another.
+        for run_id in sorted((body.previous_run_id, body.current_run_id), key=str):
+            rows = conn.execute("""SELECT cc.text, cc.axis, cc.intended_label, cc.human_label
+                FROM chaos_cases cc
+                JOIN chaos_runs cr ON cr.id=cc.chaos_run_id AND cr.org_id=cc.org_id
+                JOIN rule_versions rv ON rv.id=cc.rule_version_id AND rv.org_id=cc.org_id
+                WHERE cc.org_id=%s AND cc.chaos_run_id=%s AND rv.rule_id=%s
+                  AND cr.status='done' AND cr.prompt_version='review-cases-v1'
+                ORDER BY cc.id FOR SHARE OF cc""", (principal.org_id, run_id, rule_id)).fetchall()
+            if not rows:
+                raise ApiError(404, 'not_found', 'Review run not found for this rule.')
+            snapshots[str(run_id)] = [dict(r) for r in rows]
+        diff = compare_human_review_cases(snapshots[str(body.previous_run_id)], snapshots[str(body.current_run_id)])
+        comparison_id = uuid.uuid4()
+        result = {'comparison_id': str(comparison_id), 'rule_id': str(rule_id),
+                  'previous_run_id': str(body.previous_run_id), 'current_run_id': str(body.current_run_id),
+                  'diff': diff, 'note': 'Point-in-time source expectations and reviewer labels; this is not a checker verdict or a measure of accuracy.'}
+        write_audit(conn, principal.user_id, 'chaos.review_compared', 'review_comparison', comparison_id, after=result)
+    return result
+
+
+@router.get('/review-comparisons/{comparison_id}')
+def get_review_comparison(comparison_id: uuid.UUID, principal: Principal = Depends(require('run_chaos'))):
+    with tenant_conn(principal.org_id, principal.user_id) as conn:
+        row = conn.execute("""SELECT after FROM audit_log WHERE org_id=%s AND object_type='review_comparison'
+            AND action='chaos.review_compared' AND object_id=%s ORDER BY at DESC LIMIT 1""",
+            (principal.org_id, comparison_id)).fetchone()
+    if not row:
+        raise ApiError(404, 'not_found', 'Review comparison not found')
+    return row['after']
 
 
 # ─── POST /v1/rules/{rule_id}/chaos-test ──────────────────────────────────────
@@ -409,7 +511,7 @@ def run_chaos_test(rule_id: str, principal: Principal = Depends(require("run_cha
             if mode == "mixed" else
             "Provider calls were unavailable; the complete run used deterministic demo heuristics."
             if requested_llm else
-            "Demo mode – interpretations use lightweight heuristics, not AI."
+            "Hosted calls are disabled until a spending cap is enforced. Interpretations use demo heuristics, not AI."
         )} if mode != "llm" else {}),
     }
 
@@ -438,10 +540,10 @@ def get_chaos_run(run_id: uuid.UUID, principal: Principal = Depends(require("run
             """SELECT cc.id, cc.text, cc.axis, cc.intended_label, cc.human_label,
                       cr.verdicts, cr.agreement, cr.majority_verdict
                FROM chaos_cases cc
-               LEFT JOIN chaos_results cr ON cr.chaos_case_id = cc.id
-               WHERE cc.chaos_run_id = %s
+               LEFT JOIN chaos_results cr ON cr.chaos_case_id = cc.id AND cr.org_id=cc.org_id
+               WHERE cc.chaos_run_id = %s AND cc.org_id=%s
                ORDER BY cc.id""",
-            (run_id,),
+            (run_id, principal.org_id),
         ).fetchall()
 
         issues = conn.execute(
@@ -533,6 +635,7 @@ def resolve_issue(issue_id: uuid.UUID, body: ResolveBody,
 # ─── Private LLM helper ──────────────────────────────────────────────────────
 
 def _llm_clarification(rule: dict, ambiguous_cases: list) -> str:
+    require_hosted_calls_allowed()
     try:
         from openai import OpenAI
         client = OpenAI(timeout=15.0, max_retries=1)

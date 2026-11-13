@@ -224,15 +224,20 @@ export interface AffectedItem {
   new_value: string
   suggested_replacement: string
   match_type: 'confirmed' | 'possible'
+  match_method?: 'deterministic' | 'embedding'
+  similarity?: number | null
+  embedding_model?: string | null
 }
 
 export interface BlastRadiusResult {
   fact_id: string
   fact_key: string
   fact_label: string
-  old_value: string
-  new_value: string
-  run_id: string
+  old_value?: string
+  new_value?: string
+  run_id?: string
+  message?: string
+  scan_performed?: boolean
   affected_count: number
   affected: AffectedItem[]
   summary?: {
@@ -402,6 +407,8 @@ export interface Debate {
   evidence?: EvidenceCitation[]
   invalid_evidence_count?: number
   evidence_note?: string
+  argument_citations?: { prosecutor: EvidenceCitation[]; defender: EvidenceCitation[] }
+  argument_evidence_note?: string
   demo_note?: string
 }
 
@@ -474,7 +481,29 @@ export interface RulebookCoverage {
   note: string
 }
 
+export interface ReviewComparison {
+  comparison_id: string; rule_id: string; previous_run_id: string; current_run_id: string; note: string
+  diff: {
+    added: {text: string; axis: string; expected: string; human_label: string | null}[]
+    removed: {text: string; axis: string; expected: string; human_label: string | null}[]
+    changed: {text: string; before: {axis: string; expected: string; human_label: string | null}; after: {axis: string; expected: string; human_label: string | null}}[]
+    unchanged: number
+  }
+}
+
+export interface HumanReviewResult {
+  run_id: string
+  rule_key: string
+  note: string
+  cases: { id: string; text: string; axis: string; intended_label: string; human_label: string | null }[]
+}
+
 export const chaosApi = {
+  compareReviews: (ruleId: string, previous_run_id: string, current_run_id: string) =>
+    post<ReviewComparison>(`/v1/rules/${ruleId}/review-comparisons`, { previous_run_id, current_run_id }),
+  reviewComparison: (comparisonId: string) => get<ReviewComparison>(`/v1/review-comparisons/${comparisonId}`),
+  reviewHistory: (ruleId: string) => get<{ rule_key: string; runs: {run_id: string; created_at: string; version_no: number; case_count: number}[] }>(`/v1/rules/${ruleId}/review-cases`),
+  reviewCases: (ruleId: string) => post<HumanReviewResult>(`/v1/rules/${ruleId}/review-cases`),
   coverage: () => get<RulebookCoverage>('/v1/rulebook/coverage'),
   checkerChaos: (ruleId: string) => post<CheckerChaosResult>(`/v1/rules/${ruleId}/checker-chaos`),
   contradictions: () => get<{ contradictions: RuleConflict[] }>('/v1/rulebook/contradictions'),

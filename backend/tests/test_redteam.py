@@ -95,3 +95,11 @@ class TestDebate:
         result = run_prosecutor_defender("issue text", "content text", "fact context")
         assert len(result["prosecutor"]) > 10
         assert len(result["defender"]) > 10
+
+
+def test_demo_debate_does_not_assert_unverified_legal_or_factual_conclusions():
+    result = _stub_debate('Example finding')
+    text = (result['prosecutor'] + result['defender']).lower()
+    assert 'legal liability' not in text
+    assert 'no approved fact' not in text
+    assert result['minimal_edit'] is None

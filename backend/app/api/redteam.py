@@ -22,7 +22,7 @@ from ..core.errors import ApiError
 from ..core.rbac import Principal, require
 from ..services.redteam import _run_persona, run_prosecutor_defender, _has_llm, PERSONAS
 from ..services.grounding import ground_runs
-from ..services.debate_evidence import finding_evidence
+from ..services.debate_evidence import finding_evidence, demo_argument_evidence
 from ..services.llm_config import ProviderCallError, configured_model
 
 router = APIRouter(prefix="/v1")
@@ -71,7 +71,7 @@ def run_redteam(item_id: str, n: int = Query(default=3, ge=1, le=5),
         fact_records, rule_records = records(facts), records(rules)
         catalogue = {(kind, r['id'], r['version']): r['text']
                      for kind, items in [('fact', fact_records), ('rule', rule_records)] for r in items}
-        # Live calls are opt-in. Fixed input and call caps bound a run; they are not a dollar estimate.
+        # Live calls are disabled by the central fail-closed spend guard.
         requested_llm = _has_llm() and os.environ.get('REDTEAM_LIVE_ENABLED', '').lower() == 'true'
         if requested_llm and len(text) > 12000:
             raise ApiError(422, 'input_too_large', 'Live Red Team accepts at most 12,000 characters per run.')
@@ -146,7 +146,7 @@ def run_redteam(item_id: str, n: int = Query(default=3, ge=1, le=5),
                     'ungrounded_drops': len(drops), 'stability_rate': len(stable)/len(findings) if findings else None,
                     'unstable_hidden': len(unstable), 'duration_seconds': round(time.monotonic()-started, 3),
                     'model': configured_model() if mode == 'llm' else 'deterministic heuristic'},
-                    'demo_note': (('Provider unavailable; using deterministic demo heuristics. ' if requested_llm else 'Demo heuristics. ') + 'Repeated agreement is trivial, not measured reliability.' if mode == 'demo' else None)}
+                    'demo_note': (('Provider unavailable; using deterministic demo heuristics. ' if requested_llm else 'Hosted calls are disabled until a spending cap is enforced. Demo heuristics. ') + 'Repeated agreement is trivial, not measured reliability.' if mode == 'demo' else None)}
         conn.execute("UPDATE analysis_runs SET status='done',finished_at=now(),config=%s WHERE id=%s AND org_id=%s",
                      (Jsonb({'cache_key': cache_key, 'response': response}), run_id, principal.org_id))
         write_audit(conn, principal.user_id, 'redteam.run', 'analysis_run', run_id,
@@ -201,7 +201,7 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
         finding = conn.execute(
             """SELECT f.*, cv.body_text as content_text
                FROM findings f
-               JOIN content_versions cv ON cv.id = f.content_version_id
+               JOIN content_versions cv ON cv.id = f.content_version_id AND cv.org_id=f.org_id
                WHERE f.id = %s AND f.org_id = %s""",
             (finding_id, principal.org_id),
         ).fetchone()
@@ -216,6 +216,12 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
         if existing:
             result = _serialise(dict(existing))
             cached_mode = "demo" if result.get("model_id") == "stub" else "llm"
+            # Earlier demo templates asserted legal/factual conclusions without
+            # evidence. Do not continue displaying those cached assertions.
+            if cached_mode == "demo":
+                safe_demo = run_prosecutor_defender('', '', '', use_llm=False)
+                result.update(minimal_edit=safe_demo['minimal_edit'])
+                result.update(demo_argument_evidence(evidence_info['evidence']))
             return {
                 **result,
                 **evidence_info,
@@ -235,9 +241,9 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
             fact_row = conn.execute(
                 """SELECT f.key, fv.value_text
                    FROM facts f
-                   JOIN fact_versions fv ON fv.id = f.current_version_id
-                   WHERE f.id = %s""",
-                (finding["fact_id"],),
+                   JOIN fact_versions fv ON fv.id = f.current_version_id AND fv.org_id=f.org_id
+                   WHERE f.id = %s AND f.org_id=%s AND fv.status='approved'""",
+                (finding["fact_id"], principal.org_id),
             ).fetchone()
             if fact_row:
                 fact_context_parts.append(f"Related fact: {fact_row['key']} = {fact_row['value_text']}")
@@ -246,9 +252,9 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
             rule_row = conn.execute(
                 """SELECT r.key, rv.description
                    FROM rules r
-                   JOIN rule_versions rv ON rv.id = r.current_version_id
-                   WHERE r.id = %s""",
-                (finding["rule_id"],),
+                   JOIN rule_versions rv ON rv.id = r.current_version_id AND rv.org_id=r.org_id
+                   WHERE r.id = %s AND r.org_id=%s AND rv.status='approved'""",
+                (finding["rule_id"], principal.org_id),
             ).fetchone()
             if rule_row:
                 fact_context_parts.append(f"Related rule: {rule_row['key']} – {rule_row['description']}")
@@ -297,11 +303,12 @@ def debate_finding(finding_id: uuid.UUID, principal: Principal = Depends(require
         "prosecutor_text": prosecutor_text,
         "defender_text": defender_text,
         "minimal_edit": minimal_edit,
+        **(demo_argument_evidence(evidence_info['evidence']) if mode == 'demo' else {}),
         "mode": mode,
         "cached": False,
         **({"demo_note": (
             "Provider unavailable; deterministic demo arguments were used."
-            if requested_llm else "Demo mode – arguments are heuristic, not AI-generated."
+            if requested_llm else "Hosted calls are disabled until a spending cap is enforced. Demo prompts are not AI-generated."
         )} if mode == "demo" else {}),
         "footer": "Both arguments are shown so a person can decide. Neither is a verdict.",
     }

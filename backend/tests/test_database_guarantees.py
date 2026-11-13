@@ -210,3 +210,65 @@ def test_graph_vectors_require_matching_provenance_and_tenant(two_orgs, monkeypa
         assert conn.execute("SELECT count(*) AS n FROM graph_edges WHERE org_id=%s AND match_method='embedding'", (org_a,)).fetchone()['n'] == 0
     with tenant_conn(org_b, user_b) as conn:
         assert conn.execute("SELECT count(*) AS n FROM graph_edges WHERE match_method='embedding'").fetchone()['n'] == 0
+
+
+def test_historical_blast_vector_provenance_and_tenant(two_orgs, monkeypatch):
+    from app.api.blast_radius import _historical_vector_candidates
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    monkeypatch.setenv('GRAPH_VECTOR_MATCH_ENABLED', 'true')
+    vector = '[' + ','.join(['1'] + ['0'] * 1535) + ']'
+    with tenant_conn(org_a, user_a) as conn:
+        fact = conn.execute('SELECT id, label FROM facts WHERE org_id=%s', (org_a,)).fetchone()
+        old = conn.execute("""INSERT INTO fact_versions
+            (org_id,fact_id,version_no,value_text,valid_from,status,proposed_by,embedding,embedding_model,embedding_input)
+            VALUES (%s,%s,1,'Old value','2026-01-01','superseded',%s,%s::vector,'fixture-v1',%s) RETURNING id""",
+            (org_a, fact['id'], user_a, vector, fact['label']+'\nOld value')).fetchone()['id']
+        item = conn.execute("INSERT INTO content_items (org_id,title,channel) VALUES (%s,'Draft','web') RETURNING id", (org_a,)).fetchone()['id']
+        cv = conn.execute("INSERT INTO content_versions (org_id,content_item_id,version_no,body_text,content_hash) VALUES (%s,%s,1,'Related claim','hash') RETURNING id", (org_a,item)).fetchone()['id']
+        conn.execute('UPDATE content_items SET current_version_id=%s WHERE id=%s', (cv,item))
+        claim = conn.execute("""INSERT INTO content_claims (org_id,content_version_id,span_start,span_end,raw_text,embedding,embedding_model,embedding_input)
+            VALUES (%s,%s,0,13,'Related claim',%s::vector,'fixture-v1','Related claim') RETURNING id""", (org_a,cv,vector)).fetchone()['id']
+        found = _historical_vector_candidates(conn, org_a, fact['id'], old)
+        assert found[str(cv)]['match_type'] == 'possible'
+        conn.execute("UPDATE content_claims SET embedding_model='other' WHERE id=%s", (claim,))
+        assert not _historical_vector_candidates(conn, org_a, fact['id'], old)
+        conn.execute("UPDATE content_claims SET embedding_model='fixture-v1', embedding_input='stale' WHERE id=%s", (claim,))
+        assert not _historical_vector_candidates(conn, org_a, fact['id'], old)
+    with tenant_conn(org_b, user_b) as conn:
+        assert not _historical_vector_candidates(conn, org_b, fact['id'], old)
+
+
+def test_human_review_cases_persist_and_remain_tenant_scoped(two_orgs):
+    from app.api.chaos import create_review_cases, get_chaos_run, label_case, LabelBody, list_review_cases, compare_review_runs, CompareReviewBody, get_review_comparison
+    from app.core.rbac import Principal
+    from app.core.errors import ApiError
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        rule = conn.execute("INSERT INTO rules (org_id,key,label,category,severity) VALUES (%s,'review-test','Review','claims','high') RETURNING id", (org_a,)).fetchone()['id']
+        ver = conn.execute("""INSERT INTO rule_versions (org_id,rule_id,version_no,description,status,proposed_by)
+            VALUES (%s,%s,1,'An example rule','approved',%s) RETURNING id""", (org_a, rule, user_a)).fetchone()['id']
+        conn.execute('UPDATE rules SET current_version_id=%s WHERE id=%s', (ver,rule))
+        conn.execute("INSERT INTO rule_examples (org_id,rule_version_id,kind,text) VALUES (%s,%s,'bad','Example text')", (org_a,ver))
+    principal_a, principal_b = Principal(user_a, org_a, 'admin'), Principal(user_b, org_b, 'admin')
+    result = create_review_cases(rule, principal=principal_a)
+    assert len(result['cases']) >= 1
+    case_id = uuid.UUID(result['cases'][0]['id'])
+    label_case(case_id, LabelBody(human_label='fail'), principal=principal_a)
+    saved = get_chaos_run(uuid.UUID(result['run_id']), principal=principal_a)
+    assert next(c for c in saved['cases'] if str(c['id']) == str(case_id))['human_label'] == 'fail'
+    assert saved['run']['mode'] == 'human_review'
+    assert list_review_cases(rule, principal=principal_a)['runs'][0]['run_id'] == result['run_id']
+    second = create_review_cases(rule, principal=principal_a)
+    snapshot = compare_review_runs(rule, CompareReviewBody(previous_run_id=result['run_id'], current_run_id=second['run_id']), principal=principal_a)
+    label_case(uuid.UUID(second['cases'][0]['id']), LabelBody(human_label='pass'), principal=principal_a)
+    assert get_review_comparison(uuid.UUID(snapshot['comparison_id']), principal=principal_a) == snapshot
+    with pytest.raises(ApiError):
+        get_review_comparison(uuid.UUID(snapshot['comparison_id']), principal=principal_b)
+    with pytest.raises(ApiError):
+        compare_review_runs(rule, CompareReviewBody(previous_run_id=result['run_id'], current_run_id=second['run_id']), principal=principal_b)
+    with pytest.raises(ApiError):
+        list_review_cases(rule, principal=principal_b)
+    with pytest.raises(ApiError):
+        get_chaos_run(uuid.UUID(result['run_id']), principal=principal_b)
+    with pytest.raises(ApiError):
+        label_case(case_id, LabelBody(human_label='pass'), principal=principal_b)

@@ -199,3 +199,48 @@ class TestNormalisationVariants:
     def test_50000_no_comma(self):
         r = _scan("50000 customers served")
         assert r is not None and r["match_type"] == "confirmed"
+
+
+def test_nonnumeric_fact_exact_text_is_possible_and_offsets_are_exact():
+    body = 'Headquartered in Pune, India since 2016.'
+    match = _scan_item(body, None, 'Pune, India', 'Mumbai, India', None, None, 'hq')
+    assert match['match_type'] == 'possible'
+    assert body[match['span_start']:match['span_end']] == 'Pune, India'
+
+
+def test_text_matching_avoids_word_fragments_and_unchanged_values():
+    assert _scan_item('A leader named Annabelle', None, 'Ann', 'Bea', None, None, 'ceo') is None
+    assert _scan_item('Based in Pune', None, 'Pune', 'Pune', None, None, 'hq') is None
+
+
+def test_same_numeric_value_but_changed_qualifier_requires_review():
+    match = _scan_item('We serve 50,000 customers', 50000, '50,000+ customers',
+                       'Approximately 50,000 customers', 'customer_count', None, 'customer_count',
+                       new_norm=50000)
+    assert match['match_type'] == 'possible'
+
+
+def test_historical_vector_candidates_disabled_by_default(monkeypatch):
+    from app.api.blast_radius import _historical_vector_candidates
+    monkeypatch.delenv('GRAPH_VECTOR_MATCH_ENABLED', raising=False)
+    class NoQuery:
+        def execute(self, *args): raise AssertionError('vectors must be opt-in')
+    assert _historical_vector_candidates(NoQuery(), 'org', 'fact', 'version') == {}
+
+
+def test_historical_vector_candidates_remain_possible_and_reject_nonfinite(monkeypatch):
+    from app.api.blast_radius import _historical_vector_candidates
+    monkeypatch.setenv('GRAPH_VECTOR_MATCH_ENABLED', 'true')
+    class Result:
+        def fetchall(self):
+            return [dict(content_version_id='v1', span_start=0, span_end=4, raw_text='text', embedding_model='m', score=.93),
+                    dict(content_version_id='v2', span_start=0, span_end=4, raw_text='text', embedding_model='m', score=float('nan'))]
+    class Conn:
+        def execute(self, query, args):
+            assert args == ('org', 'fact', 'old-version')
+            assert "fv.status='superseded'" in query
+            return Result()
+    candidates = _historical_vector_candidates(Conn(), 'org', 'fact', 'old-version')
+    assert list(candidates) == ['v1']
+    assert candidates['v1']['match_type'] == 'possible'
+    assert candidates['v1']['match_method'] == 'embedding'

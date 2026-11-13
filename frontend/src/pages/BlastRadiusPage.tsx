@@ -1,5 +1,6 @@
 import DependencyGraph from '../components/DependencyGraph'
 import React, { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Crosshair, Info, ExternalLink, Zap, Globe, Smartphone, Mail, FileText, ImageIcon, Newspaper } from 'lucide-react'
 import { factsApi, Fact, BlastRadiusResult, AffectedItem } from '../api'
 import { useTheme } from '../theme'
@@ -187,6 +188,8 @@ export default function BlastRadiusPage() {
   }
 
   const selectedFact = facts.find((f) => f.id === selectedFactId)
+  // Older API versions signal this condition via message rather than scan_performed.
+  const noComparison = Boolean(result && (result.scan_performed === false || (!result.run_id && result.message)))
   const summary = result?.summary
   const confirmed = summary?.confirmed ?? result?.affected.filter((a) => a.match_type === 'confirmed').length ?? 0
   const possible  = summary?.possible  ?? result?.affected.filter((a) => a.match_type === 'possible').length  ?? 0
@@ -258,7 +261,15 @@ export default function BlastRadiusPage() {
 
       {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
 
-      {result && (
+      {result && noComparison && (
+        <section className="glass-panel rounded-xl p-6" role="status">
+          <h2 className="text-lg font-semibold text-main">No comparison available yet</h2>
+          <p className="text-sm text-muted mt-2">{result.message || 'There is no previous approved version to compare.'} No scan was performed.</p>
+          <p className="text-sm text-muted mt-2">To compare a change, submit a new fact version in the Repository and have a different authorised approver approve it. Then return here and run the scan.</p>
+          <Link className="inline-flex mt-4 text-sm font-semibold text-accent underline" to="/repository">Go to Repository</Link>
+        </section>
+      )}
+      {result && !noComparison && (
         <div className="space-y-5">
           {/* ── Header card ── */}
           <div className="glass-panel rounded-xl p-5">
@@ -312,7 +323,7 @@ export default function BlastRadiusPage() {
           {result.affected_count > 0 && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 space-y-1">
               <p><strong>Confirmed</strong> – exact numeric match AND the attribute matches. Needs updating.</p>
-              <p><strong>Possible</strong> – value matches but the attribute differs. Human review needed.</p>
+              <p><strong>Possible</strong> – a text or numeric match needs human review; it may be unrelated or still current.</p>
               <p className="text-blue-600 pt-1">No changes are applied automatically. A human must decide.</p>
             </div>
           )}
@@ -320,7 +331,7 @@ export default function BlastRadiusPage() {
           {result.affected_count === 0 ? (
             <div className="text-center py-12 glass-panel rounded-xl">
               <Info size={32} className="text-accent mx-auto mb-3" />
-              <p className="text-lg font-medium text-main">No stale content found</p>
+              <p className="text-lg font-medium text-main">No matches found by this scan</p>
               {result.scope_note && <p className="text-sm text-muted mt-1 max-w-md mx-auto">{result.scope_note}</p>}
             </div>
           ) : (
@@ -364,7 +375,7 @@ export default function BlastRadiusPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 text-xs flex-wrap">
-                              <span className="font-mono bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-100 line-through">
+                              <span className={`font-mono bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-100 ${item.match_type === 'confirmed' ? 'line-through' : ''}`}>
                                 {item.stale_text}
                               </span>
                               <span className="text-muted">→</span>
@@ -383,6 +394,9 @@ export default function BlastRadiusPage() {
                                 </a>
                               )}
                             </div>
+                            {item.match_method === 'embedding' && (
+                              <p className="text-xs text-amber-700">Experimental semantic candidate · model {item.embedding_model} · similarity {item.similarity?.toFixed(2)}. Similarity does not prove the passage is stale; review before editing.</p>
+                            )}
                           </div>
                         ))}
                       </div>

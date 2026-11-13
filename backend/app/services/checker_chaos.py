@@ -33,18 +33,36 @@ def is_active_embargo_mentioned(text: str, term: str, until: date | None, today:
 
 
 def embargo_cases(terms: list[dict], today: date) -> list[dict]:
-    active = [t for t in terms if t.get('embargo_until') and today < t['embargo_until']]
+    """Exercise every active term with the production check's literal matching.
+
+    Case texts are unique for persisted regression comparison. A candidate is
+    labelled pass only if it contains none of the active terms.
+    """
+    active = sorted((t for t in terms if t.get('term') and t.get('embargo_until')
+                     and today < t['embargo_until']), key=lambda t: (t['term'].casefold(), t['term']))
     if not active:
         return []
-    term = active[0]['term']
-    # Same substring and date check as the production checker; each test must
-    # check against every active term, not just the term chosen for generation.
+
     def observes(text):
         return any(is_active_embargo_mentioned(text, t['term'], t['embargo_until'], today) for t in active)
-    rows = [(f'Our launch uses {term}.', 'fail', 'active embargo term'),
-            (f'Our launch uses {term.upper()}.', 'fail', 'case variant'),
-            ('A future release is planned.', 'pass', 'no known embargo term')]
-    return [make_case(text, label, observes(text), reason) for text, label, reason in rows]
+
+    rows = []
+    seen = set()
+    for item in active:
+        term = item['term']
+        for text, reason in [(f'Our launch uses {term}.', 'active embargo term'),
+                             (f'Our launch uses {term.upper()}.', 'case variant')]:
+            if text not in seen:
+                seen.add(text)
+                rows.append(make_case(text, 'fail', observes(text), reason))
+
+    # In a tenant with unusually broad terms, even a neutral phrase can be
+    # embargoed. Omit the negative control rather than mislabelling it.
+    for text in ('A future release is planned.', 'Updates will follow.', 'Hello.'):
+        if text not in seen and not observes(text):
+            rows.append(make_case(text, 'pass', False, 'no active embargo term'))
+            break
+    return rows
 
 
 def make_case(text: str, expected: str, flagged: bool, rationale: str) -> dict:
