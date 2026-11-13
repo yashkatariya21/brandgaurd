@@ -1,196 +1,54 @@
-import React, { useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronDown, ChevronUp, Crosshair, Database, FileText, ShieldAlert, Atom, CheckCircle2 } from 'lucide-react'
-import { useTheme } from '../theme'
+import React, { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { IS_DEMO_MODE } from '../lib/demoAccounts'
-
-/**
- * DemoStepper — shown only when VITE_DEMO_MODE === 'true'.
- * Links the five demo steps and highlights the one matching the current route.
- * Collapsible. Hidden on /login and / (home).
- */
+import { resetProgress, useDemoProgress } from '../lib/demoProgress'
 
 const STEPS = [
-  {
-    n: 1,
-    label: 'Change a fact',
-    hint: 'Repository → Facts → Propose v2',
-    to: '/repository',
-    Icon: Database,
-  },
-  {
-    n: 2,
-    label: 'Blast Radius',
-    hint: 'Explore affected content',
-    to: '/blast-radius',
-    Icon: Crosshair,
-  },
-  {
-    n: 3,
-    label: 'Run Red Team',
-    hint: 'Content → Run Red Team',
-    to: '/content',
-    Icon: FileText,
-  },
-  {
-    n: 4,
-    label: 'Decide',
-    hint: 'Findings → Show debate → Decide',
-    to: '/findings',
-    Icon: ShieldAlert,
-  },
-  {
-    n: 5,
-    label: 'Rule Tests',
-    hint: 'Select R-01 → Run Test',
-    to: '/rule-tests',
-    Icon: Atom,
-  },
+  { title: 'Propose the fact change', role: 'Brand Manager', roleId: 'brand_manager', to: '/repository', instruction: 'Open Customer count; submit its draft v2 (65,000+ customers) for approval, or propose that value.', expected: 'The change is ready for approval.', feature: 'Brand-as-Code with Blast-Radius Intelligence' },
+  { title: 'Approve it', role: 'Approver', roleId: 'approver', to: '/repository', instruction: 'Open Customer count and approve the pending v2 as a different user.', expected: 'The new version is approved.', feature: 'Brand-as-Code with Blast-Radius Intelligence' },
+  { title: 'See the Blast Radius', role: 'Brand Manager or any permitted role', to: '/blast-radius', instruction: 'Select Customer count (customer_count) and run the scan.', expected: 'Review Confirmed and Possible matches and the registered-content scope note.', feature: 'Brand-as-Code with Blast-Radius Intelligence' },
+  { title: 'Run the Red Team', role: 'Brand Manager or a permitted content reviewer', to: '/content', instruction: 'Create “Demo risk copy” with “Guaranteed 100% uptime. ISO 27001 certified. Project Heron launches Q1.” Open it and run Red Team.', expected: 'Review the Possible findings and the demo-mode notice; actual results may vary.', feature: 'Adversarial Brand Red Team' },
+  { title: 'Decide on a finding', role: 'A permitted reviewer', to: '/findings', instruction: 'Open Show debate, then close it and select Decide on an open finding.', expected: 'The human decision is recorded; content is not changed or published.', feature: 'Adversarial Brand Red Team' },
+  { title: 'Test a rule', role: 'A permitted reviewer', to: '/rule-tests', instruction: 'Choose R-01 – Friendly and professional tone and run the test.', expected: 'Review the heuristic interpretations and ambiguity flag; agreement is not correctness.', feature: 'Guideline Chaos Testing' },
+  { title: 'Done', role: 'Any', to: '/about', instruction: 'Review the recap and limitations.', expected: 'A human remains responsible for decisions.', feature: '' },
 ]
 
-const HIDE_ON: string[] = ['/login', '/']
-
-export default function DemoStepper() {
-  const { isAuthority } = useTheme()
+export default function DemoStepper({ role, canSwitchRole, switching, switchRole }: { role?: string; canSwitchRole: boolean; switching: boolean; switchRole: (role: string) => Promise<void> }) {
+  const progress = useDemoProgress()
   const location = useLocation()
-  const [open, setOpen] = useState(true)
-
-  // Only show in demo mode
-  const isDemoMode = IS_DEMO_MODE
-  if (!isDemoMode) return null
-
-  // Hide on login and home
-  if (HIDE_ON.includes(location.pathname)) return null
-
-  const currentStep = STEPS.find((s) => s.to === location.pathname)?.n ?? null
-
-  const accentColor = isAuthority ? '#2a7f8e' : '#7e69ab'
-  const bgColor     = isAuthority ? '#1f3a5f' : '#f5f2fc'
-  const textColor   = isAuthority ? '#e2e8f0' : '#2D3142'
-  const borderColor = isAuthority ? '#162c4a' : 'rgba(126,105,171,0.15)'
-
-  return (
-    <div
-      className="border-b"
-      style={{ backgroundColor: bgColor, borderColor }}
-    >
-      {/* Header row */}
-      <div
-        className="flex items-center justify-between px-5 py-2 cursor-pointer select-none"
-        onClick={() => setOpen((v) => !v)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((v) => !v) } }}
-        aria-expanded={open}
-        aria-label="Demo walkthrough steps"
-      >
-        <div className="flex items-center gap-2">
-          <CheckCircle2 size={14} style={{ color: accentColor }} />
-          <span
-            className="text-xs font-semibold uppercase tracking-widest"
-            style={{ color: accentColor }}
-          >
-            Demo walkthrough
-          </span>
-          {currentStep && (
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
-              style={{ background: accentColor, color: '#fff' }}
-            >
-              Step {currentStep}/5
-            </span>
-          )}
-        </div>
-        {open
-          ? <ChevronUp size={14} style={{ color: textColor, opacity: 0.5 }} />
-          : <ChevronDown size={14} style={{ color: textColor, opacity: 0.5 }} />
-        }
-      </div>
-
-      {/* Steps */}
-      {open && (
-        <div className="flex items-stretch overflow-x-auto scrollbar-thin px-3 pb-2 gap-1">
-          {STEPS.map((step, i) => {
-            const isActive = location.pathname === step.to
-            const isDone   = currentStep != null && step.n < currentStep
-
-            return (
-              <React.Fragment key={step.to}>
-                <NavLink
-                  to={step.to}
-                  className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg text-center min-w-[88px] transition-all flex-shrink-0 no-underline"
-                  style={{
-                    background: isActive
-                      ? `${accentColor}20`
-                      : 'transparent',
-                    border: isActive
-                      ? `1px solid ${accentColor}40`
-                      : '1px solid transparent',
-                  }}
-                  aria-current={isActive ? 'step' : undefined}
-                >
-                  {/* Icon circle */}
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{
-                      background: isActive
-                        ? accentColor
-                        : isDone
-                        ? `${accentColor}30`
-                        : 'rgba(255,255,255,0.08)',
-                      border: `2px solid ${isActive ? accentColor : isDone ? accentColor : borderColor}`,
-                    }}
-                  >
-                    {isDone ? (
-                      <CheckCircle2
-                        size={14}
-                        style={{ color: accentColor }}
-                      />
-                    ) : (
-                      <step.Icon
-                        size={14}
-                        style={{ color: isActive ? '#fff' : textColor, opacity: isActive ? 1 : 0.55 }}
-                        strokeWidth={1.75}
-                      />
-                    )}
-                  </div>
-
-                  {/* Step number + label */}
-                  <div>
-                    <p
-                      className="text-[10px] font-bold leading-tight"
-                      style={{ color: isActive ? accentColor : textColor, opacity: isActive ? 1 : 0.55 }}
-                    >
-                      {step.n}. {step.label}
-                    </p>
-                    <p
-                      className="text-[9px] leading-snug mt-0.5 max-w-[80px]"
-                      style={{ color: textColor, opacity: 0.35 }}
-                    >
-                      {step.hint}
-                    </p>
-                  </div>
-                </NavLink>
-
-                {/* Connector */}
-                {i < STEPS.length - 1 && (
-                  <div className="flex items-center self-center flex-shrink-0">
-                    <div
-                      className="w-4 h-px"
-                      style={{
-                        background: isDone && (currentStep ?? 0) > step.n + 1
-                          ? accentColor
-                          : borderColor,
-                        opacity: 0.5,
-                      }}
-                    />
-                  </div>
-                )}
-              </React.Fragment>
-            )
-          })}
-        </div>
-      )}
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [view, setView] = useState<number | null>(null)
+  const [copyMessage, setCopyMessage] = useState('')
+  const current = STEPS.findIndex((_, i) => i < 6 && !progress.includes(i + 1))
+  const active = current < 0 ? 6 : current
+  const previous = useRef(active)
+  useEffect(() => {
+    if (previous.current !== active) { setOpen(false); setView(null); previous.current = active }
+  }, [active])
+  if (!IS_DEMO_MODE || location.pathname === '/login' || location.pathname === '/') return null
+  const shown = view ?? active
+  const step = STEPS[shown]
+  const close = () => { setOpen(false); try { sessionStorage.setItem('brandguard-tour-hidden', 'true') } catch { /* optional preference */ } }
+  const select = (i: number) => { setView(i); if (i !== 6) navigate(STEPS[i].to); else setOpen(true) }
+  const copy = async () => {
+    try { await navigator.clipboard.writeText('65,000+ customers'); setCopyMessage('Copied.') }
+    catch { setCopyMessage('Copy unavailable. Enter 65,000+ customers manually.') }
+  }
+  return <nav className="tour" aria-label="Demo walkthrough">
+    <div className="tour-bar"><div className="tour-dots">{STEPS.map((s, i) => <button key={s.title} className={`tour-dot ${i === active ? 'current' : ''} ${progress.includes(i + 1) ? 'done' : ''}`} onClick={() => select(i)} aria-label={`${i + 1}. ${s.title}${progress.includes(i + 1) ? ', completed' : ''}`} aria-current={i === active ? 'step' : undefined} title={s.title}>{progress.includes(i + 1) ? <Check size={14} /> : i + 1}</button>)}</div>
+      <span className="tour-title">Step {active + 1} of 7 — {STEPS[active].title}</span><span className="sr-only" aria-live="polite">Step {active + 1} of 7: {STEPS[active].title}</span>
+      <button className="tour-action" onClick={() => { setView(null); if (active === 6) setOpen(true); else navigate(STEPS[active].to) }}>Next action</button>
+      <button className="tour-toggle" aria-expanded={open} aria-controls="tour-panel" onClick={() => open ? close() : setOpen(true)}>{open ? 'Hide' : 'Expand'} {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
     </div>
-  )
+    {open && <section id="tour-panel" className="tour-panel" aria-label="Walkthrough details">
+      <p className="tour-feature">{step.feature || 'WALKTHROUGH RECAP'}</p><h2>{step.title}</h2><p><strong>Role:</strong> {step.role}</p><p><strong>Next:</strong> {step.instruction}</p><p><strong>Expected:</strong> {step.expected}</p>
+      {step.roleId && role !== step.roleId && <p>This step needs the {step.role}. {canSwitchRole && <button className="tour-link" disabled={switching} onClick={() => void switchRole(step.roleId!)}>Switch to {step.role}</button>}</p>}
+      {shown === 0 && <p><button className="tour-link" onClick={() => void copy()}>Copy value</button> <span role="status">{copyMessage}</span></p>}
+      {shown === 6 && <div className="tour-recap"><p><strong>Brand-as-Code with Blast-Radius Intelligence:</strong> fact changes and registered-content matches.</p><p><strong>Adversarial Brand Red Team:</strong> possible risks, debate and a human decision.</p><p><strong>Guideline Chaos Testing:</strong> heuristic rule interpretations and ambiguity.</p><p><Link to="/about">About</Link> · <a href="https://github.com/yashkatariya21/brandgaurd#readme" target="_blank" rel="noreferrer">README</a></p></div>}
+      <div className="tour-panel-actions"><button disabled={shown === 0} onClick={() => setView(shown - 1)}>Back</button><button disabled={shown === 6} onClick={() => setView(shown + 1)}>Skip</button><button onClick={() => { navigate(step.to); close() }}>Go to page</button><button onClick={() => { resetProgress(); setView(null); setOpen(false) }}>{shown === 6 ? 'Restart demo' : 'Reset demo progress'}</button></div>
+      <p className="tour-note">Skipping only changes the view; progress is recorded after successful actions.</p>
+    </section>}
+  </nav>
 }

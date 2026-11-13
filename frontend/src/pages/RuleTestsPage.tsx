@@ -1,3 +1,4 @@
+import { markStep } from '../lib/demoProgress'
 import React, { useEffect, useState } from 'react'
 import { Atom, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react'
 import { rulesApi, chaosApi, Rule, ChaosCase, ChaosIssue, ChaosRunResult, RuleConflict, RulebookCoverage, CheckerChaosResult, HumanReviewResult, ReviewComparison } from '../api'
@@ -332,6 +333,7 @@ export default function RuleTestsPage() {
     setLocalIssues([])
     try {
       const r = await chaosApi.run(selectedRuleId)
+      markStep(6)
       setResult(r)
       setLocalCases(r.cases)
       setLocalIssues(r.issues)
@@ -472,7 +474,7 @@ export default function RuleTestsPage() {
               </p>
             )}
             <button
-              onClick={runTest}
+              data-demo-target="6" onClick={runTest}
               disabled={running || !selectedRuleId || !selectedIsTone}
               title={!selectedIsTone && selectedRuleId ? 'Chaos testing currently supports tone rules' : undefined}
               className="flex items-center gap-2 px-5 py-2 bg-accent text-white rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"

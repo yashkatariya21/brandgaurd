@@ -1,3 +1,4 @@
+import { markStep } from '../lib/demoProgress'
 import DependencyGraph from '../components/DependencyGraph'
 import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -175,6 +176,7 @@ export default function BlastRadiusPage() {
     setResult(null)
     try {
       const r = await factsApi.blastRadius(selectedFactId)
+      if (r.scan_performed !== false && r.run_id) markStep(3)
       setResult(r)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Scan failed')
@@ -237,7 +239,7 @@ export default function BlastRadiusPage() {
             </select>
           </div>
           <button
-            onClick={runScan}
+            data-demo-target="3" onClick={runScan}
             disabled={running || !selectedFactId}
             className="flex items-center gap-2 px-5 py-2 bg-accent text-white rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
