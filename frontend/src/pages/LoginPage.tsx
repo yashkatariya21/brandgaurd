@@ -3,16 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, ArrowUpRight, Eye, EyeOff, ShieldCheck, Sparkles } from 'lucide-react'
 import { useAuth } from '../auth'
 import BrandGuardLogo from '../components/BrandGuardLogo'
-import { DEMO_ACCOUNTS, ORG_SLUG, DEMO_PASSWORD, IS_DEMO_MODE } from '../lib/demoAccounts'
+import { DEMO_ACCOUNTS, ORG_SLUG, DEMO_PASSWORD, IS_DEMO_MODE, personas } from '../lib/demoAccounts'
 
-const personas: Record<string, { name: string; initials: string; description: string }> = {
-  admin: { name: 'Aarav Sharma', initials: 'AS', description: 'Set up the workspace' },
-  brand_manager: { name: 'Ananya Rao', initials: 'AR', description: 'Keep the brand on track' },
-  approver: { name: 'Priya Mehta', initials: 'PM', description: 'Review and decide' },
-  manager: { name: 'Rohan Shah', initials: 'RS', description: 'Coordinate the team' },
-  creator: { name: 'Kavya Nair', initials: 'KN', description: 'Create with confidence' },
-  external_creator: { name: 'Aditya Iyer', initials: 'AI', description: 'Collaborate on content' },
-}
 
 export default function LoginPage() {
   const { login, user, loading: restoring } = useAuth()

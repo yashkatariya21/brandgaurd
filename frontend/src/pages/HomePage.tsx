@@ -60,7 +60,7 @@ function Illustration() {
 export default function HomePage() {
   const { user } = useAuth()
   return (
-    <div className="home-page">
+    <div className="home-page workspace-container">
       <section className="home-hero">
         <div className="home-hero-copy">
           <div className="home-eyebrow"><span className="eyebrow-dot" /> YOUR BRAND TRUTH WORKSPACE <span className="eyebrow-line" /> <span>01 / 03</span></div>
