@@ -35,3 +35,24 @@ def test_coverage_reports_seed_unclear_and_untested_rules():
     gaps = coverage_report(rules, [])['gaps']
     assert {'R-09', 'R-14', 'R-15'} <= {g['subject'] for g in gaps if g['kind'] == 'unclear_threshold'}
     assert any(g['kind'] == 'untested_rule' for g in gaps)
+
+
+def test_contradictions_respect_directive_polarity_and_scope():
+    def rule(key, text, channel='web'):
+        return {'key': key, 'description': text, 'applies_to': [channel]}
+    formal = rule('formal', 'Maintain a formal tone.')
+    assert not contradictions([formal, rule('no_contractions', 'Do not use contractions.')])
+    assert not contradictions([formal, rule('no_emoji', 'Avoid emoji.')])
+    assert not contradictions([rule('a', 'Use contractions.'), rule('b', 'Use contractions.')])
+    conflict = contradictions([rule('a', 'Use contractions.'), rule('b', 'Never use contractions.')])
+    assert len(conflict) == 1 and conflict[0]['channels'] == ['web']
+    assert conflict[0]['type'] == 'possible' and conflict[0]['quote_b'] == 'Never use contractions.'
+    assert not contradictions([rule('a', 'Use contractions.'), rule('b', 'Never use contractions.', 'social')])
+
+
+def test_unknown_and_conflicting_directive_in_one_clause_do_not_create_candidates():
+    rules = [{'key': 'a', 'description': 'Consider contractions.', 'applies_to': ['web']},
+             {'key': 'b', 'description': 'Maintain a formal tone.', 'applies_to': ['web']}]
+    assert not contradictions(rules)
+    rules[0]['description'] = 'Use contractions. Do not use contractions.'
+    assert not contradictions(rules)

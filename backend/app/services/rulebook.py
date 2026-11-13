@@ -1,5 +1,6 @@
 """Conservative, explainable candidates; a human must resolve each one."""
 from itertools import combinations
+import re
 
 EXTERNAL_CHANNELS = {'web', 'social', 'email', 'press', 'pdf', 'image'}
 
@@ -11,24 +12,55 @@ def expanded_channels(rule):
     return channels - {'all', 'external'}
 
 
+def _directive(text, subject):
+    """Recognise a narrow imperative vocabulary; unknown wording stays unknown."""
+    noun = {'contractions': r'contractions?', 'emoji': r'emojis?',
+            'formal': r'formal(?:\s+(?:tone|language))?'}[subject]
+    # Search within clauses so a negation elsewhere does not invert a directive.
+    clauses = re.split(r'[.;!?]', text.lower())
+    values = set()
+    for clause in clauses:
+        if not re.search(r'\b' + noun + r'\b', clause):
+            continue
+        if re.search(r"\b(?:do not|don't|never|avoid|prohibit|ban)\s+(?:use\s+)?" + noun + r'\b', clause):
+            values.add('avoid')
+        elif re.search(r'\b(?:use|require|maintain)\s+(?:a\s+)?' + noun + r'\b', clause):
+            values.add('use')
+    return next(iter(values)) if len(values) == 1 else None
+
+
 def contradictions(rules):
+    """Find a small set of polarity-aware candidates, not exhaustive conflicts."""
     results = []
+    examples = {'contractions': "We're pleased to announce our new office.",
+                'emoji': 'We are pleased to announce our new office. 🎉',
+                'formal': 'We are pleased to announce our new office.'}
     for a, b in combinations(rules, 2):
         shared = sorted(expanded_channels(a) & expanded_channels(b))
         if not shared:
             continue
-        ta, tb = (a.get('description') or '').lower(), (b.get('description') or '').lower()
-        text = ta + ' ' + tb
+        ta, tb = (a.get('description') or ''), (b.get('description') or '')
+        da = {subject: _directive(ta, subject) for subject in examples}
+        db = {subject: _directive(tb, subject) for subject in examples}
         scenario = None
-        if 'formal' in text and 'contraction' in text:
-            scenario = "We're pleased to announce our new office."
-        elif 'formal' in text and 'emoji' in text:
-            scenario = 'We are pleased to announce our new office. 🎉'
+        explanation = None
+        for subject in examples:
+            if {da[subject], db[subject]} == {'use', 'avoid'}:
+                scenario = examples[subject]
+                explanation = f'Opposing directives about {subject}; a human must interpret their context.'
+                break
+        if not scenario:
+            for subject in ('contractions', 'emoji'):
+                if ((da['formal'] == 'use' and db[subject] == 'use') or
+                        (db['formal'] == 'use' and da[subject] == 'use')):
+                    scenario = examples[subject]
+                    explanation = 'Potential tone tension; the directives may be compatible in context. A human must decide.'
+                    break
         if scenario:
             results.append({'rule_a': a['key'], 'rule_b': b['key'],
-                            'quote_a': a['description'], 'quote_b': b['description'],
+                            'quote_a': ta, 'quote_b': tb,
                             'channels': shared, 'scenario': scenario, 'type': 'possible',
-                            'explanation': 'Potential tension; the directives may be compatible in context. A human must decide.'})
+                            'explanation': explanation})
     return results
 
 
