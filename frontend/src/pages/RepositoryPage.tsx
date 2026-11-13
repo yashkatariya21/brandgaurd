@@ -5,7 +5,6 @@ import { useAuth } from '../auth'
 import { useTheme } from '../theme'
 import StatusBadge from '../components/StatusBadge'
 import ExpiryChip from '../components/ExpiryChip'
-import { MOCK_FACTS, MOCK_RULES } from '../lib/mockData'
 
 type Tab = 'facts' | 'rules'
 
@@ -477,7 +476,7 @@ export default function RepositoryPage() {
   const [tab, setTab] = useState<Tab>('facts')
   const [facts, setFacts] = useState<Fact[]>([])
   const [rules, setRules] = useState<Rule[]>([])
-  const [usingMock, setUsingMock] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedFact, setSelectedFact] = useState<Fact | null>(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -487,13 +486,15 @@ export default function RepositoryPage() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([
-      factsApi.list().catch(() => { setUsingMock(true); return MOCK_FACTS }),
-      rulesApi.list().catch(() => { setUsingMock(true); return MOCK_RULES }),
-    ])
+    setLoadError('')
+    Promise.all([factsApi.list(), rulesApi.list()])
       .then(([f, r]) => {
         setFacts(f)
         setRules(r)
+      })
+      .catch((e: unknown) => {
+        setFacts([]); setRules([])
+        setLoadError(e instanceof Error ? e.message : 'Could not load the repository.')
       })
       .finally(() => setLoading(false))
   }
@@ -533,9 +534,10 @@ export default function RepositoryPage() {
       r.key.toLowerCase().includes(search.toLowerCase()),
   )
 
+  if (loadError) return <div className="p-6 space-y-3"><p role="alert" className="text-red-700">Could not load the repository: {loadError}</p><button className="text-accent underline" onClick={load}>Retry</button></div>
+
   return (
     <div className="space-y-6 max-w-[1440px] mx-auto p-6 pb-12">
-      {usingMock && <p role="alert" className="p-3 rounded bg-amber-100 text-amber-900">Backend unavailable. Showing fictional sample data, not workspace results.</p>}
       <div className="flex items-start justify-between mb-2">
         <div>
           <h1

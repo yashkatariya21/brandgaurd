@@ -12,12 +12,6 @@ import SeverityBadge from '../components/SeverityBadge'
 import ExpiryChip from '../components/ExpiryChip'
 import Footer from '../components/Footer'
 import { getExpiryInfo } from '../lib/expiry'
-import { MOCK_FACTS, MOCK_RULES, MOCK_CONTENT, MOCK_FINDINGS } from '../lib/mockData'
-
-async function withFallback<T>(apiFn: () => Promise<T>, fallback: T): Promise<{ data: T; isMock: boolean }> {
-  try { return { data: await apiFn(), isMock: false } } catch { return { data: fallback, isMock: true } }
-}
-
 // ─── Skeleton loader ────────────────────────────────────────────────────────
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -274,39 +268,28 @@ export default function DashboardPage() {
   const [content, setContent] = useState<ContentItem[]>([])
   const [findings, setFindings] = useState<Finding[]>([])
   const [loading, setLoading] = useState(true)
-  const [usingMock, setUsingMock] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
-  useEffect(() => {
-    Promise.allSettled([
-      withFallback(factsApi.list,    MOCK_FACTS),
-      withFallback(rulesApi.list,    MOCK_RULES),
-      withFallback(contentApi.list,  MOCK_CONTENT),
-      withFallback(findingsApi.list, MOCK_FINDINGS),
-    ]).then(([f, r, c, fi]) => {
-      const allFacts    = f.status  === 'fulfilled' ? f.value.data  : MOCK_FACTS
-      const allRules    = r.status  === 'fulfilled' ? r.value.data  : MOCK_RULES
-      const allContent  = c.status  === 'fulfilled' ? c.value.data  : MOCK_CONTENT
-      const allFindings = fi.status === 'fulfilled' ? fi.value.data : MOCK_FINDINGS
-      const mock = (f.status === 'fulfilled' && f.value.isMock) ||
-                   (fi.status === 'fulfilled' && fi.value.isMock) ||
-                   (r.status === 'fulfilled' && r.value.isMock) ||
-                   (c.status === 'fulfilled' && c.value.isMock)
-      setUsingMock(mock)
-
-      setFacts(allFacts)
-      setRules(allRules)
-      setContent(allContent)
-      setFindings(allFindings)
-
-      setStats({
-        facts:            allFacts.length,
-        rules:            allRules.length,
-        content:          allContent.length,
-        openFindings:     allFindings.filter((x) => x.status === 'open').length,
-        criticalFindings: allFindings.filter((x) => x.status === 'open' && x.severity === 'critical').length,
-      })
-    }).finally(() => setLoading(false))
-  }, [])
+  const load = () => {
+    setLoading(true)
+    setLoadError('')
+    Promise.all([factsApi.list(), rulesApi.list(), contentApi.list(), findingsApi.list()])
+      .then(([allFacts, allRules, allContent, allFindings]) => {
+        setFacts(allFacts)
+        setRules(allRules)
+        setContent(allContent)
+        setFindings(allFindings)
+        setStats({
+          facts: allFacts.filter((fact) => fact.version_status === 'approved').length,
+          rules: allRules.length,
+          content: allContent.length,
+          openFindings: allFindings.filter((x) => x.status === 'open').length,
+          criticalFindings: allFindings.filter((x) => x.status === 'open' && x.severity === 'critical').length,
+        })
+      }).catch((e: unknown) => setLoadError(e instanceof Error ? e.message : 'Could not load dashboard.'))
+      .finally(() => setLoading(false))
+  }
+  useEffect(load, [])
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -340,6 +323,8 @@ export default function DashboardPage() {
     .sort((a, b) => (a.status === 'open' ? -1 : 1) - (b.status === 'open' ? -1 : 1))
     .slice(0, 4)
 
+  if (loadError) return <div className="p-6 space-y-3"><p role="alert" className="text-red-700">Could not load dashboard: {loadError}</p><button className="text-accent underline" onClick={load}>Retry</button></div>
+
   return (
     <div className="min-h-full">
       <div className="space-y-6 max-w-[1440px] mx-auto p-4 md:p-6 pb-12">
@@ -365,17 +350,6 @@ export default function DashboardPage() {
             Submit New Content
           </button>
         </div>
-
-        {/* Mock data notice */}
-        {usingMock && (
-          <div className="px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800">
-            <span>⚡</span>
-            <span>
-              <strong>Demo data</strong> — backend not connected. Connect your backend by setting{' '}
-              <code className="font-mono bg-amber-100 px-1 rounded">VITE_API_URL</code> in Vercel environment variables.
-            </span>
-          </div>
-        )}
 
         {/* ── Brand health cards ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

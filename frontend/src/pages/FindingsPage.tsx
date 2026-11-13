@@ -7,7 +7,12 @@ import StatusBadge from '../components/StatusBadge'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
 import HighlightedText, { SeverityLegend } from '../components/HighlightedText'
 import { type AnnotatedRange } from '../lib/segments'
-import { MOCK_FINDINGS } from '../lib/mockData'
+import type { EvidenceCitation } from '../api'
+
+function ArgumentCitations({ citations }: { citations: EvidenceCitation[] }) {
+  if (!citations.length) return <p className="mt-3 text-xs text-muted">No validated references available.</p>
+  return <div className="mt-3 text-xs text-main"><p className="font-semibold">References for this prompt</p><ul className="mt-1 space-y-1">{citations.map((c, i) => <li key={`${c.kind}-${c.ref_id}-${i}`}><strong>{c.kind}{c.version != null ? ` v${c.version}` : ''}</strong> · “{c.quote}”</li>)}</ul></div>
+}
 
 const REASON_CODES = [
   { value: 'not_applicable',  label: 'Not applicable' },
@@ -174,6 +179,7 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
                     <span className="ml-auto text-xs text-red-500 font-medium">The case FOR fixing</span>
                   </div>
                   <p className="text-sm text-main leading-relaxed">{debate.prosecutor_text}</p>
+                  {debate.argument_citations && <ArgumentCitations citations={debate.argument_citations.prosecutor} />}
                 </div>
                 {/* Defender */}
                 <div className="border-2 border-green-200 rounded-xl p-4 bg-green-50">
@@ -183,9 +189,11 @@ function DebatePanel({ finding, onClose }: { finding: Finding; onClose: () => vo
                     <span className="ml-auto text-xs text-green-600 font-medium">The case AGAINST</span>
                   </div>
                   <p className="text-sm text-main leading-relaxed">{debate.defender_text}</p>
+                  {debate.argument_citations && <ArgumentCitations citations={debate.argument_citations.defender} />}
                 </div>
               </div>
 
+              {debate.argument_evidence_note && <p className="text-xs text-muted mb-4">{debate.argument_evidence_note}</p>}
               {debate.minimal_edit && (
                 <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                   <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">
@@ -360,7 +368,7 @@ function DecideModal({ finding, onClose, onDecided }: {
 export default function FindingsPage() {
   const { isAuthority } = useTheme()
   const [findings, setFindings] = useState<Finding[]>([])
-  const [usingMock, setUsingMock] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Finding | null>(null)
   const [debating, setDebating] = useState<Finding | null>(null)
@@ -371,7 +379,11 @@ export default function FindingsPage() {
 
   const load = () => {
     setLoading(true)
-    findingsApi.list().catch(() => { setUsingMock(true); return MOCK_FINDINGS }).then(setFindings).finally(() => setLoading(false))
+    setLoadError('')
+    findingsApi.list().then(setFindings).catch((e: unknown) => {
+      setFindings([])
+      setLoadError(e instanceof Error ? e.message : 'Could not load findings.')
+    }).finally(() => setLoading(false))
   }
   useEffect(load, [])
 
@@ -415,9 +427,10 @@ export default function FindingsPage() {
       cls: 'border-subtle bg-canvas-secondary', tcls: 'text-main' },
   ]
 
+  if (loadError) return <div className="p-6 space-y-3"><p role="alert" className="text-red-700">Could not load findings: {loadError}</p><button className="text-accent underline" onClick={load}>Retry</button></div>
+
   return (
     <div className="space-y-6 max-w-[1440px] mx-auto p-4 md:p-6 pb-12">
-      {usingMock && <p role="alert" className="p-3 rounded bg-amber-100 text-amber-900">Backend unavailable. Showing fictional sample data, not workspace results.</p>}
       <div className="mb-2">
         <h1 className={`text-main ${isAuthority ? 'font-newsreader text-3xl' : 'font-jakarta text-2xl font-bold'}`}>
           Findings & Decisions

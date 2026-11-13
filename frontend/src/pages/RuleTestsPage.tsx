@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { Atom, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react'
-import { rulesApi, chaosApi, Rule, ChaosCase, ChaosIssue, ChaosRunResult, RuleConflict, RulebookCoverage, CheckerChaosResult } from '../api'
+import { rulesApi, chaosApi, Rule, ChaosCase, ChaosIssue, ChaosRunResult, RuleConflict, RulebookCoverage, CheckerChaosResult, HumanReviewResult, ReviewComparison } from '../api'
 import { useTheme } from '../theme'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
-import { MOCK_RULES } from '../lib/mockData'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -258,12 +257,18 @@ export default function RuleTestsPage() {
   const { isAuthority } = useTheme()
   const [checkerResult, setCheckerResult] = useState<CheckerChaosResult | null>(null)
   const [checkerBusy, setCheckerBusy] = useState(false)
+  const [reviewResult, setReviewResult] = useState<HumanReviewResult | null>(null)
+  const [reviewBusy, setReviewBusy] = useState(false)
+  const [reviewHistory, setReviewHistory] = useState<{run_id: string; created_at: string; version_no: number; case_count: number}[]>([])
+  const [historyError, setHistoryError] = useState('')
+  const [compareId, setCompareId] = useState('')
+  const [reviewDiff, setReviewDiff] = useState<ReviewComparison | null>(null)
   const [coverage, setCoverage] = useState<RulebookCoverage | null>(null)
   const [coverageError, setCoverageError] = useState('')
   const [conflicts, setConflicts] = useState<RuleConflict[]>([])
   const [conflictError, setConflictError] = useState('')
   const [conflictBusy, setConflictBusy] = useState(false)
-  const [usingMock, setUsingMock] = useState(false)
+  const [ruleLoadError, setRuleLoadError] = useState('')
   const [rules, setRules] = useState<Rule[]>([])
   const [selectedRuleId, setSelectedRuleId] = useState('')
   const [running, setRunning] = useState(false)
@@ -276,14 +281,37 @@ export default function RuleTestsPage() {
     chaosApi.coverage().then(setCoverage).catch(() => setCoverageError('Could not load rulebook coverage.'))
     chaosApi.contradictions().then((r) => setConflicts(r.contradictions))
       .catch(() => setConflictError('Could not load rulebook conflicts.'))
-    rulesApi.list().catch(() => { setUsingMock(true); return MOCK_RULES }).then((rs) => {
+    rulesApi.list().then((rs) => {
       // Tone rules first, then others — chaos testing only supports tone.
       const tone = rs.filter((r) => r.category === 'tone')
       const rest = rs.filter((r) => r.category !== 'tone')
       setRules([...tone, ...rest])
       if (tone.length > 0) setSelectedRuleId(tone[0].id)
-    })
+    }).catch((e: unknown) => setRuleLoadError(e instanceof Error ? e.message : 'Could not load rules.'))
   }, [])
+
+  useEffect(() => {
+    let current = true
+    setReviewHistory([]); setHistoryError(''); setCompareId(''); setReviewDiff(null)
+    if (selectedRuleId) chaosApi.reviewHistory(selectedRuleId)
+      .then(r => { if (current) setReviewHistory(r.runs) })
+      .catch(e => { if (current) setHistoryError(e instanceof Error ? e.message : 'Could not load review history.') })
+    return () => { current = false }
+  }, [selectedRuleId])
+
+  const openReviewRun = async (runId: string) => {
+    if (!selectedRuleId || !runId) return
+    setReviewBusy(true); setError(''); setCompareId(''); setReviewDiff(null)
+    try {
+      const run = await chaosApi.getRun(runId)
+      if (run.run.prompt_version !== 'review-cases-v1') throw new Error('This is not a human review run.')
+      setReviewResult({run_id: runId, rule_key: rules.find(r => r.id === selectedRuleId)?.key ?? '',
+        note: 'Saved source expectations and reviewer labels; no automated interpretations were run.',
+        cases: run.cases.map(c => ({id: c.id, text: c.text, axis: c.axis,
+          intended_label: c.intended_label, human_label: c.human_label ?? null}))})
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not load the review run.') }
+    finally { setReviewBusy(false) }
+  }
 
   const resolveConflict = async (conflict: RuleConflict, status: 'accepted' | 'rejected') => {
     setConflictError(''); setConflictBusy(true)
@@ -321,6 +349,36 @@ export default function RuleTestsPage() {
     finally { setCheckerBusy(false) }
   }
 
+  const runHumanReview = async () => {
+    if (!selectedRuleId) return
+    setReviewBusy(true); setError(''); setReviewResult(null); setCompareId(''); setReviewDiff(null)
+    try {
+      const created = await chaosApi.reviewCases(selectedRuleId)
+      setReviewResult(created)
+      try { setReviewHistory((await chaosApi.reviewHistory(selectedRuleId)).runs); setHistoryError('') }
+      catch { setHistoryError('Run created, but its history could not be refreshed.') }
+    }
+    catch (e) { setError(e instanceof Error ? e.message : 'Could not create review cases.') }
+    finally { setReviewBusy(false) }
+  }
+
+  const labelReviewCase = async (caseId: string, label: string) => {
+    if (!label) return
+    setError('')
+    try {
+      await chaosApi.labelCase(caseId, label)
+      setReviewResult((r) => r ? { ...r, cases: r.cases.map(c => c.id === caseId ? { ...c, human_label: label } : c) } : null)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save the label.') }
+  }
+
+  const compareReview = async () => {
+    if (!selectedRuleId || !reviewResult || !compareId) return
+    setReviewBusy(true); setError(''); setReviewDiff(null)
+    try { setReviewDiff(await chaosApi.compareReviews(selectedRuleId, compareId, reviewResult.run_id)) }
+    catch (e) { setError(e instanceof Error ? e.message : 'Could not compare the review sets.') }
+    finally { setReviewBusy(false) }
+  }
+
   const handleLabel = async (caseId: string, label: string) => {
     await chaosApi.labelCase(caseId, label)
     setLocalCases((prev) => prev.map((c) => (c.id === caseId ? { ...c, human_label: label } : c)))
@@ -344,11 +402,11 @@ export default function RuleTestsPage() {
           Full Guideline Chaos Testing
         </h1>
         <p className="text-sm text-muted mt-1">
-          Test tone rules with {result?.n_interpreters ?? 5} interpretations. Agreement measures consistency, not correctness; a human decides. Other rule-family tests are not yet supported.
+          Use human review cases for any rule family with approved examples. Heuristic interpretations are available for tone rules only; agreement is not correctness.
         </p>
       </div>
 
-      {usingMock && <p role="alert" className="p-3 rounded bg-amber-100 text-amber-900">Backend unavailable. Rule list is fictional sample data.</p>}
+      {ruleLoadError && <p role="alert" className="p-3 rounded bg-red-50 text-red-700">Could not load rules: {ruleLoadError}. Reload the page to retry.</p>}
       <section className="glass-panel rounded-xl p-6" aria-label="Possible rule contradictions">
         <h2 className="text-lg font-semibold text-main">Possible rule contradictions</h2>
         <p className="text-sm text-muted">Potential tensions in overlapping channels, not verdicts. Review the quoted rules and scenario.</p>
@@ -379,23 +437,24 @@ export default function RuleTestsPage() {
       {/* Control panel */}
       <div className="glass-panel rounded-xl p-6">
         <h2 className="text-sm font-semibold text-main mb-4 flex items-center gap-2">
-          <Atom size={15} /> Configure Test (tone rules only – Round 2)
+          <Atom size={15} /> Configure rule tests
         </h2>
         <div className="flex gap-4 items-end flex-wrap">
           <div className="flex-1 min-w-[240px]">
-            <label className="block text-xs font-medium text-muted mb-1">Select tone rule</label>
+            <label className="block text-xs font-medium text-muted mb-1">Select rule</label>
             <select
               value={selectedRuleId}
               onChange={(e) => {
                 setSelectedRuleId(e.target.value)
-                setResult(null)
+                setResult(null); setCheckerResult(null); setReviewResult(null)
               }}
+              disabled={running || checkerBusy || reviewBusy}
               className="w-full px-3 py-2 border border-subtle rounded-lg text-sm focus:outline-none focus:border-accent bg-surface text-main"
             >
-              <option value="">— choose a tone rule —</option>
+              <option value="">— choose a rule —</option>
               {rules.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.key} – {r.label} {r.category !== 'tone' ? `(${r.category} — not supported)` : ''}
+                  {r.key} – {r.label} {r.category !== 'tone' ? `(${r.category})` : ''}
                 </option>
               ))}
             </select>
@@ -403,7 +462,7 @@ export default function RuleTestsPage() {
           <div className="flex flex-col gap-1">
             {!selectedIsTone && selectedRuleId && (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
-                Chaos testing currently supports tone rules only. Select a tone rule to run.
+                Heuristic interpretations are limited to tone rules. You can still create human review cases below.
               </p>
             )}
             <button
@@ -426,6 +485,13 @@ export default function RuleTestsPage() {
           </div>
         </div>
 
+        {selectedRule && <div className="mt-4 border border-subtle rounded p-3 space-y-2">
+          <p className="text-sm text-main">Human review for any rule family: build cases from this approved version’s examples. No automated interpretations or accuracy claims.</p>
+          <button disabled={reviewBusy} onClick={() => void runHumanReview()} className="px-3 py-2 rounded bg-accent text-white text-sm disabled:opacity-50">{reviewBusy ? 'Loading…' : 'Create human review cases'}</button>
+          {historyError && <p role="alert" className="text-xs text-red-700">{historyError}</p>}
+          {reviewHistory.length > 0 && <div><label htmlFor="review-history" className="block text-xs text-muted mt-2">Open a saved review set (latest 20)</label>
+            <select id="review-history" value={reviewResult?.run_id ?? ''} disabled={reviewBusy} onChange={e => void openReviewRun(e.target.value)} className="mt-1 max-w-full bg-surface border border-subtle rounded p-2 text-sm"><option value="">Choose a saved set</option>{reviewHistory.map(r => <option key={r.run_id} value={r.run_id}>v{r.version_no} · {new Date(r.created_at).toLocaleString()} · {r.case_count} cases</option>)}</select></div>}
+        </div>}
         {selectedRule && ['R-04', 'R-12'].includes(selectedRule.key) && <div className="mt-4 border border-subtle rounded p-3 space-y-2">
           <p className="text-sm text-main">Deterministic checker test: try constructed product-name or active embargo variants against the existing checker. This is not an AI interpretation.</p>
           <button disabled={checkerBusy} onClick={() => void runChecker()} className="px-3 py-2 rounded bg-accent text-white text-sm disabled:opacity-50">{checkerBusy ? 'Testing checker…' : 'Run checker chaos'}</button>
@@ -450,6 +516,21 @@ export default function RuleTestsPage() {
           </>}</div>
         <div className="overflow-x-auto"><table className="w-full text-sm text-main"><thead><tr><th className="text-left">Case</th><th>Expected</th><th>Checker</th><th>Observation</th></tr></thead><tbody>
           {checkerResult.cases.map(c => <tr key={c.id} className="border-t border-subtle"><td className="p-2">{c.text}<p className="text-xs text-muted">{c.rationale}</p></td><td className="p-2 text-center">{c.intended_label}</td><td className="p-2 text-center">{c.observed}</td><td className="p-2">{c.checker_miss ? 'Confirmed checker miss' : c.false_positive ? 'Checker false positive' : c.intended_label === 'borderline' ? 'Human interpretation needed' : 'As expected'}</td></tr>)}
+        </tbody></table></div>
+      </section>}
+      {reviewResult && <section className="glass-panel rounded-xl p-5 space-y-3">
+        <h2 className="font-semibold text-main">Human review · {reviewResult.rule_key}</h2>
+        <p className="text-xs text-muted">{reviewResult.note} Run ID: {reviewResult.run_id}</p>
+        {reviewHistory.some(r => r.run_id !== reviewResult.run_id) && <div className="border border-subtle rounded p-3 space-y-2">
+          <label htmlFor="review-compare" className="block text-xs text-muted">Compare this set with another saved set</label>
+          <select id="review-compare" className="bg-surface border border-subtle rounded p-2 text-sm max-w-full" value={compareId} disabled={reviewBusy} onChange={e => {setCompareId(e.target.value); setReviewDiff(null)}}><option value="">Choose earlier set</option>{reviewHistory.filter(r => r.run_id !== reviewResult.run_id).map(r => <option key={r.run_id} value={r.run_id}>v{r.version_no} · {new Date(r.created_at).toLocaleString()}</option>)}</select>{' '}
+          <button disabled={!compareId || reviewBusy} onClick={() => void compareReview()} className="px-3 py-2 rounded bg-accent text-white text-sm disabled:opacity-50">Save comparison</button>
+          {reviewDiff && <div className="text-sm text-main space-y-1"><p>{reviewDiff.note}</p><p>{reviewDiff.diff.changed.length} changed · {reviewDiff.diff.added.length} added · {reviewDiff.diff.removed.length} removed · {reviewDiff.diff.unchanged} unchanged</p>
+            <ul className="space-y-1">{reviewDiff.diff.changed.map(c => <li key={c.text}>Changed: {c.text} · expected {c.before.expected} → {c.after.expected}; human {c.before.human_label ?? 'unlabelled'} → {c.after.human_label ?? 'unlabelled'}</li>)}{reviewDiff.diff.added.map(c => <li key={c.text}>Added: {c.text} · human {c.human_label ?? 'unlabelled'}</li>)}{reviewDiff.diff.removed.map(c => <li key={c.text}>Removed: {c.text} · human {c.human_label ?? 'unlabelled'}</li>)}</ul>
+            <p className="text-xs text-muted">Saved snapshot {reviewDiff.comparison_id}. Later label changes do not alter this comparison; create another to refresh.</p></div>}
+        </div>}
+        <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr><th className="text-left">Case</th><th className="text-left">Source expectation</th><th className="text-left">Human label</th></tr></thead><tbody>
+          {reviewResult.cases.map(c => <tr key={c.id} className="border-t border-subtle"><td className="p-2">{c.text}<p className="text-xs text-muted">{c.axis.replace(/_/g, ' ')}</p></td><td className="p-2">{c.axis === 'source_example' ? c.intended_label : 'Needs review'}</td><td className="p-2"><select aria-label={`Human label for ${c.text}`} className="bg-surface border border-subtle rounded p-1" value={c.human_label ?? ''} onChange={e => void labelReviewCase(c.id, e.target.value)}><option value="">Not labelled</option><option value="pass">Pass</option><option value="fail">Fail</option><option value="borderline">Borderline</option></select></td></tr>)}
         </tbody></table></div>
       </section>}
       {result && (
@@ -487,10 +568,10 @@ export default function RuleTestsPage() {
             <div className="mx-5 my-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
               <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold">Demo mode (no OPENAI_API_KEY set)</p>
+                <p className="font-semibold">Demo mode · heuristic interpretations</p>
                 <p className="mt-0.5">
                   {result.demo_note ??
-                    'Interpretations use lightweight heuristics. Set OPENAI_API_KEY for real AI readers.'}
+                    'Interpretations use lightweight heuristics. Hosted calls are disabled until a spending cap is enforced.'}
                 </p>
                 <p className="mt-0.5 text-amber-700">
                   Agreement measures consistency, not correctness. Human labels are reviewer judgments.
@@ -554,7 +635,7 @@ export default function RuleTestsPage() {
         </div>
       )}
 
-      {!result && !running && (
+      {!result && !reviewResult && !checkerResult && !running && (
         <div className="text-center py-16 text-muted">
           <div className="w-16 h-16 rounded-full bg-accent-subtle flex items-center justify-center mx-auto mb-4">
             <Sparkles size={28} className="text-accent" />
