@@ -60,6 +60,6 @@ export default function Layout() {
     </header>
     <DemoStepper />
     <Header />
-    <main className="flex-1 overflow-y-auto scrollbar-thin"><Outlet /></main>
+    <main className="workspace-canvas flex-1 overflow-y-auto scrollbar-thin"><Outlet /></main>
   </div>
 }

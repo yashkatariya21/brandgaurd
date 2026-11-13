@@ -1,6 +1,6 @@
 # BrandGuard
 
-Brand governance prototype for reviewing registered content against approved facts and rules. It surfaces possible stale statistics, naming and embargo issues for human decisions; it does not publish content automatically. Three focus areas: **Dependency-graph Blast Radius**, **Evidence-grounded Red Team**, and **Full Guideline Chaos Testing**. Hosted AI calls are currently disabled pending spend-cap enforcement.
+Brand governance prototype for reviewing registered content against approved facts and rules. It surfaces possible stale statistics, naming and embargo issues for human decisions; it does not publish content automatically. Three focus areas: **Brand-as-Code with Blast-Radius Intelligence**, **Adversarial Brand Red Team**, and **Guideline Chaos Testing**. Hosted AI calls are currently disabled pending spend-cap enforcement.
 
 Built for the **Inkloom AI Hackathon 2026**.
 
@@ -8,19 +8,19 @@ Built for the **Inkloom AI Hackathon 2026**.
 
 ## What it does and current limits
 
-### Dependency-graph Blast Radius
+### Brand-as-Code with Blast-Radius Intelligence
 Facts have versions, approvals, validity dates and separation of duties. A historical scan compares the previous approved value with current versions of content registered in the workspace. It cannot scan the public web or guarantee every paraphrase is found. If there is no previous version, no comparison is performed.
 
 Matches are **Confirmed** only for specific deterministic value-and-attribute or human-confirmed-link matches; a **Possible** match needs human review. A label is not proof of factual truth or legal compliance. The dependency graph shows fact → claim → content → channel relationships in its last rebuilt snapshot, not proof of publication or historical impact. Nothing is changed automatically.
 
 The local character-similarity matcher is experimental and uncalibrated. An optional pgvector path is disabled by default and requires compatible, provenance-labelled vectors; it never generates embeddings and labels its matches Possible. Vector search over uploaded documents and representative calibration remain unfinished.
 
-### Evidence-grounded Red Team
+### Adversarial Brand Red Team
 Four perspectives — **Brand Police**, **Legal Eagle**, **Customer Voice** and **Competitor Watch** — raise Possible findings. The service validates cited passages and versioned fact/rule references against tenant-scoped records, groups repeated findings and hides unstable findings by default. Repetition of deterministic demo heuristics is not measured reliability. Legal Eagle is not legal advice.
 
 A Prosecutor/Defender panel presents review prompts and validated finding references; a person decides. Demo prompts are not substantive AI arguments, cached provider arguments are not validated, and an evidence reference does not prove a conclusion or suggested edit.
 
-### Full Guideline Chaos Testing
+### Guideline Chaos Testing
 Tone-rule demo tests use heuristic interpretations; agreement measures consistency, not correctness. Rulebook coverage and contradiction candidates require human decisions. Reviewers can build and label persisted review sets for any rule family from saved examples or review-only inputs, and compare saved sets. Checker-specific tests and regression diffs currently cover only the unchanged seeded product-name and embargo checks. Full automated testing across all rule families remains unfinished.
 
 ### Content and decisions

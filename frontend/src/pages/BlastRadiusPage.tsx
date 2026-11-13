@@ -158,16 +158,23 @@ export default function BlastRadiusPage() {
   const [result, setResult] = useState<BlastRadiusResult | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
+  const [factsError, setFactsError] = useState('')
 
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
-  useEffect(() => {
-    factsApi.list().then((fs) => {
-      setFacts(fs)
-      const cc = fs.find((f) => f.key === 'customer_count')
-      if (cc) setSelectedFactId(cc.id)
-    }).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load facts.')).finally(() => setFactsLoading(false))
-  }, [])
+  const loadFacts = async () => {
+    setFactsLoading(true)
+    setFactsError('')
+    try {
+      const allFacts = await factsApi.list()
+      const approved = allFacts.filter(f => f.version_status === 'approved')
+      setFacts(approved)
+      setSelectedFactId(current => approved.some(f => f.id === current) ? current : approved.find(f => f.key === 'customer_count')?.id ?? '')
+    } catch (e: unknown) {
+      setFactsError(e instanceof Error ? e.message : 'Could not load facts.')
+    } finally { setFactsLoading(false) }
+  }
+  useEffect(() => { void loadFacts() }, [])
 
   const runScan = async () => {
     if (!selectedFactId) return
@@ -225,6 +232,7 @@ export default function BlastRadiusPage() {
             </label>
             <select
               id="fact-select"
+              disabled={factsLoading || running}
               value={selectedFactId}
               onChange={(e) => { setSelectedFactId(e.target.value); setResult(null) }}
               className="w-full px-3 py-2 border border-subtle rounded-lg text-sm focus:outline-none focus:border-accent bg-surface text-main"
@@ -252,6 +260,7 @@ export default function BlastRadiusPage() {
             )}
           </button>
         </div>
+        <p className="mt-3 text-xs text-muted">A scan compares the current approved fact with its previous approved version. Submit a draft and have a different approver approve it first.</p>
         {selectedFact && (
           <div className="mt-4 p-3 bg-accent-subtle rounded-lg text-xs text-accent border border-accent/20">
             <span className="font-mono">{selectedFact.key}</span> · Current approved value:{' '}
@@ -262,7 +271,8 @@ export default function BlastRadiusPage() {
 
       {factsLoading && <div role="status" className="glass-panel rounded-xl p-5"><span className="sr-only">Loading facts…</span><div className="h-4 w-2/3 bg-canvas-secondary rounded animate-pulse" /></div>}
       {running && <div role="status" className="glass-panel rounded-xl p-5 space-y-3"><span>Scanning registered content…</span><div className="h-4 w-full bg-canvas-secondary rounded animate-pulse" /><div className="h-4 w-2/3 bg-canvas-secondary rounded animate-pulse" /></div>}
-      {!factsLoading && !error && facts.length === 0 && <p className="text-sm text-muted">No facts available. Add an approved fact in the Repository to begin.</p>}
+      {!factsLoading && !factsError && !error && facts.length === 0 && <p className="text-sm text-muted">No facts available. Add an approved fact in the Repository to begin.</p>}
+      {factsError && <div role="alert" className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">Could not load facts: {factsError} <button type="button" className="underline font-semibold ml-2" onClick={() => void loadFacts()}>Retry</button></div>}
       {error && <div role="alert" className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
 
       {result && noComparison && (
@@ -445,7 +455,7 @@ export default function BlastRadiusPage() {
         </div>
       )}
 
-      {!result && !running && !factsLoading && !error && facts.length > 0 && (
+      {!result && !running && !factsLoading && !factsError && !error && facts.length > 0 && (
         <div className="text-center py-16 text-muted">
           <div className="w-16 h-16 rounded-full bg-accent-subtle flex items-center justify-center mx-auto mb-4">
             <Crosshair size={28} className="text-accent" />
