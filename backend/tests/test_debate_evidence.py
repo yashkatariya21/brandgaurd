@@ -61,3 +61,16 @@ def test_demo_argument_with_no_evidence_does_not_invent_sources():
     assert not output['argument_citations']['prosecutor']
     assert not output['argument_citations']['defender']
     assert 'No validated evidence' in output['prosecutor_text']
+
+
+def test_legacy_hosted_debate_is_not_displayed_without_argument_validation():
+    from app.services.debate_evidence import safe_cached_debate
+    cached = {'model_id': 'legacy-model', 'prosecutor_text': 'Fake figure: 999%',
+              'defender_text': 'Unsupported assertion', 'minimal_edit': 'Fake edit'}
+    result = safe_cached_debate(cached, [])
+    assert result['mode'] == 'demo'
+    assert '999%' not in result['prosecutor_text']
+    assert 'Unsupported assertion' not in result['defender_text']
+    assert result['minimal_edit'] is None
+    assert 'not validated' in result['demo_note']
+    assert cached['minimal_edit'] == 'Fake edit'  # presentation only; do not rewrite history

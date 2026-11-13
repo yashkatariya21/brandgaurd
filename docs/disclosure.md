@@ -154,3 +154,5 @@ The polarity- and channel-aware rule-conflict heuristic and its tests were AI-ge
 The rulebook fault fixture, evaluation script and predicate tests were AI-generated with Arena.ai Agent Mode. Its product-name and embargo examples and labels are synthetic, unreviewed and require human review. They were developed alongside the detector and are not an independent benchmark. Evaluation exercises shared production predicates, not the database-backed checker end to end; other rule families are not measured.
 
 The family capability inventory and Rule Tests display were AI-generated with Arena.ai Agent Mode using existing project dependencies. They describe implemented checker and test paths, not individual-rule coverage or compliance.
+
+The cached-debate presentation safety change and tests were AI-generated with Arena.ai Agent Mode. Legacy stored arguments without validated per-argument citations are replaced in responses by neutral deterministic prompts; the original stored history is not modified. Hosted debate remains disabled, and argument citation validation for a future live mode remains unfinished.
