@@ -319,3 +319,47 @@ def test_finding_detail_sanitises_cached_demo_and_revalidates_evidence(two_orgs)
     assert 'unverified claim' not in result['debate']['prosecutor_text']
     with pytest.raises(ApiError):
         get_finding(finding, principal=Principal(str(user_b), str(org_b), 'admin'))
+
+
+def test_guarded_content_draft_deletion_and_tenant_isolation(two_orgs):
+    (org_a, user_a), (org_b, user_b) = two_orgs
+    with tenant_conn(org_a, user_a) as conn:
+        item = conn.execute("INSERT INTO content_items (org_id,title,channel,status,registered_state,created_by) VALUES (%s,'delete-test','web','draft','none',%s) RETURNING id", (org_a, user_a)).fetchone()['id']
+        version = conn.execute("INSERT INTO content_versions (org_id,content_item_id,version_no,body_text,content_hash,created_by) VALUES (%s,%s,1,'example','hash',%s) RETURNING id", (org_a, item, user_a)).fetchone()['id']
+        conn.execute('UPDATE content_items SET current_version_id=%s WHERE id=%s AND org_id=%s', (version, item, org_a))
+        conn.execute("INSERT INTO graph_nodes (org_id,node_type,ref_id,label,meta) VALUES (%s,'content',%s,'example','{}')", (org_a, str(item)))
+    with tenant_conn(org_b, user_b) as conn:
+        assert conn.execute('SELECT public.delete_unused_content_draft(%s) AS result', (item,)).fetchone()['result'] == 'not_found'
+    with tenant_conn(org_a, user_b) as conn:
+        assert conn.execute('SELECT public.delete_unused_content_draft(%s) AS result', (item,)).fetchone()['result'] == 'forbidden'
+    with tenant_conn(org_a, user_a) as conn:
+        assert conn.execute('SELECT public.delete_unused_content_draft(%s) AS result', (item,)).fetchone()['result'] == 'deleted'
+        assert conn.execute('SELECT id FROM content_items WHERE id=%s AND org_id=%s', (item, org_a)).fetchone() is None
+        assert conn.execute('SELECT id FROM content_versions WHERE id=%s AND org_id=%s', (version, org_a)).fetchone() is None
+        assert conn.execute("SELECT id FROM graph_nodes WHERE org_id=%s AND ref_id=%s", (org_a, str(item))).fetchone() is None
+        assert conn.execute("SELECT id FROM audit_log WHERE org_id=%s AND object_id=%s AND action='content.draft_deleted'", (org_a, item)).fetchone()
+
+
+def test_guarded_deletion_blocks_reviewed_content(two_orgs):
+    (org, user), _ = two_orgs
+    with tenant_conn(org, user) as conn:
+        item = conn.execute("INSERT INTO content_items (org_id,title,channel,status,registered_state) VALUES (%s,'review-test','web','draft','none') RETURNING id", (org,)).fetchone()['id']
+        version = conn.execute("INSERT INTO content_versions (org_id,content_item_id,version_no,body_text,content_hash) VALUES (%s,%s,1,'example','hash') RETURNING id", (org, item)).fetchone()['id']
+        conn.execute('UPDATE content_items SET current_version_id=%s WHERE id=%s', (version, item))
+        conn.execute("INSERT INTO analysis_runs (org_id,content_version_id,kind,status) VALUES (%s,%s,'review','done')", (org, version))
+        assert conn.execute('SELECT public.delete_unused_content_draft(%s) AS result', (item,)).fetchone()['result'] == 'protected'
+        assert conn.execute('SELECT id FROM content_items WHERE id=%s', (item,)).fetchone()
+
+
+def test_guarded_fact_deletion_rejects_non_drafts_and_preserves_fact(two_orgs):
+    (org, user), _ = two_orgs
+    with tenant_conn(org, user) as conn:
+        fact = conn.execute('SELECT id FROM facts WHERE org_id=%s LIMIT 1', (org,)).fetchone()['id']
+        draft = _new_fact_version(conn, org, user)
+        vno = conn.execute('SELECT version_no FROM fact_versions WHERE id=%s', (draft,)).fetchone()['version_no']
+        assert conn.execute('SELECT public.delete_unused_fact_draft(%s,%s) AS result', (fact, vno)).fetchone()['result'] == 'deleted'
+        assert conn.execute('SELECT id FROM facts WHERE id=%s', (fact,)).fetchone()
+        pending = _new_fact_version(conn, org, user, status='pending_approval')
+        vno = conn.execute('SELECT version_no FROM fact_versions WHERE id=%s', (pending,)).fetchone()['version_no']
+        assert conn.execute('SELECT public.delete_unused_fact_draft(%s,%s) AS result', (fact, vno)).fetchone()['result'] == 'protected'
+        assert conn.execute('SELECT id FROM fact_versions WHERE id=%s', (pending,)).fetchone()

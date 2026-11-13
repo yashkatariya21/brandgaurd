@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Plus, X, Play, Crosshair, CheckCircle2, FileText, Upload, BookOpen, ChevronDown } from 'lucide-react'
 import { contentApi, redTeamApi, ContentItem, ContentDetail, RedTeamResult } from '../api'
 import { useTheme } from '../theme'
+import { useAuth } from '../auth'
 import StatusBadge from '../components/StatusBadge'
 import SeverityBadge from '../components/SeverityBadge'
 import AIDisclaimerFooter from '../components/AIDisclaimerFooter'
@@ -411,6 +412,9 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
 
 export default function ContentPage() {
   const { isAuthority } = useTheme()
+  const { user } = useAuth()
+  const canDelete = user?.role === 'admin' || user?.role === 'brand_manager'
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [items, setItems] = useState<ContentItem[]>([])
   const [loadError, setLoadError] = useState('')
   const [success, setSuccess] = useState('')
@@ -478,6 +482,19 @@ export default function ContentPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const deleteDraft = async (item: ContentItem) => {
+    if (deleting || !window.confirm(`Delete draft “${item.title}”? This cannot be undone. Audit history may remain.`)) return
+    setDeleting(item.id)
+    setError('')
+    setSuccess('')
+    try {
+      await contentApi.deleteDraft(item.id)
+      setSuccess('Draft deleted. Audit history and previous snapshots may still contain references.')
+      load()
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Could not delete draft.') }
+    finally { setDeleting(null) }
   }
 
   const channelIcons: Record<string, string> = {
@@ -630,7 +647,7 @@ export default function ContentPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-subtle bg-canvas-secondary/50">
-                {['Title', 'Channel', 'Status', 'State', 'Created'].map((h) => (
+                {['Title', 'Channel', 'Status', 'State', 'Created', ...(canDelete ? ['Actions'] : [])].map((h) => (
                   <th
                     key={h}
                     className="text-left px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide"
@@ -664,6 +681,7 @@ export default function ContentPage() {
                   <td className="px-4 py-3 text-muted text-xs">
                     {new Date(ci.created_at).toLocaleDateString()}
                   </td>
+                  {canDelete && <td className="px-4 py-3">{ci.status === 'draft' && ci.registered_state === 'none' && <button type="button" disabled={Boolean(deleting)} onClick={(event) => { event.stopPropagation(); void deleteDraft(ci) }} className="text-xs font-semibold text-red-700 border border-red-300 rounded px-2 py-1 hover:bg-red-50 disabled:opacity-50" aria-label={`Delete draft ${ci.title}`}>{deleting === ci.id ? 'Deleting…' : 'Delete draft'}</button>}</td>}
                 </tr>
               ))}
             </tbody>

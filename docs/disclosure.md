@@ -144,3 +144,5 @@ The finding-detail debate consistency fix, synthetic tests and refreshed CI evid
 
 
 The bounded offline lexical candidate matcher, its integration and synthetic tests were AI-generated with Arena.ai Agent Mode using Python's standard library. Its small handwritten synonym list is not an embedding model, a calibrated semantic-retrieval system or proof of stale content. No external dataset or model is used at runtime.
+
+The guarded draft-deletion migration, API, UI and synthetic tests were AI-generated with Arena.ai Agent Mode using the existing PostgreSQL and project dependencies. Deletion is restricted to admins and brand managers and preserves audit records; prior audit entries and historical snapshots can still contain references. Database-backed validation and deployment are required before relying on these controls.
