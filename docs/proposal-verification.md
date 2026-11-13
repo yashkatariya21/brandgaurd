@@ -15,11 +15,11 @@ Source reviewed: user-provided **BrandGuard Round 2 Advanced Proposal**, 14 page
 | Vector retrieval over uploaded brand documents (p. 12) | pgvector and experimental graph vector comparisons exist. | Document chunk ingestion, embedding generation and document vector retrieval are not implemented; no calibration. |
 | Content Passport, signed integrity (p. 12) | Reserved schema only. | Not implemented; no C2PA compliance claim. |
 | Image/OCR, cross-modal, analytics dashboards, Brand MCP (p. 12) | Existing dashboard shows workspace data; listed advanced media and ecosystem features are not established. | Image/OCR checks, cross-modal triangulation and MCP are not implemented or verified. |
-| Full QA, CI, live-AI rehearsal, lockfile, hosted deployment (p. 12) | Existing CI, frontend lockfile and deployment configuration; earlier PR CI passed on an earlier commit. | Current uncommitted branch has not run DB-backed CI or browser/deployed tests. Backend requirements use ranges. No independent QA sign-off or live-provider rehearsal. |
+| Full QA, CI, live-AI rehearsal, lockfile, hosted deployment (p. 12) | Existing CI, frontend lockfile and deployment configuration; database-backed CI passed on the current branch base commit. | Current uncommitted branch has not run DB-backed CI or browser/deployed tests. Backend requirements use ranges. No independent QA sign-off or live-provider rehearsal. |
 
 ## Local checks on this branch
 
-- Python 3.11 suite: **145 passed, 45 skipped**; the skipped set includes PostgreSQL tests and some independently runnable modules.
+- Python 3.11 suite: **146 passed, 46 skipped**; the skipped set includes PostgreSQL tests and some independently runnable modules.
 - Explicitly ran the pure `test_llm_safety.py`, `test_extraction.py` and `test_request_validation.py` modules with dummy DB environment values: **18 passed**. This does not connect to or validate a database.
 - Frontend lint and production build passed. No live browser walkthrough or production deployment test was performed.
 - Hosted-model requests are fail-closed until an actual monetary cap is enforced; an API key alone does not enable calls. This is a zero-call guard, not a completed spending-cap implementation.

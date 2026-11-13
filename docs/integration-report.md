@@ -205,3 +205,7 @@ Human reviewers can now supply up to ten bounded examples when creating a review
 ### Submission documentation refresh
 
 Updated the QA report, README and About page to distinguish shipped foundations, uncalibrated/disabled vector paths, fail-closed hosted AI, and outstanding work. GitHub Actions metadata confirms run 43367031731 at `7855164e820ee89ee865a588f561a5b93c5d1fbf` passed PostgreSQL/pgvector migration, seed, backend tests, the no-skips guard and frontend build. The exact backend count could not be retrieved from logs here. Added a separate two-page evidence brief (Markdown source and PDF); it includes unmerged branch work and is not proof of deployment or independent QA. No current live-browser or backend-health check was performed.
+
+### Merged-base CI and cached debate consistency
+
+[CI run 43372979596](https://github.com/yashkatariya21/brandgaurd/actions/runs/43372979596) passed at base merge commit `b65f49bd394aa4122fb9abc69bd9da2b3a7f92df`: PostgreSQL/pgvector initialization, migrations, seed, backend tests, no-skips guard and frontend build passed. This does not verify current uncommitted changes or deployment. The finding-detail API now revalidates cached debate evidence and replaces unsafe legacy demo text with the same neutral prompts as the debate endpoint; fact/content/decision queries are explicitly tenant-scoped. Mocked tests pass; the added PostgreSQL isolation test is skipped locally.
