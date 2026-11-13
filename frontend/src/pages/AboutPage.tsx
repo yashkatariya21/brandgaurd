@@ -5,12 +5,12 @@ import { useTheme } from '../theme'
 
 const futureWork = [
   {
-    title: 'Semantic “possible” matching',
-    desc: 'Move beyond exact numeric matches to embedding-based similarity (pgvector RAG) so the Blast Radius catches paraphrased claims too.',
+    title: 'Calibrated semantic retrieval',
+    desc: 'Generate and evaluate compatible embeddings, then validate retrieval on representative labelled examples. The existing optional pgvector path is off by default and uncalibrated.',
   },
   {
-    title: 'Auto-generated rule clarifications',
-    desc: 'Use human labels from the Chaos Lab to suggest concrete rewrites for ambiguous tone rules, closing the loop automatically.',
+    title: 'Broader automated rule testing',
+    desc: 'Extend checker-backed tests and regression comparisons across rule families. Human review sets already support saved and reviewer-supplied examples.',
   },
   {
     title: 'Scheduled re-verification',
@@ -38,15 +38,24 @@ export default function AboutPage() {
 
   return (
     <div className="max-w-[1100px] mx-auto px-6 py-10 pb-16 space-y-12">
+      <section>
+        <h1 className={`text-main text-3xl ${heading}`}>About BrandGuard</h1>
+        <p className="text-muted max-w-3xl mt-3 leading-relaxed">A governance prototype that connects approved facts and rules to registered content. A person reviews findings and decides; the system never publishes or applies changes automatically.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-6">
+          <div className="p-5 rounded-xl glass-panel"><h2 className="font-semibold text-main">Blast Radius</h2><p className="text-sm text-muted mt-2">Explore registered-content matches and fact-to-channel graph paths. Possible matches need review; a graph snapshot is not proof that content is stale or published.</p></div>
+          <div className="p-5 rounded-xl glass-panel"><h2 className="font-semibold text-main">Red Team</h2><p className="text-sm text-muted mt-2">Four perspectives provide Possible findings with checked references. Demo repetition is not a reliability measurement, and Legal Eagle is not legal advice.</p></div>
+          <div className="p-5 rounded-xl glass-panel"><h2 className="font-semibold text-main">Rule testing</h2><p className="text-sm text-muted mt-2">Review possible contradictions, coverage gaps and human-labelled cases. Automated checker tests cover only selected seeded rules.</p></div>
+        </div>
+        <div className="mt-5 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900"><strong>Current AI mode:</strong> hosted model calls are disabled until a monetary spending cap is enforced. Demo heuristics are not AI. Optional vector matching is off by default and uncalibrated.</div>
+      </section>
       {/* Future work */}
       <section>
         <div className="flex items-center gap-2 mb-2">
           <Rocket size={20} className="text-accent" />
-          <h1 className={`text-main text-3xl ${heading}`}>Future Work</h1>
+          <h2 className={`text-main text-3xl ${heading}`}>Future Work</h2>
         </div>
         <p className="text-muted max-w-3xl mb-7 leading-relaxed">
-          Where BrandGuard is headed next. These are the capabilities planned to take it from a
-          hackathon prototype to a production-grade governance platform.
+          Remaining work and ideas for further validation. These are not claims of production readiness.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {futureWork.map((f, i) => (

@@ -503,7 +503,7 @@ export const chaosApi = {
     post<ReviewComparison>(`/v1/rules/${ruleId}/review-comparisons`, { previous_run_id, current_run_id }),
   reviewComparison: (comparisonId: string) => get<ReviewComparison>(`/v1/review-comparisons/${comparisonId}`),
   reviewHistory: (ruleId: string) => get<{ rule_key: string; runs: {run_id: string; created_at: string; version_no: number; case_count: number}[] }>(`/v1/rules/${ruleId}/review-cases`),
-  reviewCases: (ruleId: string) => post<HumanReviewResult>(`/v1/rules/${ruleId}/review-cases`),
+  reviewCases: (ruleId: string, reviewer_examples: string[] = []) => post<HumanReviewResult>(`/v1/rules/${ruleId}/review-cases`, { reviewer_examples }),
   coverage: () => get<RulebookCoverage>('/v1/rulebook/coverage'),
   checkerChaos: (ruleId: string) => post<CheckerChaosResult>(`/v1/rules/${ruleId}/checker-chaos`),
   contradictions: () => get<{ contradictions: RuleConflict[] }>('/v1/rulebook/contradictions'),
@@ -528,7 +528,14 @@ export const chaosApi = {
 export interface GraphNode { id: string; node_type: 'fact' | 'claim' | 'content' | 'channel'; ref_id: string; label: string; meta: Record<string, unknown> }
 export interface GraphEdge { id: string; src_id: string; dst_id: string; edge_type: string; match_method: string; score: number | null; evidence: Record<string, unknown> }
 export interface GraphResult { nodes: GraphNode[]; edges: GraphEdge[]; scope_note: string; limitations: string }
+export interface GraphFactPaths {
+  fact_id: string; fact_label: string; scope_note: string; limitations: string
+  paths: { content_id: string; title: string; status: string | null; registered_state: string | null;
+    channels: string[]; claim: string; span_start: number | null; span_end: number | null;
+    match_type: 'confirmed' | 'possible'; method: string; score: number | null }[]
+}
 export const graphApi = {
+  factPaths: (factId: string) => get<GraphFactPaths>(`/v1/graph/facts/${factId}/paths`),
   get: () => get<GraphResult>('/v1/graph'),
   rebuild: () => post<{nodes: number; edges: number}>('/v1/graph/rebuild'),
 }
