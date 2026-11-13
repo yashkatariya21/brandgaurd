@@ -198,7 +198,7 @@
       "id": "case-025",
       "split": "holdout",
       "fact": "Customer count 50,000+ customers",
-      "claim": "more than 50,000 customers",
+      "claim": "at least 50,000 customer organisations",
       "related": true,
       "paraphrase_type": "hedge"
     },
@@ -246,7 +246,7 @@
       "id": "case-031",
       "split": "development",
       "fact": "Customer count 65,000+ customers",
-      "claim": "50,000 customer accounts",
+      "claim": "65,000 customer accounts",
       "related": true,
       "paraphrase_type": "entity_synonym"
     },
@@ -254,7 +254,7 @@
       "id": "case-032",
       "split": "development",
       "fact": "Customer count 65,000+ customers",
-      "claim": "50,000 customer brands",
+      "claim": "65,000 customer brands",
       "related": true,
       "paraphrase_type": "entity_synonym"
     },
@@ -262,7 +262,7 @@
       "id": "case-033",
       "split": "development",
       "fact": "Customer count 65,000+ customers",
-      "claim": "50,000 customer companies",
+      "claim": "65,000 customer companies",
       "related": true,
       "paraphrase_type": "entity_synonym"
     },
@@ -670,7 +670,7 @@
       "id": "case-084",
       "split": "holdout",
       "fact": "Starter price $19 per agent per month",
-      "claim": "nineteen dollars per agent per month",
+      "claim": "nineteen dollars per agent each month",
       "related": true,
       "paraphrase_type": "word_numbers"
     },
@@ -1126,7 +1126,7 @@
       "id": "case-141",
       "split": "holdout",
       "fact": "Customer count 1,000,000 customers",
-      "claim": "one million clients",
+      "claim": "one million customer accounts",
       "related": true,
       "paraphrase_type": "word_numbers"
     },

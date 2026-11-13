@@ -21,7 +21,9 @@ ATTRIBUTES = {
 
 
 # Threshold is intentionally unchanged until calibration is run on development cases.
-SIMILARITY_THRESHOLD = 0.55
+SIMILARITY_THRESHOLD = 0.70
+# Score bands are based only on unreviewed synthetic development cases; not probabilities.
+HIGH_SIMILARITY_THRESHOLD = 0.75
 _WORD_VALUES = {'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4,
                 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9,
                 'ten': 10, 'eleven': 11, 'twelve': 12, 'thirteen': 13,
@@ -73,8 +75,8 @@ def _digit_number(match: re.Match) -> str:
 
 def _normalise(text: str) -> str:
     text = text.lower()
-    text = _WORD_PATTERN.sub(_word_number, text)
     text = _DIGITS.sub(_digit_number, text)
+    text = _WORD_PATTERN.sub(_word_number, text)
     text = re.sub(r'\b(?:support teams?|teams?|clients?|customers?|companies|organisations?|organizations?|accounts?|brands?)\b', 'customer', text)
     return ' '.join(re.findall(r'[a-z]+|\d+(?:\.\d+)?', text))
 
@@ -105,10 +107,11 @@ def match_claim(fact: dict, claim: dict, explicit_link: bool = False) -> dict | 
         if attr and claim.get('attribute') == attr and not _APPROX.search(claim.get('raw_text') or ''):
             return {'match_type': 'confirmed', 'method': 'attribute', 'score': 1.0}
         # Same number, different or unknown attribute is not confirmation.
-        return {'match_type': 'possible', 'method': 'exact', 'score': 1.0}
+        return {'match_type': 'possible', 'method': 'exact', 'score': 1.0, 'confidence_band': 'low'}
     score = local_similarity(f"{fact.get('label', '')} {fact.get('value_text', '')}", claim.get('raw_text', ''))
     if score >= SIMILARITY_THRESHOLD:
-        return {'match_type': 'possible', 'method': 'local-similarity', 'score': round(score, 4)}
+        return {'match_type': 'possible', 'method': 'local-similarity', 'score': round(score, 4),
+                'confidence_band': 'high' if score >= HIGH_SIMILARITY_THRESHOLD else 'low'}
     return None
 
 
@@ -151,7 +154,7 @@ def graph_projection(facts: list[dict], items: list[dict], links: list[dict],
                     edge(fact, claim, 'supports', 'embedding', round(vector['score'], 4),
                          {'quote': c['raw_text'], 'match_type': 'possible', 'model': vector['model']})
                 elif match:
-                    edge(fact, claim, 'supports', match['method'], match['score'], {'quote': c['raw_text'], 'match_type': match['match_type']})
+                    edge(fact, claim, 'supports', match['method'], match['score'], {'quote': c['raw_text'], 'match_type': match['match_type'], **({'confidence_band': match['confidence_band']} if 'confidence_band' in match else {})})
     return nodes, edges
 
 
