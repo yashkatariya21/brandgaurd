@@ -6,6 +6,7 @@ import { useTheme } from '../theme'
 import Header from './Header'
 import BrandGuardLogo from './BrandGuardLogo'
 import DemoStepper from './DemoStepper'
+import { useDemoProgress } from '../lib/demoProgress'
 import { DEMO_ACCOUNTS, ORG_SLUG, DEMO_PASSWORD, IS_DEMO_MODE, personas } from '../lib/demoAccounts'
 
 interface NavItem { to: string; label: string; Icon: LucideIcon }
@@ -26,6 +27,8 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [switching, setSwitching] = useState(false)
+  const progress = useDemoProgress()
+  const currentStep = [1, 2, 3, 4, 5, 6].find(n => !progress.includes(n)) ?? 7
   const isDemoAccount = IS_DEMO_MODE && user?.orgSlug === ORG_SLUG && DEMO_ACCOUNTS.some(a => a.email.toLowerCase() === user?.email.toLowerCase())
 
   const demoAccount = isDemoAccount ? DEMO_ACCOUNTS.find(a => a.email.toLowerCase() === user?.email.toLowerCase()) : undefined
@@ -45,7 +48,7 @@ export default function Layout() {
     } finally { setSwitching(false) }
   }
 
-  return <div className="workspace-shell bg-canvas">
+  return <div className="workspace-shell bg-canvas" data-demo-current={IS_DEMO_MODE ? currentStep : undefined}>
     <header className={`workspace-header ${isAuthority ? 'workspace-header-authority' : 'workspace-header-serene'}`}>
       <div className="workspace-header-top workspace-container">
         <NavLink to="/" aria-label="BrandGuard home" className="workspace-brand"><BrandGuardLogo size={34} color={isAuthority ? 'white' : undefined} /><span className="workspace-brand-divider" /><span className="workspace-brand-caption">BRAND TRUTH<br />WORKSPACE</span></NavLink>
@@ -58,7 +61,7 @@ export default function Layout() {
       </div>
       <nav className="workspace-nav workspace-container" aria-label="Main navigation">{navItems.map(({ to, label, Icon }) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `workspace-nav-link ${isActive ? 'is-active' : ''}`}><Icon size={15} strokeWidth={1.8} /><span>{label}</span></NavLink>)}</nav>
     </header>
-    <DemoStepper />
+    <DemoStepper role={user?.role} canSwitchRole={Boolean(isDemoAccount)} switching={switching} switchRole={switchRole} />
     <Header />
     <main className="flex-1 overflow-y-auto scrollbar-thin"><Outlet /></main>
   </div>

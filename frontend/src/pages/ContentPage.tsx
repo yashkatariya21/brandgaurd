@@ -1,3 +1,4 @@
+import { markStep } from '../lib/demoProgress'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Plus, X, Play, Crosshair, CheckCircle2, FileText, Upload, BookOpen, ChevronDown } from 'lucide-react'
 import { contentApi, redTeamApi, ContentItem, ContentDetail, RedTeamResult } from '../api'
@@ -55,6 +56,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
     setRedTeamResult(null)
     try {
       const r = await redTeamApi.run(item.id)
+      markStep(4)
       setRedTeamResult(r)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Red team failed')
@@ -133,7 +135,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
               )}
             </button>
             <button
-              onClick={runRedTeam}
+              data-demo-target="4" onClick={runRedTeam}
               disabled={redTeaming || loading || !detail}
               className="text-sm px-3 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 disabled:opacity-50 flex items-center gap-2"
             >
