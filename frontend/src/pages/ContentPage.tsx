@@ -25,12 +25,15 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
   const [showClaims, setShowClaims] = useState(false)
   const findingRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setLoading(true)
-    contentApi.get(item.id).then(setDetail).finally(() => setLoading(false))
+    try { setDetail(await contentApi.get(item.id)) }
+    finally { setLoading(false) }
   }, [item.id])
 
-  useEffect(load, [load])
+  useEffect(() => {
+    void load().catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load content.'))
+  }, [load])
 
   const analyse = async () => {
     setAnalysing(true)
@@ -115,7 +118,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
           <div className="flex items-center gap-2">
             <button
               onClick={analyse}
-              disabled={analysing}
+              disabled={analysing || loading || !detail}
               className="text-sm px-3 py-2 bg-accent text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
             >
               {analysing ? (
@@ -131,7 +134,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
             </button>
             <button
               onClick={runRedTeam}
-              disabled={redTeaming}
+              disabled={redTeaming || loading || !detail}
               className="text-sm px-3 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 disabled:opacity-50 flex items-center gap-2"
             >
               {redTeaming ? (
@@ -152,7 +155,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
         </div>
 
         <div className="overflow-y-auto scrollbar-thin p-6 space-y-5 flex-1">
-          {error && <div role="alert" className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+          {error && <div role="alert" className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}{!detail && <button className="ml-2 underline" onClick={() => { setError(''); void load().catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load content.')) }}>Retry</button>}</div>}
 
           {loading ? (
             <div className="space-y-2">

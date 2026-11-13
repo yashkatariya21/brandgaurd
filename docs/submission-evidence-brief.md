@@ -3,7 +3,7 @@
 **Project:** BrandGuard · **Team:** VIT REPRESENT · **Lead:** YASH S  
 **Repository:** https://github.com/yashkatariya21/brandgaurd
 
-**Scope:** This brief includes current unmerged branch changes; it is not proof that those changes are deployed.
+**Scope:** The feature summary includes the merged branch base and current uncommitted changes; it is not proof of deployment.
 
 BrandGuard is a governance prototype for versioned facts and rules. It checks registered content for potential problems and helps reviewers record decisions. It does not publish or change content automatically. Demo data is fictional.
 
@@ -18,8 +18,8 @@ BrandGuard is a governance prototype for versioned facts and rules. It checks re
 
 ## Verifiable engineering evidence
 
-- [GitHub Actions run 43367031731](https://github.com/yashkatariya21/brandgaurd/actions/runs/43367031731) passed at commit `7855164e820ee89ee865a588f561a5b93c5d1fbf`: PostgreSQL/pgvector, migrations, seed, backend tests and the no-skips guard; frontend lint/build also passed. This is not evidence for later commits or production.
-- Local current-branch checks: **145 passed, 45 skipped** in Python 3.11; frontend lint/build passed. Skips include DB-backed tests. Independent QA and current-branch DB CI remain outstanding.
+- [GitHub Actions run 43372979596](https://github.com/yashkatariya21/brandgaurd/actions/runs/43372979596) passed at commit `b65f49bd394aa4122fb9abc69bd9da2b3a7f92df`: PostgreSQL/pgvector, migrations, seed, backend tests and the no-skips guard; frontend lint/build also passed. This is not evidence for later commits or production.
+- Local current-branch checks: **146 passed, 46 skipped** in Python 3.11; frontend lint/build passed. Skips include DB-backed tests. Independent QA and DB CI for current uncommitted changes remain outstanding.
 - Runtime is currently **demo/heuristic**, not live hosted AI. The stop on provider calls is a spend-safety measure, not an implemented monetary cap. No live AI rehearsal or accuracy claim is made.
 
 ## Hosting and demo

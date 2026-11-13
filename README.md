@@ -32,7 +32,7 @@ Paste or upload TXT, PDF or DOCX for bounded extraction and registered-content c
 
 ## Verification
 
-A [database-backed GitHub Actions run](https://github.com/yashkatariya21/brandgaurd/actions/runs/43367031731) passed at commit `7855164e820ee89ee865a588f561a5b93c5d1fbf`. Its backend job used PostgreSQL/pgvector, applied migrations and seed data, ran tests, and passed the no-skips JUnit guard; its frontend lint/build passed. This is evidence for that commit, not for later changes or a deployed site. Current-branch local checks and their database skips are recorded in [QA report](docs/QA-report.md). Independent QA, current database-backed CI and a full live-browser walkthrough remain pending.
+A [database-backed GitHub Actions run](https://github.com/yashkatariya21/brandgaurd/actions/runs/43372979596) passed at commit `b65f49bd394aa4122fb9abc69bd9da2b3a7f92df`. Its backend job used PostgreSQL/pgvector, applied migrations and seed data, ran tests, and passed the no-skips JUnit guard; its frontend lint/build passed. This is evidence for that commit, not for later changes or a deployed site. Current-branch local checks and their database skips are recorded in [QA report](docs/QA-report.md). Independent QA, current database-backed CI and a full live-browser walkthrough remain pending.
 
 ---
 

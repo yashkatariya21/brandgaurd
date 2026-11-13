@@ -6,6 +6,7 @@ import {
   ScanSearch, ShieldCheck, ShieldEllipsis, Sparkles, UsersRound,
 } from 'lucide-react'
 import { useAuth } from '../auth'
+import { IS_DEMO_MODE } from '../lib/demoAccounts'
 
 const pillars = [
   {
@@ -74,6 +75,16 @@ export default function HomePage() {
         </div>
         <Illustration />
       </section>
+
+      {IS_DEMO_MODE && <section className="home-journey" aria-label="Guided demo walkthrough">
+        <div className="home-journey-heading"><div><p className="section-kicker"><span>✳</span> START HERE</p><h2>See the workflow in action.</h2></div><p>A short, human-led walkthrough of the fictional NimbusDesk workspace.</p></div>
+        <div className="home-journey-grid">
+          <Link to="/repository"><span>01 / APPROVE</span><strong>Change an approved fact</strong><small>Submit a version, then switch to a different approver.</small><ArrowUpRight size={17} /></Link>
+          <Link to="/blast-radius"><span>02 / TRACE</span><strong>Explore the impact</strong><small>Scan registered content and review possible matches.</small><ArrowUpRight size={17} /></Link>
+          <Link to="/content"><span>03 / REVIEW</span><strong>Put a draft to the test</strong><small>Run the demo Red Team, inspect evidence and decide.</small><ArrowUpRight size={17} /></Link>
+        </div>
+        <p className="home-journey-note"><ShieldCheck size={15} /> Hosted AI is currently disabled; demo interpretations use heuristics. Only registered content is scanned.</p>
+      </section>}
 
       <section className="home-section">
         <div className="home-section-heading"><div><p className="section-kicker"><span>✳</span> THE BRANDGUARD TOOLKIT</p><h2>Confidence, at every step.</h2></div><p>From a single source of truth to a clearer decision.</p></div>

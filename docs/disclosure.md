@@ -139,3 +139,5 @@ The graph path traversal, API, UI and synthetic tests were AI-generated with Are
 Review-only case entry, validation, API/UI integration and synthetic tests were AI-generated with Arena.ai Agent Mode using existing dependencies. Inputs are human-supplied and are not verified truth or approved rule edits.
 
 The QA report refresh, README/About corrections, submission evidence brief and supplemental PDF were AI-generated with Arena.ai Agent Mode, with project lead review required. The PDF was generated using ReportLab and pypdf (Python libraries) and system DejaVu Sans fonts; it is a separate supplement, not an independently verified original proposal. GitHub Actions metadata was accessed with GitHub CLI; current deployment and independent QA were not verified. No model or external dataset was used at runtime.
+
+The finding-detail debate consistency fix, synthetic tests and refreshed CI evidence were AI-generated with Arena.ai Agent Mode using existing dependencies. GitHub Actions metadata was retrieved using GitHub CLI. The supplemental PDF was regenerated from its Markdown source using the disclosed ReportLab and pypdf tools; it is not independent QA.
