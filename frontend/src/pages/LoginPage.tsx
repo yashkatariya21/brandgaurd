@@ -53,15 +53,25 @@ export default function LoginPage() {
     <section className="entry-intro" aria-label="About BrandGuard">
       <div className="entry-top"><BrandGuardLogo size={38} color="white" className="text-white" /><span>THE BRAND TRUTH WORKSPACE <span className="entry-star">✳</span></span></div>
       <div className="entry-intro-content"><div className="entry-index"><span>01 / A MORE THOUGHTFUL WORKFLOW</span><span>↘</span></div>
-        <h1>Good work.<br /><em>Well guarded.</em></h1>
-        <p>Bring your facts, content and people together. Make the next decision a clearer one.</p>
+        <h1>Know what changed.<br /><em>Decide what’s next.</em></h1>
+        <p>Know which content depends on your approved facts, examine the evidence and keep a person in control of every decision.</p>
         <div className="entry-orbit" aria-hidden="true"><span className="entry-orbit-ring ring-one" /><span className="entry-orbit-ring ring-two" /><span className="entry-orbit-core"><ShieldCheck size={42} strokeWidth={1.2} /></span><span className="entry-orbit-label label-facts">01 / FACTS <ArrowUpRight size={14} /></span><span className="entry-orbit-label label-people">02 / PEOPLE <ArrowUpRight size={14} /></span><span className="entry-orbit-label label-decisions">03 / DECISIONS <ArrowUpRight size={14} /></span></div>
       </div>
       <div className="entry-bottom"><span>BUILT FOR HUMAN JUDGMENT</span><span>BRANDGUARD © {new Date().getFullYear()}</span></div>
     </section>
     <section className="entry-workspace" aria-label="Sign in">
       <div className="entry-mobile-logo"><BrandGuardLogo size={34} /></div>
-      <div className="entry-content"><div className="entry-heading"><div><p className="entry-kicker"><Sparkles size={13} /> WELCOME TO BRANDGUARD</p><h2>Make yourself<br /><em>at home.</em></h2><p>Choose a demo perspective or sign in to your workspace.</p></div><span className="entry-heading-mark">✳</span></div>
+      <div className="entry-content"><div className="entry-heading"><div><p className="entry-kicker"><Sparkles size={13} /> WELCOME TO BRANDGUARD</p><h2>Make yourself<br /><em>at home.</em></h2><p>Review your brand’s facts, content and guidelines in one workspace. Choose a demo perspective or sign in.</p></div><span className="entry-heading-mark">✳</span></div>
+      <details className="entry-preview">
+        <summary><span><span className="entry-preview-kicker">A QUICK LOOK / ILLUSTRATIVE EXAMPLE</span><strong>From a changed fact to a human decision</strong></span><ArrowUpRight size={17} /></summary>
+        <div className="entry-preview-body">
+          <div><span>01 / SOURCE</span><p>An approved product fact changes.</p></div>
+          <div><span>02 / IMPACT</span><p>Review linked content and distinguish confirmed links from possible matches.</p></div>
+          <div><span>03 / DECISION</span><p>Inspect the supporting context and decide what needs attention.</p></div>
+          <p className="entry-preview-caption">Illustration of the workflow, not a live finding. Results depend on registered content and available evidence.</p>
+        </div>
+      </details>
+      <div className="entry-trust-note"><ShieldCheck size={17} /><span><strong>Built for human decisions.</strong> The current demo uses heuristics; hosted AI is disabled. No automatic publishing.</span></div>
       {IS_DEMO_MODE && <section className="persona-section" aria-label="Demo personas"><div className="persona-heading"><div><span>01 / GET STARTED</span><h3>Pick a perspective.</h3></div><span className="persona-badge">FICTIONAL DEMO</span></div><p>Choose a persona to fill in the corresponding seeded role account.</p>
         <div className="persona-grid">{DEMO_ACCOUNTS.map((account, i) => { const persona = personas[account.role]; return <button className={`persona-card persona-color-${i} ${selected === account.role ? 'is-selected' : ''}`} type="button" key={account.role} onClick={() => choosePersona(account.role, account.email)} aria-pressed={selected === account.role} disabled={loading || restoring}>
           <span className="persona-avatar">{persona.initials}</span><span className="persona-copy"><strong>{persona.name}</strong><small>{account.label}</small></span><ArrowUpRight className="persona-arrow" size={16} /><span className="persona-description">{persona.description}</span>
