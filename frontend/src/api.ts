@@ -224,7 +224,7 @@ export interface AffectedItem {
   new_value: string
   suggested_replacement: string
   match_type: 'confirmed' | 'possible'
-  match_method?: 'deterministic' | 'embedding'
+  match_method?: 'deterministic' | 'embedding' | 'offline_lexical'
   similarity?: number | null
   embedding_model?: string | null
 }

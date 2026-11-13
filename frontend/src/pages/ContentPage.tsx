@@ -319,7 +319,7 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
 
               <div className="text-xs text-main bg-canvas-secondary rounded p-3 mb-3 space-y-1">
                 <p>Grounding pass rate: {redTeamResult.metrics.grounding_pass_rate == null ? 'not applicable' : `${Math.round(redTeamResult.metrics.grounding_pass_rate * 100)}%`} · Ungrounded drops: {redTeamResult.metrics.ungrounded_drops}</p>
-                <p>Stable clusters: {redTeamResult.metrics.stability_rate == null ? 'not applicable' : `${Math.round(redTeamResult.metrics.stability_rate * 100)}%`} · Unstable hidden: {redTeamResult.metrics.unstable_hidden}</p>
+                <p>{redTeamResult.mode === 'demo' ? 'Offline deterministic repetitions are identical; reliability is not measured.' : <>Stable clusters: {redTeamResult.metrics.stability_rate == null ? 'not applicable' : `${Math.round(redTeamResult.metrics.stability_rate * 100)}%`} · Unstable hidden: {redTeamResult.metrics.unstable_hidden}</>}</p>
                 <p>Run time: {redTeamResult.metrics.duration_seconds}s · {redTeamResult.metrics.model}{redTeamResult.cached ? ' · cached' : ''}</p>
               </div>
               {redTeamResult.findings.length === 0 && <p className="text-sm text-muted mb-3">No stable evidence-backed findings. Show {redTeamResult.unstable_findings.length} unstable below.</p>}
@@ -370,12 +370,12 @@ function ContentDetailModal({ item, onClose, onAnalysed }: {
                                         <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
                                           Possible · {f.persona}
                                         </span>
-                                        <span className="text-xs text-muted">confidence: {f.confidence}</span>
+                                        {redTeamResult.mode !== 'demo' && <span className="text-xs text-muted">confidence: {f.confidence}</span>}
                                         {f.why_it_matters && f.persona === 'Legal Eagle' && (
                                           <span className="text-xs text-muted italic">{f.why_it_matters}</span>
                                         )}
                                       </div>
-                                      <p className="text-xs text-muted mt-1">Stable {f.appearances}/{f.total_runs} · repeat agreement does not make a finding confirmed</p>
+                                      <p className="text-xs text-muted mt-1">{redTeamResult.mode === 'demo' ? `Identical heuristic repeats: ${f.appearances}/${f.total_runs}; not a reliability measure` : `Stable ${f.appearances}/${f.total_runs} · repeat agreement does not make a finding confirmed`}</p>
                                       <ul className="mt-2 space-y-1">{f.citations.map((c, i) => <li key={i} className="text-xs text-main border border-subtle rounded px-2 py-1">{c.kind}{c.version != null ? ` v${c.version}` : ''}: “{c.quote}”</li>)}</ul>
                                       {f.suggested_text && (
                                         <p className="text-xs text-green-700 mt-1.5">Suggested: {f.suggested_text}</p>

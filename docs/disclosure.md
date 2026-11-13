@@ -141,3 +141,6 @@ Review-only case entry, validation, API/UI integration and synthetic tests were 
 The QA report refresh, README/About corrections, submission evidence brief and supplemental PDF were AI-generated with Arena.ai Agent Mode, with project lead review required. The PDF was generated using ReportLab and pypdf (Python libraries) and system DejaVu Sans fonts; it is a separate supplement, not an independently verified original proposal. GitHub Actions metadata was accessed with GitHub CLI; current deployment and independent QA were not verified. No model or external dataset was used at runtime.
 
 The finding-detail debate consistency fix, synthetic tests and refreshed CI evidence were AI-generated with Arena.ai Agent Mode using existing dependencies. GitHub Actions metadata was retrieved using GitHub CLI. The supplemental PDF was regenerated from its Markdown source using the disclosed ReportLab and pypdf tools; it is not independent QA.
+
+
+The bounded offline lexical candidate matcher, its integration and synthetic tests were AI-generated with Arena.ai Agent Mode using Python's standard library. Its small handwritten synonym list is not an embedding model, a calibrated semantic-retrieval system or proof of stale content. No external dataset or model is used at runtime.
