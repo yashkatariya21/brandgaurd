@@ -103,3 +103,57 @@ def graph_projection(facts: list[dict], items: list[dict], links: list[dict],
                 elif match:
                     edge(fact, claim, 'supports', match['method'], match['score'], {'quote': c['raw_text'], 'match_type': match['match_type']})
     return nodes, edges
+
+
+def graph_impact_paths(fact_ref: str, nodes: list[dict], edges: list[dict]) -> dict | None:
+    """Traverse fact → claim → content → channel, preserving each evidence path.
+
+    Graph relationships describe a snapshot of current fact matches, not a
+    historical stale-content scan. The input must already be tenant scoped.
+    """
+    by_id = {str(n['id']): n for n in nodes}
+    fact = next((n for n in nodes if n['node_type'] == 'fact' and str(n['ref_id']) == str(fact_ref)), None)
+    if not fact:
+        return None
+    outgoing = {}
+    for edge in edges:
+        outgoing.setdefault(str(edge['src_id']), []).append(edge)
+    results = []
+    for support in outgoing.get(str(fact['id']), []):
+        if support['edge_type'] != 'supports':
+            continue
+        claim = by_id.get(str(support['dst_id']))
+        if not claim or claim['node_type'] != 'claim':
+            continue
+        evidence = support.get('evidence') or {}
+        # Only the recognized deterministic methods can ever be confirmed.
+        classification = ('confirmed' if support['match_method'] in ('attribute', 'link')
+                          and evidence.get('match_type') == 'confirmed' else 'possible')
+        for extracted in outgoing.get(str(claim['id']), []):
+            if extracted['edge_type'] != 'extracted_from':
+                continue
+            content = by_id.get(str(extracted['dst_id']))
+            if not content or content['node_type'] != 'content':
+                continue
+            channels = []
+            for edge in outgoing.get(str(content['id']), []):
+                channel = by_id.get(str(edge['dst_id']))
+                if edge['edge_type'] == 'published_on' and channel and channel['node_type'] == 'channel':
+                    channels.append(channel['label'])
+            if len(results) >= 10000:
+                raise ValueError('Too many dependency paths to display safely')
+            results.append({'content_id': str(content['ref_id']), 'title': content['label'],
+                            'status': (content.get('meta') or {}).get('status'),
+                            'registered_state': (content.get('meta') or {}).get('registered_state'),
+                            'channels': sorted(set(channels)), 'claim': claim['label'],
+                            'span_start': (claim.get('meta') or {}).get('span_start'),
+                            'span_end': (claim.get('meta') or {}).get('span_end'),
+                            'match_type': classification, 'method': support['match_method'],
+                            'score': float(support['score']) if support.get('score') is not None else None})
+    priority = {'published': 0, 'scheduled': 1, 'in_review': 2, 'draft': 3}
+    results.sort(key=lambda p: (priority.get(p['registered_state'], priority.get(p['status'], 4)),
+                                p['title'], p['content_id'], p['span_start'] if isinstance(p['span_start'], int) else -1,
+                                p['method']))
+    return {'fact_id': str(fact['ref_id']), 'fact_label': fact['label'], 'paths': results,
+            'scope_note': 'Snapshot relationships across registered content only; rebuild the graph after changes. Channel assignment is not proof of publication.',
+            'limitations': 'These paths relate current facts to claims; they do not establish that content is stale or that a future change will affect it. Similarity is experimental; all possible matches require human review.'}
