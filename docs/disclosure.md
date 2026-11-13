@@ -160,3 +160,5 @@ The cached-debate presentation safety change and tests were AI-generated with Ar
 The synthetic Red Team demo fixture, evaluation script and tests were AI-generated with Arena.ai Agent Mode using existing project dependencies. Labels are unreviewed and require human review; scenarios were developed with knowledge of the implementation. The evaluation runs the real deterministic persona and grounding functions, not a database or hosted model, and measures a narrow target-persona signal rather than finding correctness or real-world accuracy.
 
 The saved Red Team demo evaluation endpoint and presentation were AI-generated with Arena.ai Agent Mode using existing dependencies. The report is a static synthetic snapshot, not tenant data or live monitoring, and may become stale after code changes.
+
+The experimental argument-pair validation helper and tests were AI-generated with Arena.ai Agent Mode using Python's standard library. It is not yet connected to live debate; it checks citations and literal digit figures only, not written-out numbers, entailment or semantic correctness. Hosted calls remain disabled and no provider was contacted.
